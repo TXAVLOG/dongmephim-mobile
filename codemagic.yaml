@@ -128,9 +128,13 @@ workflows:
             echo "❌ Error: IPA_URL is not set. Please pass the download URL of the IPA file when triggering."
             exit 1
           fi
-          echo "Downloading IPA from $IPA_URL..."
+          
+          # Replace {VERSION} with the actual version parsed from pubspec.yaml
+          RESOLVED_IPA_URL=$(echo "$IPA_URL" | sed "s/{VERSION}/$VERSION/g")
+          
+          echo "Downloading IPA from $RESOLVED_IPA_URL..."
           mkdir -p build/ios/ipa
-          curl -L -o "build/ios/ipa/$PACKAGE_NAME-v$VERSION.ipa" "$IPA_URL"
+          curl -L -o "build/ios/ipa/$PACKAGE_NAME-v$VERSION.ipa" "$RESOLVED_IPA_URL"
           echo "✅ IPA downloaded successfully."
       - name: 🚀 Create GitHub Tags & Release
         script: |
