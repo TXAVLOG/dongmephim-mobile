@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -105,7 +105,7 @@ class _TxaTvPairModalState extends State<TxaTvPairModal> {
       );
 
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         if (body['success'] == true) {
           final data = body['data'] as Map<String, dynamic>?;
           final sessionId = data?['session_id'] as String?;
@@ -135,7 +135,7 @@ class _TxaTvPairModalState extends State<TxaTvPairModal> {
           });
         }
       } else {
-        final body = jsonDecode(response.body);
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         setState(() {
           _errorMessage = body['message'] ?? TxaLanguage.t('tv_pair_code_expired_msg');
         });
@@ -332,3 +332,4 @@ class _TxaTvPairModalState extends State<TxaTvPairModal> {
     );
   }
 }
+

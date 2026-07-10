@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../theme/txa_theme.dart';
@@ -46,7 +46,7 @@ class _TxaTvConfirmScreenState extends State<TxaTvConfirmScreen> {
       );
 
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         if (body['success'] == true) {
           if (mounted) {
             TxaToast.show(context, TxaLanguage.t('pairing_success'));
@@ -303,3 +303,4 @@ class _TxaTvConfirmScreenState extends State<TxaTvConfirmScreen> {
     );
   }
 }
+

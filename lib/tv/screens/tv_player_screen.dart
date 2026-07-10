@@ -36,6 +36,8 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
   Map<String, dynamic>? _prevEpisode;
   List<dynamic>? _servers;
   int _selectedServerIndex = 0;
+  String _movieId = '';
+  int _startTime = 0;
 
   @override
   void initState() {
@@ -122,6 +124,13 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
             };
           }
 
+          final history = res['history'];
+          final movieId = res['movie']?['id']?.toString() ?? '';
+          int startTime = 0;
+          if (history != null && history['episode_id']?.toString() == widget.episodeId) {
+            startTime = (double.tryParse(history['current_time']?.toString() ?? '0') ?? 0.0).toInt();
+          }
+
           if (mounted) {
             setState(() {
               _videoUrl = resolvedUrl;
@@ -135,6 +144,8 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
               _prevEpisode = prevEpMap;
               _servers = servers;
               _selectedServerIndex = activeServerIdx;
+              _movieId = movieId;
+              _startTime = startTime;
               _isLoading = false;
             });
           }
@@ -227,6 +238,8 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
       onEnded: () {
         Navigator.pop(context);
       },
+      movieId: _movieId,
+      startTime: _startTime,
     );
   }
 }

@@ -377,7 +377,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
       return;
     }
 
-    final movieId = int.tryParse(_data?['movie']?['id']?.toString() ?? '') ?? 0;
+    final movieId = _data?['movie']?['id']?.toString() ?? '';
 
     if (auth.isLoggedIn && _data?['movie'] != null) {
       await TxaApi().updateWatchHistory(
@@ -464,7 +464,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
             startTime: startTime,
           ),
         ),
-      );
+      ).then((_) {
+        _loadDetail();
+      });
     }
   }
 

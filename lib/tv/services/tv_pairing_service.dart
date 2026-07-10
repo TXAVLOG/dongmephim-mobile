@@ -35,7 +35,7 @@ class TvPairingService {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true) {
           return data['data'] as Map<String, dynamic>?;
         }
@@ -67,7 +67,7 @@ class TvPairingService {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true) {
           return data['data'] as Map<String, dynamic>?;
         }
@@ -87,9 +87,20 @@ class TvPairingService {
   }) {
     _pollTimer?.cancel();
     
+    final activeSessionIds = List<String>.from(sessionIds);
+    
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      for (final sessionId in sessionIds) {
+      final sessionsToCheck = List<String>.from(activeSessionIds);
+      if (sessionsToCheck.isEmpty) {
+        timer.cancel();
+        _pollTimer = null;
+        return;
+      }
+
+      for (final sessionId in sessionsToCheck) {
         if (_pollTimer == null || !timer.isActive) return;
+        if (!activeSessionIds.contains(sessionId)) continue;
+
         final url = Uri.parse('${TxaApi.baseUrl}/api/app/tv-pair?action=check_status&session_id=$sessionId');
         try {
           final response = await http.get(
@@ -100,7 +111,7 @@ class TvPairingService {
           );
 
           if (response.statusCode == 200) {
-            final body = jsonDecode(response.body);
+            final body = jsonDecode(utf8.decode(response.bodyBytes));
             if (body['success'] == true) {
               final session = body['data'] as Map<String, dynamic>;
               onUpdate(session);
@@ -123,14 +134,16 @@ class TvPairingService {
                 onConfirmed();
                 break;
               } else if (status == 'rejected') {
-                timer.cancel();
-                _pollTimer = null;
-                onFailed('Yêu cầu kết nối bị từ chối từ điện thoại!');
+                activeSessionIds.remove(sessionId);
+                if (activeSessionIds.isEmpty) {
+                  timer.cancel();
+                  _pollTimer = null;
+                  onFailed('Yêu cầu kết nối bị từ chối từ điện thoại!');
+                }
                 break;
               } else if (status == 'expired') {
-                timer.cancel();
-                _pollTimer = null;
-                onFailed('Mã đã hết hạn! Vui lòng thử lại.');
+                activeSessionIds.remove(sessionId);
+                debugPrint('Session $sessionId expired on backend, stopped polling.');
                 break;
               }
             }
@@ -167,7 +180,7 @@ class TvPairingService {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true) {
           await TxaAuthService().logout();
           return true;
@@ -179,3 +192,4 @@ class TvPairingService {
     return false;
   }
 }
+

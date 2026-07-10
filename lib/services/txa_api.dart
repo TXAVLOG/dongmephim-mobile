@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/txa_logger.dart';
@@ -47,11 +47,11 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
 
       if (response.statusCode == 200 || response.statusCode == 400 || response.statusCode == 401) {
-        return jsonDecode(response.body) as Map<String, dynamic>?;
+        return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>?;
       }
     } catch (e) {
       TxaLogger.log('TxaApi login error: $e', type: 'api');
@@ -70,10 +70,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -98,11 +98,11 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -123,18 +123,18 @@ class TxaApi {
       if (response.statusCode == 200) {
         // Chỉ hiện ở console logs, không lưu file logs/tab logs
         // ignore: avoid_print
-        print('[API Console Only] GET ${url.path} - STATUS: 200\nResponse: ${response.body}');
+        print('[API Console Only] GET ${url.path} - STATUS: 200\nResponse: ${utf8.decode(response.bodyBytes)}');
       } else {
         // Có lỗi -> ghi vào file log và hiển thị trong tab logs
         TxaLogger.logApi(
           method: 'GET',
           path: url.toString(),
           statusCode: response.statusCode,
-          responseBody: response.body,
+          responseBody: utf8.decode(response.bodyBytes),
         );
       }
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -156,10 +156,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -181,10 +181,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -206,10 +206,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded;
         }
@@ -232,10 +232,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         return decoded['success'] == true;
       }
     } catch (e) {
@@ -255,10 +255,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         return decoded['success'] == true;
       }
     } catch (e) {
@@ -278,10 +278,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         return decoded['success'] == true;
       }
     } catch (e) {
@@ -314,16 +314,16 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded;
         }
       } else {
         try {
-          final decoded = jsonDecode(response.body);
+          final decoded = jsonDecode(utf8.decode(response.bodyBytes));
           return decoded;
         } catch (_) {}
       }
@@ -344,10 +344,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as List<dynamic>? ?? [];
         }
@@ -369,10 +369,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic>) {
           final Map<String, dynamic> dataMap = (decoded['success'] == true)
               ? (decoded['data'] as Map<String, dynamic>? ?? decoded)
@@ -445,10 +445,10 @@ class TxaApi {
         method: 'GET',
         path: uri.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -470,10 +470,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as List<dynamic>? ?? [];
         }
@@ -495,10 +495,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -527,10 +527,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return true;
         }
@@ -554,10 +554,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as List<dynamic>? ?? [];
         }
@@ -592,10 +592,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         return decoded != null && decoded['success'] == true;
       }
     } catch (e) {
@@ -615,10 +615,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         return decoded != null && decoded['success'] == true;
       }
     } catch (e) {
@@ -640,10 +640,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -666,10 +666,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return (decoded['data'] as Map<String, dynamic>?) ?? decoded;
         }
@@ -693,10 +693,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -722,10 +722,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -749,10 +749,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as List<dynamic>? ?? [];
         }
@@ -789,10 +789,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -818,10 +818,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -853,10 +853,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -882,10 +882,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         return decoded != null && decoded['success'] == true;
       }
     } catch (e) {
@@ -914,10 +914,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           _cachedPackages = decoded['data'] as Map<String, dynamic>?;
           return _cachedPackages;
@@ -940,10 +940,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as List<dynamic>? ?? [];
         }
@@ -965,10 +965,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as List<dynamic>? ?? [];
         }
@@ -1001,10 +1001,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200 || response.statusCode == 400) {
-        return jsonDecode(response.body) as Map<String, dynamic>?;
+        return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>?;
       }
     } catch (e) {
       TxaLogger.log('TxaApi verifyPromo error: $e', type: 'api');
@@ -1036,10 +1036,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as Map<String, dynamic>?;
         }
@@ -1062,10 +1062,10 @@ class TxaApi {
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         return decoded != null && decoded['success'] == true;
       }
     } catch (e) {
@@ -1095,7 +1095,7 @@ class TxaApi {
         );
       }
 
-      final decoded = jsonDecode(response.body);
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is! Map<String, dynamic> || decoded['movie'] == null) {
         return ScanResult(
           success: false,
@@ -1213,11 +1213,11 @@ class TxaApi {
         method: 'POST',
         path: saveUrl.toString(),
         statusCode: saveResponse.statusCode,
-        responseBody: saveResponse.body,
+        responseBody: utf8.decode(saveResponse.bodyBytes),
       );
 
       if (saveResponse.statusCode == 200) {
-        final saveDecoded = jsonDecode(saveResponse.body);
+        final saveDecoded = jsonDecode(utf8.decode(saveResponse.bodyBytes));
         if (saveDecoded is Map<String, dynamic> && saveDecoded['success'] == true) {
           int count = 0;
           if (episodes.isNotEmpty) {
@@ -1238,7 +1238,7 @@ class TxaApi {
       } else {
         String errorMsg = 'Lỗi máy chủ: status ${saveResponse.statusCode}';
         try {
-          final body = jsonDecode(saveResponse.body);
+          final body = jsonDecode(utf8.decode(saveResponse.bodyBytes));
           if (body is Map && body['message'] != null) {
             errorMsg = body['message'].toString();
           }
@@ -1262,10 +1262,10 @@ class TxaApi {
         method: 'GET',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: response.body,
+        responseBody: utf8.decode(response.bodyBytes),
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic> && decoded['success'] == true) {
           return decoded['data'] as List<dynamic>? ?? [];
         }
@@ -1288,3 +1288,4 @@ class ScanResult {
     this.totalEpisodes = 0,
   });
 }
+

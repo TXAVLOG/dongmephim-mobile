@@ -36,7 +36,7 @@ class TxaVideoPlayer extends StatefulWidget {
   final int initialServerIndex;
   final String? currentEpisodeId;
   final Function(String episodeId, String episodeName, int serverIndex)? onEpisodeChanged;
-  final int movieId;
+  final String movieId;
   final int startTime;
 
   const TxaVideoPlayer({
@@ -60,7 +60,7 @@ class TxaVideoPlayer extends StatefulWidget {
     this.initialServerIndex = 0,
     this.currentEpisodeId,
     this.onEpisodeChanged,
-    this.movieId = 0,
+    this.movieId = '',
     this.startTime = 0,
   });
 
@@ -453,7 +453,13 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   void _initAdPlayer() async {
     if (_adUrl == null) return;
-    _adController = VideoPlayerController.networkUrl(Uri.parse(_adUrl!));
+    _adController = VideoPlayerController.networkUrl(
+      Uri.parse(_adUrl!),
+      httpHeaders: const {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://dongmephim.online/',
+      },
+    );
     try {
       await _adController!.initialize();
       if (!mounted) return;
@@ -528,7 +534,13 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   // --- Main Player Flow ---
   void _initMainPlayer({Duration? startFrom}) async {
-    _controller = VideoPlayerController.networkUrl(Uri.parse(_currentUrl));
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(_currentUrl),
+      httpHeaders: const {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://dongmephim.online/',
+      },
+    );
     
     try {
       await _controller!.initialize();
@@ -596,7 +608,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   void _saveWatchProgress() async {
     final auth = TxaAuthService();
-    if (!auth.isLoggedIn || widget.movieId == 0) return;
+    if (!auth.isLoggedIn || widget.movieId.isEmpty) return;
 
     final pos = _position.inSeconds.toDouble();
     final dur = _duration.inSeconds.toDouble();
@@ -1552,6 +1564,18 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         }
       });
     }
+  }
+
+  void _toggleControls() {
+    if (_isLocked) return;
+    setState(() {
+      if (_showControls) {
+        _showControls = false;
+        _hideControlsTimer?.cancel();
+      } else {
+        _resetHideControlsTimer();
+      }
+    });
   }
 
   void _showLockButtonTemporarily() {
@@ -2950,7 +2974,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          _resetHideControlsTimer();
+          _toggleControls();
         },
         child: playerView,
       );
@@ -2960,7 +2984,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         behavior: HitTestBehavior.opaque,
         onTap: () {
           if (!_isLocked) {
-            _resetHideControlsTimer();
+            _toggleControls();
           } else {
             _showLockButtonTemporarily();
           }

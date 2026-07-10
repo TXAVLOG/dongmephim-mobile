@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -116,7 +116,7 @@ class _TxaQrScanScreenState extends State<TxaQrScanScreen> {
       );
 
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         if (body['success'] == true) {
           final data = body['data'] as Map<String, dynamic>;
           final sessionId = data['session_id'];
@@ -141,7 +141,7 @@ class _TxaQrScanScreenState extends State<TxaQrScanScreen> {
           }
         }
       } else {
-        final body = jsonDecode(response.body);
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         if (mounted) {
           TxaToast.show(context, body['message'] ?? TxaLanguage.t('qr_expired'), isError: true);
         }
@@ -235,3 +235,4 @@ class _TxaQrScanScreenState extends State<TxaQrScanScreen> {
     );
   }
 }
+

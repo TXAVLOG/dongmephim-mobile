@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -72,7 +72,7 @@ class TvDeviceService {
       try {
         final ipRes = await http.get(Uri.parse('https://ipinfo.io/json')).timeout(const Duration(seconds: 4));
         if (ipRes.statusCode == 200) {
-          final info = jsonDecode(ipRes.body) as Map<String, dynamic>;
+          final info = jsonDecode(utf8.decode(ipRes.bodyBytes)) as Map<String, dynamic>;
           _ipAddress = info['ip'];
           _locationInfo = info;
           
@@ -137,7 +137,7 @@ class TvDeviceService {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         return data['success'] == true;
       }
     } catch (e) {
@@ -146,3 +146,4 @@ class TvDeviceService {
     return false;
   }
 }
+
