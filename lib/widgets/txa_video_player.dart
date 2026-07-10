@@ -286,6 +286,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   // --- DRM Secure Mode ---
   void _enableSecureMode() async {
+    if (TxaPlatform.isDesktop || TxaPlatform.isWeb) return;
     try {
       await _platformChannel.invokeMethod('enableSecureMode');
       _secureEnabled = true;
@@ -295,6 +296,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
   }
 
   void _disableSecureMode() async {
+    if (TxaPlatform.isDesktop || TxaPlatform.isWeb) return;
     if (!_secureEnabled) return;
     try {
       await _platformChannel.invokeMethod('disableSecureMode');

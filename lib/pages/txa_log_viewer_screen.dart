@@ -137,7 +137,7 @@ class _TxaLogViewerScreenState extends State<TxaLogViewerScreen> with SingleTick
       final lines = message.split('\n');
       final firstLine = lines.first.trim();
       
-      final apiRegExp = RegExp(r'^([A-Z]+)\s+(https?://[^\s\-]+)\s+-\s+STATUS:\s+(.*)$');
+      final apiRegExp = RegExp(r'^([A-Z]+)\s+(\S+)\s+-\s+STATUS:\s+(.*)$');
       final match = apiRegExp.firstMatch(firstLine);
       if (match == null) return null;
       
