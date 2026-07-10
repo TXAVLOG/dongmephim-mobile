@@ -453,12 +453,15 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   void _initAdPlayer() async {
     if (_adUrl == null) return;
+    final headers = (TxaPlatform.isDesktop || TxaPlatform.isWeb)
+        ? const <String, String>{}
+        : const {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://dongmephim.online/',
+          };
     _adController = VideoPlayerController.networkUrl(
       Uri.parse(_adUrl!),
-      httpHeaders: const {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://dongmephim.online/',
-      },
+      httpHeaders: headers,
     );
     try {
       await _adController!.initialize();
@@ -534,12 +537,15 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   // --- Main Player Flow ---
   void _initMainPlayer({Duration? startFrom}) async {
+    final headers = (TxaPlatform.isDesktop || TxaPlatform.isWeb)
+        ? const <String, String>{}
+        : const {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://dongmephim.online/',
+          };
     _controller = VideoPlayerController.networkUrl(
       Uri.parse(_currentUrl),
-      httpHeaders: const {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://dongmephim.online/',
-      },
+      httpHeaders: headers,
     );
     
     try {
