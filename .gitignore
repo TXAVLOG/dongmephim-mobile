@@ -49,4 +49,6 @@ app.*.map.json
 *.ipa
 *.zip
 DongPhim-Setup.apk
+/roots/
+
 
