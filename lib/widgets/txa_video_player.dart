@@ -1570,7 +1570,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     });
     
     if (_isPlaying) {
-      _hideControlsTimer = Timer(const Duration(seconds: 4), () {
+      _hideControlsTimer = Timer(const Duration(milliseconds: 2500), () {
         if (mounted && _isPlaying) {
           setState(() {
             _showControls = false;
