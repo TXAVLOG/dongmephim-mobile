@@ -65,12 +65,12 @@ class TxaNotificationManager {
             );
 
             notification.onClick = () {
-              _handleOpenUpdateUrl(updateInfo['download_url'] ?? '');
+              _handleOpenUpdateUrl(updateInfo['windows_download_url'] ?? updateInfo['download_url'] ?? '');
             };
 
             notification.onClickAction = (index) {
               if (index == 0) {
-                _handleOpenUpdateUrl(updateInfo['download_url'] ?? '');
+                _handleOpenUpdateUrl(updateInfo['windows_download_url'] ?? updateInfo['download_url'] ?? '');
               }
             };
 

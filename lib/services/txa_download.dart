@@ -30,6 +30,7 @@ class TxaDownload {
   }
 
   void _initNotifications() async {
+    if (!Platform.isAndroid) return;
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _notifications.initialize(
       settings: const InitializationSettings(android: android),
@@ -55,10 +56,19 @@ class TxaDownload {
       isDownloading = true;
       startTime = DateTime.now();
 
-      final dir = await getExternalStorageDirectory();
-      final savePath = '${dir?.path}/$filename';
+      String savePath = '';
+      if (Platform.isAndroid) {
+        final dir = await getExternalStorageDirectory();
+        savePath = '${dir?.path}/$filename';
+      } else if (Platform.isWindows) {
+        final dir = await getDownloadsDirectory() ?? await getTemporaryDirectory();
+        savePath = '${dir.path}/$filename';
+      } else {
+        final dir = await getTemporaryDirectory();
+        savePath = '${dir.path}/$filename';
+      }
 
-      if (showNotification) {
+      if (showNotification && Platform.isAndroid) {
         await _updateNotification(0, filename, 'Bắt đầu tải...');
       }
 
@@ -95,7 +105,7 @@ class TxaDownload {
             onProgress(info);
           }
 
-          if (showNotification && total > 0) {
+          if (showNotification && total > 0 && Platform.isAndroid) {
             if (lastUpdateTime == null ||
                 now.difference(lastUpdateTime!).inMilliseconds >= 1500 ||
                 received == total) {
@@ -109,7 +119,7 @@ class TxaDownload {
         },
       );
 
-      if (showNotification) {
+      if (showNotification && Platform.isAndroid) {
         final String title = TxaLanguage.t('download_finished');
         final String body = TxaLanguage.t('click_to_install');
         await _completeNotification(
@@ -136,7 +146,7 @@ class TxaDownload {
         }
       }
 
-      if (showNotification) {
+      if (showNotification && Platform.isAndroid) {
         await _completeNotification(filename, '❌ $lastError');
       }
       return null;
@@ -186,6 +196,7 @@ class TxaDownload {
     String title,
     String body,
   ) async {
+    if (!Platform.isAndroid) return;
     final android = AndroidNotificationDetails(
       'txa_download',
       'TPhimX Tải về',
@@ -227,6 +238,7 @@ class TxaDownload {
     String body, {
     String? payload,
   }) async {
+    if (!Platform.isAndroid) return;
     const android = AndroidNotificationDetails(
       'txa_download',
       'TPhimX Tải về',

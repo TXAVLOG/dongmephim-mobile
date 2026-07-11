@@ -19,6 +19,7 @@ import '../services/txa_permission.dart';
 import '../widgets/txa_download_dialog.dart';
 import '../services/txa_url_resolver.dart';
 import '../utils/txa_logger.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TxaDrawer extends StatefulWidget {
   final ValueChanged<int>? onSelectTab;
@@ -31,100 +32,170 @@ class TxaDrawer extends StatefulWidget {
 class _TxaDrawerState extends State<TxaDrawer> {
   bool _checkingUpdate = false;
 
-  Future<void> _handleAndroidUpdate(
-    String rawUrl,
+  Future<void> _handleUpdate(
+    Map<String, dynamic> info,
     String version,
-    int expectedSize,
-    String? sha256,
   ) async {
-    if (!await TxaPermission.checkAllRequired()) {
-      if (!mounted) return;
-      TxaToast.show(
-        context,
-        TxaLanguage.t('permissions_required'),
-        isError: true,
-      );
-      await TxaPermission.requestInitial();
-      if (!mounted) return;
-      if (!await TxaPermission.checkAllRequired()) return;
-    }
+    if (Platform.isAndroid) {
+      final bool isTV = TxaPlatform.isTV;
+      final String rawUrl = isTV
+          ? (info['smart_tv_url'] ?? info['download_url'] ?? '')
+          : (info['apk_url'] ?? info['download_url'] ?? '');
+      
+      final int expectedSize = int.tryParse(
+        (isTV ? info['smart_tv_size'] : info['size'])?.toString() ?? '0',
+      ) ?? 0;
+      final String? sha256 = (isTV ? info['smart_tv_sha256'] : info['sha256'])?.toString();
+      final String filename = isTV ? 'DongMePhim_TV_$version.apk' : 'DongMePhim_$version.apk';
 
-    if (!await TxaPermission.requestInstall()) {
-      if (!mounted) return;
-      TxaToast.show(
-        context,
-        TxaLanguage.t('permissions_required'),
-        isError: true,
-      );
-      return;
-    }
-
-    if (!mounted) return;
-
-    final String filename = 'DongMePhim_$version.apk';
-    final dir = await getExternalStorageDirectory();
-    final String savePath = '${dir?.path}/$filename';
-    final File cachedFile = File(savePath);
-
-    if (cachedFile.existsSync()) {
-      final int localSize = cachedFile.lengthSync();
-      bool isValid = false;
-
-      if (expectedSize > 0 && localSize == expectedSize) {
-        if (sha256 != null && sha256.isNotEmpty) {
-          if (!mounted) return;
-          TxaToast.show(context, TxaLanguage.t('verifying_file'));
-          final bytes = await cachedFile.readAsBytes();
-          final localHash = _sha256Hex(bytes);
-          isValid = localHash == sha256.toLowerCase();
-        } else {
-          isValid = true;
-        }
+      if (!await TxaPermission.checkAllRequired()) {
+        if (!mounted) return;
+        TxaToast.show(
+          context,
+          TxaLanguage.t('permissions_required'),
+          isError: true,
+        );
+        await TxaPermission.requestInitial();
+        if (!mounted) return;
+        if (!await TxaPermission.checkAllRequired()) return;
       }
 
-      if (isValid) {
+      if (!await TxaPermission.requestInstall()) {
         if (!mounted) return;
-        TxaToast.show(context, TxaLanguage.t('installing_cached'));
-        final result = await OpenFile.open(savePath);
-        if (!mounted) return;
-        if (result.type != ResultType.done) {
-          TxaToast.show(context, "Error: ${result.message}", isError: true);
-        }
+        TxaToast.show(
+          context,
+          TxaLanguage.t('permissions_required'),
+          isError: true,
+        );
         return;
-      } else {
-        try {
-          cachedFile.deleteSync();
-        } catch (_) {}
       }
-    }
 
-    if (!mounted) return;
-    TxaToast.show(context, TxaLanguage.t('loading_progress'));
-
-    final String resolvedUrl = await TxaUrlResolver.resolve(rawUrl);
-    
-    if (resolvedUrl.isNotEmpty) {
       if (!mounted) return;
-      TxaDownloadDialog.show(
-        context,
-        resolvedUrl,
-        filename,
-        onFinished: (path) async {
-          TxaLogger.log('Download finished, opening installer: $path');
-          final result = await OpenFile.open(path);
+
+      final dir = await getExternalStorageDirectory();
+      final String savePath = '${dir?.path}/$filename';
+      final File cachedFile = File(savePath);
+
+      if (cachedFile.existsSync()) {
+        final int localSize = cachedFile.lengthSync();
+        bool isValid = false;
+
+        if (expectedSize > 0 && localSize == expectedSize) {
+          if (sha256 != null && sha256.isNotEmpty) {
+            if (!mounted) return;
+            TxaToast.show(context, TxaLanguage.t('verifying_file'));
+            final bytes = await cachedFile.readAsBytes();
+            final localHash = _sha256Hex(bytes);
+            isValid = localHash == sha256.toLowerCase();
+          } else {
+            isValid = true;
+          }
+        }
+
+        if (isValid) {
+          if (!mounted) return;
+          TxaToast.show(context, TxaLanguage.t('installing_cached'));
+          final result = await OpenFile.open(savePath);
           if (!mounted) return;
           if (result.type != ResultType.done) {
             TxaToast.show(context, "Error: ${result.message}", isError: true);
           }
-        },
-      );
-    } else {
+          return;
+        } else {
+          try {
+            cachedFile.deleteSync();
+          } catch (_) {}
+        }
+      }
+
       if (!mounted) return;
-      TxaToast.show(
-        context,
-        "Không thể giải quyết đường dẫn tải về.",
-        isError: true,
-      );
+      TxaToast.show(context, TxaLanguage.t('loading_progress'));
+
+      final String resolvedUrl = await TxaUrlResolver.resolve(rawUrl);
+      
+      if (resolvedUrl.isNotEmpty) {
+        if (!mounted) return;
+        TxaDownloadDialog.show(
+          context,
+          resolvedUrl,
+          filename,
+          onFinished: (path) async {
+            TxaLogger.log('Download finished, opening installer: $path');
+            final result = await OpenFile.open(path);
+            if (!mounted) return;
+            if (result.type != ResultType.done) {
+              TxaToast.show(context, "Error: ${result.message}", isError: true);
+            }
+          },
+        );
+      } else {
+        if (!mounted) return;
+        TxaToast.show(
+          context,
+          "Không thể giải quyết đường dẫn tải về.",
+          isError: true,
+        );
+      }
+    } else if (Platform.isIOS) {
+      final String iosUrl = (info['app_store_url'] ?? info['ios_download_url'] ?? info['ios_ipa_url'] ?? info['download_url'] ?? '').toString();
+      if (iosUrl.isNotEmpty) {
+        try {
+          final uri = Uri.parse(iosUrl);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else {
+            TxaToast.show(context, "Không thể mở liên kết tải iOS.", isError: true);
+          }
+        } catch (e) {
+          TxaToast.show(context, "Lỗi mở liên kết: $e", isError: true);
+        }
+      } else {
+        TxaToast.show(context, "Không tìm thấy liên kết tải iOS.", isError: true);
+      }
+    } else if (Platform.isWindows) {
+      final String rawUrl = (info['windows_download_url'] ?? info['download_url'] ?? '').toString();
+      final String filename = 'DongMePhim_v${version}_Setup.exe';
+
+      if (rawUrl.isEmpty) {
+        TxaToast.show(context, "Không tìm thấy liên kết tải Windows.", isError: true);
+        return;
+      }
+
+      TxaToast.show(context, TxaLanguage.t('loading_progress'));
+      final String resolvedUrl = await TxaUrlResolver.resolve(rawUrl);
+      if (resolvedUrl.isNotEmpty) {
+        if (!mounted) return;
+        TxaDownloadDialog.show(
+          context,
+          resolvedUrl,
+          filename,
+          onFinished: (path) async {
+            TxaLogger.log('Download finished, opening installer: $path');
+            final result = await OpenFile.open(path);
+            if (!mounted) return;
+            if (result.type != ResultType.done) {
+              TxaToast.show(context, "Error: ${result.message}", isError: true);
+            }
+          },
+        );
+      } else {
+        if (!mounted) return;
+        TxaToast.show(
+          context,
+          "Không thể giải quyết đường dẫn tải về.",
+          isError: true,
+        );
+      }
+    } else {
+      final String fallbackUrl = (info['download_url'] ?? '').toString();
+      if (fallbackUrl.isNotEmpty) {
+        try {
+          final uri = Uri.parse(fallbackUrl);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        } catch (_) {}
+      }
     }
   }
 
@@ -263,11 +334,9 @@ class _TxaDrawerState extends State<TxaDrawer> {
                               child: ElevatedButton(
                                 onPressed: () {
                                   Navigator.pop(ctx);
-                                  _handleAndroidUpdate(
-                                    info['download_url'] ?? '',
+                                  _handleUpdate(
+                                    info,
                                     serverVersion,
-                                    int.tryParse(info['size']?.toString() ?? '0') ?? 0,
-                                    info['sha256']?.toString(),
                                   );
                                 },
                                 style: ElevatedButton.styleFrom(
