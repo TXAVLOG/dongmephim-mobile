@@ -20,6 +20,18 @@ import 'txa_profile_screen.dart';
 import 'txa_schedule_tab.dart';
 import '../widgets/txa_coachmark.dart';
 
+import 'dart:io';
+import 'dart:ui';
+import 'package:crypto/crypto.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import '../services/txa_permission.dart';
+import '../widgets/txa_download_dialog.dart';
+import '../services/txa_url_resolver.dart';
+import '../utils/txa_logger.dart';
+import '../utils/txa_rich_text.dart';
+import '../services/txa_version.dart';
+
 class HomeScreen extends StatefulWidget {
   static final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   const HomeScreen({super.key});
@@ -44,6 +56,271 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     TxaNotificationManager.instance.init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _checkUpdate();
+      }
+    });
+  }
+
+  Future<void> _checkUpdate() async {
+    try {
+      final info = await TxaApi().getCheckUpdate();
+      if (!mounted) return;
+
+      if (info != null) {
+        final String serverVersion = info['app_version'] ?? TxaVersion.version;
+        if (serverVersion != TxaVersion.version) {
+          // New update available
+          showDialog(
+            context: context,
+            builder: (ctx) => Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 500, maxHeight: 520),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          TxaTheme.secondaryBg.withValues(alpha: 0.95),
+                          TxaTheme.cardBg.withValues(alpha: 0.92),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 28,
+                          offset: const Offset(0, 14),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: TxaTheme.accent.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.system_update_rounded, color: TxaTheme.accent, size: 24),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    TxaLanguage.t('update_available'),
+                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'v${TxaVersion.version} → v$serverVersion',
+                                    style: const TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(color: Colors.white12, height: 1),
+                        const SizedBox(height: 12),
+
+                        // Changelog title
+                        Text(
+                          TxaLanguage.t('whats_new'),
+                          style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Changelog content with markdown/HTML support
+                        Flexible(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: TxaRichTextParser.parse(
+                                (info['app_release_notes'] ?? '').toString(),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Action buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.white24),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: Text(
+                                  TxaLanguage.t('later'),
+                                  style: const TextStyle(color: TxaTheme.textSecondary, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _handleAndroidUpdate(
+                                    info['download_url'] ?? '',
+                                    serverVersion,
+                                    int.tryParse(info['size']?.toString() ?? '0') ?? 0,
+                                    info['sha256']?.toString(),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: TxaTheme.accent,
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: Text(TxaLanguage.t('update_now'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      TxaLogger.log('Startup check update error: $e');
+    }
+  }
+
+  Future<void> _handleAndroidUpdate(
+    String rawUrl,
+    String version,
+    int expectedSize,
+    String? sha256,
+  ) async {
+    if (!await TxaPermission.checkAllRequired()) {
+      if (!mounted) return;
+      TxaToast.show(
+        context,
+        TxaLanguage.t('permissions_required'),
+        isError: true,
+      );
+      await TxaPermission.requestInitial();
+      if (!mounted) return;
+      if (!await TxaPermission.checkAllRequired()) return;
+    }
+
+    if (!await TxaPermission.requestInstall()) {
+      if (!mounted) return;
+      TxaToast.show(
+        context,
+        TxaLanguage.t('permissions_required'),
+        isError: true,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    final String filename = 'DongMePhim_$version.apk';
+    final dir = await getExternalStorageDirectory();
+    final String savePath = '${dir?.path}/$filename';
+    final File cachedFile = File(savePath);
+
+    if (cachedFile.existsSync()) {
+      final int localSize = cachedFile.lengthSync();
+      bool isValid = false;
+
+      if (expectedSize > 0 && localSize == expectedSize) {
+        if (sha256 != null && sha256.isNotEmpty) {
+          if (!mounted) return;
+          TxaToast.show(context, TxaLanguage.t('verifying_file'));
+          final bytes = await cachedFile.readAsBytes();
+          final localHash = _sha256Hex(bytes);
+          isValid = localHash == sha256.toLowerCase();
+        } else {
+          isValid = true;
+        }
+      }
+
+      if (isValid) {
+        if (!mounted) return;
+        TxaToast.show(context, TxaLanguage.t('installing_cached'));
+        final result = await OpenFile.open(savePath);
+        if (!mounted) return;
+        if (result.type != ResultType.done) {
+          TxaToast.show(context, "Error: ${result.message}", isError: true);
+        }
+        return;
+      } else {
+        try {
+          cachedFile.deleteSync();
+        } catch (_) {}
+      }
+    }
+
+    if (!mounted) return;
+    TxaToast.show(context, TxaLanguage.t('loading_progress'));
+
+    final String resolvedUrl = await TxaUrlResolver.resolve(rawUrl);
+    
+    if (resolvedUrl.isNotEmpty) {
+      if (!mounted) return;
+      TxaDownloadDialog.show(
+        context,
+        resolvedUrl,
+        filename,
+        onFinished: (path) async {
+          TxaLogger.log('Download finished, opening installer: $path');
+          final result = await OpenFile.open(path);
+          if (!mounted) return;
+          if (result.type != ResultType.done) {
+            TxaToast.show(context, "Error: ${result.message}", isError: true);
+          }
+        },
+      );
+    } else {
+      if (!mounted) return;
+      TxaToast.show(
+        context,
+        "Không thể giải quyết đường dẫn tải về.",
+        isError: true,
+      );
+    }
+  }
+
+  String _sha256Hex(List<int> bytes) {
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   @override
@@ -163,6 +440,8 @@ class _HomeTabState extends State<HomeTab> {
       }
     });
   }
+
+
 
   @override
   Widget build(BuildContext context) {

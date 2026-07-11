@@ -11,6 +11,15 @@ import '../utils/txa_platform.dart';
 import '../utils/txa_rich_text.dart';
 import '../pages/txa_update_history_screen.dart';
 
+import 'dart:io';
+import 'package:crypto/crypto.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import '../services/txa_permission.dart';
+import '../widgets/txa_download_dialog.dart';
+import '../services/txa_url_resolver.dart';
+import '../utils/txa_logger.dart';
+
 class TxaDrawer extends StatefulWidget {
   final ValueChanged<int>? onSelectTab;
   const TxaDrawer({super.key, this.onSelectTab});
@@ -21,6 +30,108 @@ class TxaDrawer extends StatefulWidget {
 
 class _TxaDrawerState extends State<TxaDrawer> {
   bool _checkingUpdate = false;
+
+  Future<void> _handleAndroidUpdate(
+    String rawUrl,
+    String version,
+    int expectedSize,
+    String? sha256,
+  ) async {
+    if (!await TxaPermission.checkAllRequired()) {
+      if (!mounted) return;
+      TxaToast.show(
+        context,
+        TxaLanguage.t('permissions_required'),
+        isError: true,
+      );
+      await TxaPermission.requestInitial();
+      if (!mounted) return;
+      if (!await TxaPermission.checkAllRequired()) return;
+    }
+
+    if (!await TxaPermission.requestInstall()) {
+      if (!mounted) return;
+      TxaToast.show(
+        context,
+        TxaLanguage.t('permissions_required'),
+        isError: true,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    final String filename = 'DongMePhim_$version.apk';
+    final dir = await getExternalStorageDirectory();
+    final String savePath = '${dir?.path}/$filename';
+    final File cachedFile = File(savePath);
+
+    if (cachedFile.existsSync()) {
+      final int localSize = cachedFile.lengthSync();
+      bool isValid = false;
+
+      if (expectedSize > 0 && localSize == expectedSize) {
+        if (sha256 != null && sha256.isNotEmpty) {
+          if (!mounted) return;
+          TxaToast.show(context, TxaLanguage.t('verifying_file'));
+          final bytes = await cachedFile.readAsBytes();
+          final localHash = _sha256Hex(bytes);
+          isValid = localHash == sha256.toLowerCase();
+        } else {
+          isValid = true;
+        }
+      }
+
+      if (isValid) {
+        if (!mounted) return;
+        TxaToast.show(context, TxaLanguage.t('installing_cached'));
+        final result = await OpenFile.open(savePath);
+        if (!mounted) return;
+        if (result.type != ResultType.done) {
+          TxaToast.show(context, "Error: ${result.message}", isError: true);
+        }
+        return;
+      } else {
+        try {
+          cachedFile.deleteSync();
+        } catch (_) {}
+      }
+    }
+
+    if (!mounted) return;
+    TxaToast.show(context, TxaLanguage.t('loading_progress'));
+
+    final String resolvedUrl = await TxaUrlResolver.resolve(rawUrl);
+    
+    if (resolvedUrl.isNotEmpty) {
+      if (!mounted) return;
+      TxaDownloadDialog.show(
+        context,
+        resolvedUrl,
+        filename,
+        onFinished: (path) async {
+          TxaLogger.log('Download finished, opening installer: $path');
+          final result = await OpenFile.open(path);
+          if (!mounted) return;
+          if (result.type != ResultType.done) {
+            TxaToast.show(context, "Error: ${result.message}", isError: true);
+          }
+        },
+      );
+    } else {
+      if (!mounted) return;
+      TxaToast.show(
+        context,
+        "Không thể giải quyết đường dẫn tải về.",
+        isError: true,
+      );
+    }
+  }
+
+  String _sha256Hex(List<int> bytes) {
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
 
   void _checkUpdate() async {
     setState(() => _checkingUpdate = true);
@@ -152,7 +263,12 @@ class _TxaDrawerState extends State<TxaDrawer> {
                               child: ElevatedButton(
                                 onPressed: () {
                                   Navigator.pop(ctx);
-                                  TxaToast.show(context, 'Downloading update...');
+                                  _handleAndroidUpdate(
+                                    info['download_url'] ?? '',
+                                    serverVersion,
+                                    int.tryParse(info['size']?.toString() ?? '0') ?? 0,
+                                    info['sha256']?.toString(),
+                                  );
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: TxaTheme.accent,

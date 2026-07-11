@@ -539,7 +539,13 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   // --- Main Player Flow ---
   void _initMainPlayer({Duration? startFrom}) async {
-    final headers = (TxaPlatform.isDesktop || TxaPlatform.isWeb)
+    final bool bypassHeaders = _currentUrl.contains('.r2.dev') ||
+        _currentUrl.contains('google') ||
+        _currentUrl.contains('github') ||
+        _currentUrl.contains('mediafire') ||
+        _currentUrl.contains('dropbox');
+
+    final headers = (TxaPlatform.isDesktop || TxaPlatform.isWeb || bypassHeaders)
         ? const <String, String>{}
         : const {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

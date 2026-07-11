@@ -125,6 +125,18 @@ class _SplashScreenState extends State<SplashScreen>
       // Fail silently if not supported or error occurs
     }
 
+    // 4.1. Battery Optimization Bypass Request
+    try {
+      if (Platform.isAndroid) {
+        final isIgnoring = await Permission.ignoreBatteryOptimizations.isGranted;
+        if (!isIgnoring) {
+          await Permission.ignoreBatteryOptimizations.request();
+        }
+      }
+    } catch (e) {
+      // Fail silently
+    }
+
     // 5. Language Init
     setState(() {
       _status = TxaLanguage.t('splash_init_language'); // "Khởi tạo ngôn ngữ..."

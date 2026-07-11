@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/txa_logger.dart';
@@ -392,6 +392,7 @@ class TxaApi {
               nestedData['maintenance_message'])?.toString() ?? '';
 
           return {
+            ...nestedData,
             'app_version': (nestedData['latest_version'] ?? nestedData['app_version'] ?? '4.7.5').toString(),
             'app_release_notes': (nestedData['changelog'] ?? nestedData['app_release_notes'] ?? '').toString(),
             'download_url': (nestedData['download_url'] ?? nestedData['apk_url'] ?? '').toString(),
