@@ -9,6 +9,12 @@ class TxaPermission {
     final List<Map<String, dynamic>> perms = [];
     if (Platform.isAndroid) {
       perms.add({
+        'id': 'storage',
+        'label': TxaLanguage.t('permission_storage_label'),
+        'desc': TxaLanguage.t('permission_storage_desc'),
+        'permission': Permission.manageExternalStorage,
+      });
+      perms.add({
         'id': 'install_packages',
         'label': TxaLanguage.t('permission_install_label'),
         'desc': TxaLanguage.t('permission_install_desc'),

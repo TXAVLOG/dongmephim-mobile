@@ -56,18 +56,18 @@ class _TxaDrawerState extends State<TxaDrawer> {
           isError: true,
         );
         await TxaPermission.requestInitial();
-        if (!mounted) return;
-        if (!await TxaPermission.checkAllRequired()) return;
-      }
-
-      if (!await TxaPermission.requestInstall()) {
-        if (!mounted) return;
-        TxaToast.show(
-          context,
-          TxaLanguage.t('permissions_required'),
-          isError: true,
-        );
-        return;
+        
+        // Wait in a loop for the user to return and grant permissions (up to 30 seconds)
+        bool granted = false;
+        for (int i = 0; i < 60; i++) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (!mounted) return;
+          if (await TxaPermission.checkAllRequired()) {
+            granted = true;
+            break;
+          }
+        }
+        if (!granted) return;
       }
 
       if (!mounted) return;
