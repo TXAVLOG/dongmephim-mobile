@@ -28,6 +28,12 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // Fullscreen support:
+  void SetFullscreen(bool fullscreen);
+  bool is_fullscreen_ = false;
+  WINDOWPLACEMENT saved_placement_ = {};
+  DWORD saved_style_ = 0;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

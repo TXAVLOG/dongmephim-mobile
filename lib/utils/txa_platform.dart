@@ -40,4 +40,14 @@ class TxaPlatform {
       _isSamsungTV = false;
     }
   }
+
+  static Future<void> setFullscreen(bool isFullscreen) async {
+    if (isDesktop && Platform.isWindows) {
+      try {
+        await _channel.invokeMethod('setFullscreen', isFullscreen);
+      } catch (e) {
+        debugPrint('TxaPlatform setFullscreen error: $e');
+      }
+    }
+  }
 }

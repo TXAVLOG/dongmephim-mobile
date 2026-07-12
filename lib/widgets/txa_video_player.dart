@@ -81,6 +81,18 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
   Timer? _hideControlsTimer;
   DateTime? _lastSavedTime;
 
+  // Desktop Focus & Fullscreen
+  final FocusNode _desktopFocusNode = FocusNode();
+  bool _isFullscreen = false;
+  double _tempVolume = 1.0;
+
+  // Aspect Ratio
+  String _aspectRatioMode = 'fit'; // 'fit' | 'fill' | '16_9' | '4_3'
+
+  // Hold to Speed Up 2x
+  bool _isHoldingSpeedUp = false;
+  double _preHoldingSpeed = 1.0;
+
   // Player Settings & Dragging States
   bool _autoSkipIntro = false;
   bool _autoNextEpisode = false;
@@ -245,6 +257,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
     if (TxaPlatform.isTV) {
       _tvFocusNode.removeListener(_onTvFocusChange);
+    }
+
+    if (TxaPlatform.isDesktop) {
+      _desktopFocusNode.dispose();
+      TxaPlatform.setFullscreen(false);
     }
 
     _controller?.dispose();
@@ -1042,6 +1059,28 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         });
       }
     }
+
+    // Aspect Ratio section for TV settings menu
+    items.add({
+      'type': 'section',
+      'label': TxaLanguage.currentLang == 'vi' ? 'TỈ LỆ KHUNG HÌNH' : 'ASPECT RATIO',
+    });
+    final aspectModes = [
+      {'id': 'fit', 'label': TxaLanguage.currentLang == 'vi' ? 'Bản gốc (Fit)' : 'Original (Fit)'},
+      {'id': 'fill', 'label': TxaLanguage.currentLang == 'vi' ? 'Tràn màn hình (Fill)' : 'Stretch (Fill)'},
+      {'id': '16_9', 'label': '16:9'},
+      {'id': '4_3', 'label': '4:3'},
+    ];
+    for (final m in aspectModes) {
+      final isSelected = _aspectRatioMode == m['id'];
+      items.add({
+        'type': 'aspect_ratio_mode',
+        'value': m['id'],
+        'label': "${m['label']}${isSelected ? TxaLanguage.t('currently_selected') : ''}",
+        'selected': isSelected,
+      });
+    }
+
     // Playback Speed section for TV settings menu
     items.add({
       'type': 'section',
@@ -1142,6 +1181,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         break;
       case 'secondary_track':
         _selectSecondaryTrack(item['index']);
+        break;
+      case 'aspect_ratio_mode':
+        setState(() {
+          _aspectRatioMode = item['value'];
+        });
         break;
       case 'speed_rate':
         _setPlaybackSpeed(item['value']);
@@ -1996,6 +2040,158 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     return name.replaceAll(RegExp(r'(tập|tap|episode|ep|ep-)\s*', caseSensitive: false), '').trim();
   }
 
+  // --- Desktop Fullscreen & Keyboard Handlers ---
+  void _toggleFullscreen() {
+    setState(() {
+      _isFullscreen = !_isFullscreen;
+    });
+    TxaPlatform.setFullscreen(_isFullscreen);
+  }
+
+  void _startSpeedUp2x() {
+    if (_controller == null || !_isPlayerInitialized) return;
+    setState(() {
+      _preHoldingSpeed = _playbackSpeed;
+      _playbackSpeed = 2.0;
+      _isHoldingSpeedUp = true;
+    });
+    _controller!.setPlaybackSpeed(2.0);
+    try {
+      HapticFeedback.mediumImpact();
+    } catch (_) {}
+  }
+
+  void _stopSpeedUp2x() {
+    if (!_isHoldingSpeedUp) return;
+    if (_controller == null || !_isPlayerInitialized) return;
+    setState(() {
+      _playbackSpeed = _preHoldingSpeed;
+      _isHoldingSpeedUp = false;
+    });
+    _controller!.setPlaybackSpeed(_preHoldingSpeed);
+  }
+
+  void _toggleMute() {
+    if (_controller == null || !_isPlayerInitialized) return;
+    if (_volume > 0.0) {
+      _tempVolume = _volume;
+      _volume = 0.0;
+      _controller!.setVolume(0.0);
+      TxaToast.show(context, TxaLanguage.currentLang == 'vi' ? 'Đã tắt tiếng' : 'Muted');
+    } else {
+      _volume = _tempVolume > 0.0 ? _tempVolume : 1.0;
+      _controller!.setVolume(_volume);
+      TxaToast.show(context, "${TxaLanguage.currentLang == 'vi' ? 'Âm lượng' : 'Volume'}: ${(_volume * 100).toInt()}%");
+    }
+    setState(() {});
+  }
+
+  void _handleDesktopKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    _resetHideControlsTimer();
+
+    final logicalKey = event.logicalKey;
+
+    if (logicalKey == LogicalKeyboardKey.space || logicalKey == LogicalKeyboardKey.enter) {
+      if (_isSkipVisible()) {
+        _handleSkipIntroOutro();
+      } else {
+        _togglePlayPause();
+      }
+    } else if (logicalKey == LogicalKeyboardKey.arrowRight) {
+      _seek(10);
+    } else if (logicalKey == LogicalKeyboardKey.arrowLeft) {
+      _seek(-10);
+    } else if (logicalKey == LogicalKeyboardKey.arrowUp) {
+      _adjustVolume(0.05);
+    } else if (logicalKey == LogicalKeyboardKey.arrowDown) {
+      _adjustVolume(-0.05);
+    } else if (logicalKey == LogicalKeyboardKey.keyF) {
+      _toggleFullscreen();
+    } else if (logicalKey == LogicalKeyboardKey.keyM) {
+      _toggleMute();
+    } else if (logicalKey == LogicalKeyboardKey.escape) {
+      if (_showSettingsPanel) {
+        setState(() {
+          _showSettingsPanel = false;
+        });
+      } else if (_showPlaylistPanel) {
+        _closePlaylistPanel();
+      }
+    }
+  }
+
+  // --- Aspect Ratio selection bottom sheet ---
+  void _showMobileAspectRatioPanel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111827),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final modes = [
+          {'id': 'fit', 'label': TxaLanguage.currentLang == 'vi' ? 'Bản gốc (Fit)' : 'Original (Fit)'},
+          {'id': 'fill', 'label': TxaLanguage.currentLang == 'vi' ? 'Tràn màn hình (Fill)' : 'Stretch (Fill)'},
+          {'id': '16_9', 'label': '16:9'},
+          {'id': '4_3', 'label': '4:3'},
+        ];
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  TxaLanguage.currentLang == 'vi' ? 'Tỉ lệ khung hình' : 'Aspect Ratio',
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: modes.length,
+                  itemBuilder: (c, idx) {
+                    final m = modes[idx];
+                    final isSelected = _aspectRatioMode == m['id'];
+                    return InkWell(
+                      onTap: () {
+                        setState(() {
+                          _aspectRatioMode = m['id']!;
+                        });
+                        Navigator.pop(ctx);
+                        TxaToast.show(context, "${TxaLanguage.currentLang == 'vi' ? 'Tỉ lệ' : 'Aspect ratio'}: ${m['label']}");
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              m['label']!,
+                              style: TextStyle(
+                                color: isSelected ? const Color(0xFF737DFD) : Colors.white,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(Icons.check, color: Color(0xFF737DFD), size: 18),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // --- Smart TV Key Handler ---
   void _handleTvKeyEvent(KeyEvent event) {
     _resetHideControlsTimer();
@@ -2131,6 +2327,48 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           _adjustVolume(-0.1);
         }
       }
+    }
+  }
+
+  Widget _buildVideoWidget() {
+    if (!_isPlayerInitialized || _controller == null) {
+      return const SizedBox.shrink();
+    }
+
+    Widget video = VideoPlayer(_controller!);
+
+    switch (_aspectRatioMode) {
+      case 'fill':
+        return FittedBox(
+          fit: BoxFit.fill,
+          child: SizedBox(
+            width: _controller!.value.size.width > 0 ? _controller!.value.size.width : 1920,
+            height: _controller!.value.size.height > 0 ? _controller!.value.size.height : 1080,
+            child: video,
+          ),
+        );
+      case '16_9':
+        return Center(
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: video,
+          ),
+        );
+      case '4_3':
+        return Center(
+          child: AspectRatio(
+            aspectRatio: 4 / 3,
+            child: video,
+          ),
+        );
+      case 'fit':
+      default:
+        return Center(
+          child: AspectRatio(
+            aspectRatio: _controller!.value.aspectRatio,
+            child: video,
+          ),
+        );
     }
   }
 
@@ -2302,12 +2540,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           // 1. VIDEO PLAYER
           if (_isPlayerInitialized) ...[
             Positioned.fill(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: _controller!.value.aspectRatio,
-                  child: VideoPlayer(_controller!),
-                ),
-              ),
+              child: _buildVideoWidget(),
             ),
             if (_controller!.value.isBuffering)
               Positioned.fill(
@@ -2351,6 +2584,38 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                 ),
               ),
             ),
+
+          // Speed Up HUD feedback notification
+          if (_isHoldingSpeedUp)
+            Positioned(
+              top: 60,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF737DFD).withValues(alpha: 0.5), width: 1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.fast_forward_rounded, color: Color(0xFF737DFD), size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          TxaLanguage.t('player_fast_forward_2x'),
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
 
           // Exclude Focus for Overlay UI on TV to prevent controls from stealing focus from root _tvFocusNode
           Positioned.fill(
@@ -2700,6 +2965,12 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                         onPressed: () => _showMobileSpeedPanel(context),
                                         tooltip: TxaLanguage.t('play_speed'),
                                       ),
+                                      SizedBox(width: 8 * scale),
+                                      IconButton(
+                                        icon: Icon(Icons.aspect_ratio_rounded, color: Colors.white, size: iconSize - 2),
+                                        onPressed: () => _showMobileAspectRatioPanel(context),
+                                        tooltip: TxaLanguage.currentLang == 'vi' ? 'Tỉ lệ khung hình' : 'Aspect Ratio',
+                                      ),
                                       if (widget.servers != null && widget.servers!.isNotEmpty) ...[
                                         SizedBox(width: 8 * scale),
                                         IconButton(
@@ -2792,6 +3063,20 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                         onPressed: () => _showMobileSpeedPanel(context),
                                         tooltip: TxaLanguage.t('play_speed'),
                                       ),
+                                      SizedBox(width: 12 * scale),
+                                      IconButton(
+                                        icon: Icon(Icons.aspect_ratio_rounded, color: Colors.white, size: iconSize - 2),
+                                        onPressed: () => _showMobileAspectRatioPanel(context),
+                                        tooltip: TxaLanguage.currentLang == 'vi' ? 'Tỉ lệ khung hình' : 'Aspect Ratio',
+                                      ),
+                                      if (TxaPlatform.isDesktop) ...[
+                                        SizedBox(width: 12 * scale),
+                                        IconButton(
+                                          icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: Colors.white, size: iconSize),
+                                          onPressed: _toggleFullscreen,
+                                          tooltip: TxaLanguage.currentLang == 'vi' ? 'Toàn màn hình' : 'Fullscreen',
+                                        ),
+                                      ],
                                       if (widget.servers != null && widget.servers!.isNotEmpty) ...[
                                         SizedBox(width: 12 * scale),
                                         IconButton(
@@ -3468,13 +3753,35 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         child: playerView,
       );
     } else if (TxaPlatform.isDesktop) {
-      // Desktop: click only, no swipe/drag gestures
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          _toggleControls();
+      // Desktop: keyboard shortcuts, double click to fullscreen, click to toggle controls
+      return Focus(
+        focusNode: _desktopFocusNode,
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          _handleDesktopKeyEvent(event);
+          return KeyEventResult.handled;
         },
-        child: playerView,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            _desktopFocusNode.requestFocus();
+            _toggleControls();
+          },
+          onDoubleTap: () {
+            _toggleFullscreen();
+          },
+          onLongPressStart: (details) {
+            final screenWidth = MediaQuery.of(context).size.width;
+            final pressX = details.globalPosition.dx;
+            if (pressX > screenWidth * 0.5) {
+              _startSpeedUp2x();
+            }
+          },
+          onLongPressEnd: (details) {
+            _stopSpeedUp2x();
+          },
+          child: playerView,
+        ),
       );
     } else {
       // Mobile touch gestures
@@ -3496,6 +3803,17 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           } else if (tapX > screenWidth * 0.65) {
             _seek(10);
           }
+        },
+        onLongPressStart: (details) {
+          if (_isLocked) return;
+          final screenWidth = MediaQuery.of(context).size.width;
+          final pressX = details.globalPosition.dx;
+          if (pressX > screenWidth * 0.5) {
+            _startSpeedUp2x();
+          }
+        },
+        onLongPressEnd: (details) {
+          _stopSpeedUp2x();
         },
         onVerticalDragUpdate: (details) {
           if (_isLocked) return;

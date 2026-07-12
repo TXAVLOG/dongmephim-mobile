@@ -156,7 +156,7 @@ class _TxaDrawerState extends State<TxaDrawer> {
         TxaToast.show(context, "Không tìm thấy liên kết tải iOS.", isError: true);
       }
     } else if (Platform.isWindows) {
-      final String rawUrl = (info['windows_download_url'] ?? info['download_url'] ?? '').toString();
+      final String rawUrl = (info['windows_download_url'] ?? '').toString();
       final String filename = 'DongMePhim_v${version}_Setup.exe';
 
       if (rawUrl.isEmpty) {

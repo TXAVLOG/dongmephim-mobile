@@ -3,6 +3,8 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -26,6 +28,27 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+
+  auto channel = std::make_unique<flutter::MethodChannel<>>(
+      flutter_controller_->engine()->messenger(),
+      "online.dongmephim/platform",
+      &flutter::StandardMethodCodec::GetInstance());
+
+  channel->SetMethodCallHandler(
+      [this](const flutter::MethodCall<>& call,
+             std::unique_ptr<flutter::MethodResult<>> result) {
+        if (call.method_name() == "setFullscreen") {
+          const auto* is_fullscreen = std::get_if<bool>(call.arguments());
+          if (is_fullscreen) {
+            this->SetFullscreen(*is_fullscreen);
+            result->Success(flutter::EncodableValue(true));
+          } else {
+            result->Error("BAD_ARGUMENT", "Argument must be a boolean");
+          }
+        } else {
+          result->NotImplemented();
+        }
+      });
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -68,4 +91,47 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
+}
+
+void FlutterWindow::SetFullscreen(bool fullscreen) {
+  if (fullscreen == is_fullscreen_) return;
+  is_fullscreen_ = fullscreen;
+
+  HWND hwnd = GetHandle();
+  if (!hwnd) return;
+
+  if (is_fullscreen_) {
+    // Save current window placement
+    saved_placement_.length = sizeof(WINDOWPLACEMENT);
+    GetWindowPlacement(hwnd, &saved_placement_);
+
+    // Get monitor info
+    HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFO monitor_info = { sizeof(MONITORINFO) };
+    GetMonitorInfo(monitor, &monitor_info);
+
+    // Set style to borderless popup
+    DWORD style = GetWindowLong(hwnd, GWL_STYLE);
+    saved_style_ = style;
+    SetWindowLong(hwnd, GWL_STYLE, style & ~WS_OVERLAPPEDWINDOW);
+
+    // Resize to monitor size
+    SetWindowPos(hwnd, HWND_TOP,
+                 monitor_info.rcMonitor.left,
+                 monitor_info.rcMonitor.top,
+                 monitor_info.rcMonitor.right - monitor_info.rcMonitor.left,
+                 monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top,
+                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  } else {
+    // Restore style
+    SetWindowLong(hwnd, GWL_STYLE, saved_style_);
+    
+    // Restore window placement
+    SetWindowPlacement(hwnd, &saved_placement_);
+    
+    // Redraw frame
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  }
 }
