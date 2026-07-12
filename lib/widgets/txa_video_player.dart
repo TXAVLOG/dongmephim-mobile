@@ -15,6 +15,8 @@ import '../utils/txa_format.dart';
 import 'txa_player_coachmark.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TxaVideoPlayer extends StatefulWidget {
   final String url;
@@ -78,6 +80,17 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
   bool _showControls = true;
   Timer? _hideControlsTimer;
   DateTime? _lastSavedTime;
+
+  // Player Settings & Dragging States
+  bool _autoSkipIntro = false;
+  bool _autoNextEpisode = false;
+  String _preferredSubLang = 'vi';
+  bool _showSettingsPanel = false;
+  int _settingsSelectedIndex = 0;
+  bool _isDraggingSlider = false;
+  bool _nextEpisodeOverlayTriggered = false;
+  Map<String, dynamic>? _nextEpisodeData;
+  Map<String, dynamic>? _prevEpisodeData;
 
   // Subtitles States
   String _subtitleMode = 'off'; // 'off' | 'primary' | 'bilingual'
@@ -155,6 +168,14 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     _currentServerName = widget.serverName;
     _playlistServerSelectedIndex = _currentServerIndex;
     
+    // Keep screen awake
+    try {
+      WakelockPlus.enable();
+    } catch (_) {}
+
+    _updateNextPrevEpisodeData();
+    _loadPlayerSettings();
+
     // Lock screen orientation to landscape for video player
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -208,6 +229,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   @override
   void dispose() {
+    // Reset wake lock
+    try {
+      WakelockPlus.disable();
+    } catch (_) {}
+
     // Reset screen orientation on exit
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -464,6 +490,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     _adController = VideoPlayerController.networkUrl(
       Uri.parse(_adUrl!),
       httpHeaders: headers,
+      formatHint: _adUrl!.contains('.m3u8') ? VideoFormat.hls : null,
     );
     try {
       await _adController!.initialize();
@@ -554,6 +581,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     _controller = VideoPlayerController.networkUrl(
       Uri.parse(_currentUrl),
       httpHeaders: headers,
+      formatHint: _currentUrl.contains('.m3u8') ? VideoFormat.hls : null,
     );
     
     try {
@@ -590,15 +618,51 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         final pos = _controller!.value.position;
         _updateActiveCues(pos);
 
-        setState(() {
-          _position = pos;
+        final sec = pos.inSeconds;
+
+        // Auto skip intro if enabled
+        final hasIntro = widget.timeIntroEnd > widget.timeIntroStart && widget.timeIntroEnd > 0;
+        if (_autoSkipIntro && hasIntro && sec >= widget.timeIntroStart && sec < widget.timeIntroEnd) {
+          _controller!.seekTo(Duration(seconds: widget.timeIntroEnd));
+          TxaToast.show(context, TxaLanguage.t('intro_skipped'));
+          return;
+        }
+
+        // Trigger next episode overlay 5 seconds before outro start (or video end) if enabled
+        if (_autoNextEpisode && _nextEpisodeData != null && !_nextEpisodeOverlayTriggered) {
+          final outroStart = widget.timeOutroStart;
+          final hasOutro = widget.timeOutroEnd > widget.timeOutroStart && widget.timeOutroEnd > 0;
+          final triggerTime = hasOutro ? outroStart - 5 : _duration.inSeconds - 5;
+          if (triggerTime > 0 && sec >= triggerTime) {
+            _nextEpisodeOverlayTriggered = true;
+            setState(() {
+              _showNextEpisodeOverlay = true;
+              _nextEpisodeCountdown = 5;
+            });
+            _startNextEpisodeCountdown();
+          }
+        }
+
+        if (!_isDraggingSlider) {
+          setState(() {
+            _position = pos;
+            if (_controller!.value.position >= _controller!.value.duration &&
+                _controller!.value.duration > Duration.zero &&
+                _isPlaying) {
+              _isPlaying = false;
+              _handleVideoEnded();
+            }
+          });
+        } else {
           if (_controller!.value.position >= _controller!.value.duration &&
               _controller!.value.duration > Duration.zero &&
               _isPlaying) {
-            _isPlaying = false;
-            _handleVideoEnded();
+            setState(() {
+              _isPlaying = false;
+              _handleVideoEnded();
+            });
           }
-        });
+        }
 
         // Save progress dynamically every 5 seconds
         final now = DateTime.now();
@@ -634,6 +698,134 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         dur,
         _currentServerIndex,
       );
+    }
+  }
+
+  // --- PLAYER SETTINGS & EPISODE HELPERS ---
+  Future<void> _loadPlayerSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
+        _autoNextEpisode = prefs.getBool('auto_next_episode') ?? false;
+        _preferredSubLang = prefs.getString('preferred_sub_lang') ?? 'vi';
+      });
+      _applyPreferredSubtitle();
+    } catch (_) {}
+  }
+
+  Future<void> _setPlayerSetting(String key, dynamic value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value is bool) {
+        await prefs.setBool(key, value);
+      } else if (value is String) {
+        await prefs.setString(key, value);
+      }
+      await _loadPlayerSettings();
+    } catch (_) {}
+  }
+
+  void _applyPreferredSubtitle() {
+    final subs = widget.subtitles ?? [];
+    if (subs.isEmpty) return;
+    
+    int targetIndex = -1;
+    for (int i = 0; i < subs.length; i++) {
+      final sub = subs[i];
+      final label = (sub['label'] ?? '').toString().toLowerCase();
+      final fileUrl = (sub['file'] ?? '').toString().toLowerCase();
+      
+      if (_preferredSubLang == 'vi' && (label.contains('việt') || label.contains('viet') || fileUrl.contains('/vie') || fileUrl.contains('/vi'))) {
+        targetIndex = i;
+        break;
+      } else if (_preferredSubLang == 'en' && (label.contains('anh') || label.contains('english') || label.contains('engsub') || fileUrl.contains('/eng') || fileUrl.contains('/en'))) {
+        targetIndex = i;
+        break;
+      } else if (_preferredSubLang == 'zh' && (label.contains('trung') || label.contains('china') || label.contains('chinese') || fileUrl.contains('/chi') || fileUrl.contains('/zh'))) {
+        targetIndex = i;
+        break;
+      }
+    }
+    
+    if (targetIndex != -1) {
+      setState(() {
+        _primarySubIdx = targetIndex;
+        _subtitleMode = 'primary';
+        _secondaryCues = [];
+        _activeSecondaryCue = null;
+      });
+      _loadSubtitleTrack(targetIndex, true);
+    }
+  }
+
+  Map<String, dynamic>? _getNextEpisode() {
+    if (widget.servers == null || widget.servers!.isEmpty) return null;
+    if (_currentServerIndex >= widget.servers!.length) return null;
+    
+    final server = widget.servers![_currentServerIndex];
+    final rawEps = server['server_data'] as List? ?? [];
+    final eps = rawEps.where((ep) => ep['is_unreleased'] != true).toList();
+    
+    int currentIdx = eps.indexWhere((ep) => ep['id']?.toString() == _currentEpisodeId || ep['slug']?.toString() == _currentEpisodeId);
+    if (currentIdx != -1 && currentIdx + 1 < eps.length) {
+      final nextEp = eps[currentIdx + 1];
+      return {
+        'id': nextEp['id']?.toString() ?? nextEp['slug']?.toString(),
+        'name': nextEp['name'] ?? 'Tập tiếp theo',
+        'movieName': widget.movieName,
+        'thumb': nextEp['thumb'] ?? nextEp['still_path'] ?? nextEp['thumb_url'] ?? '',
+        'ep': nextEp
+      };
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _getPrevEpisode() {
+    if (widget.servers == null || widget.servers!.isEmpty) return null;
+    if (_currentServerIndex >= widget.servers!.length) return null;
+    
+    final server = widget.servers![_currentServerIndex];
+    final rawEps = server['server_data'] as List? ?? [];
+    final eps = rawEps.where((ep) => ep['is_unreleased'] != true).toList();
+    
+    int currentIdx = eps.indexWhere((ep) => ep['id']?.toString() == _currentEpisodeId || ep['slug']?.toString() == _currentEpisodeId);
+    if (currentIdx > 0 && currentIdx < eps.length) {
+      final prevEp = eps[currentIdx - 1];
+      return {
+        'id': prevEp['id']?.toString() ?? prevEp['slug']?.toString(),
+        'name': prevEp['name'] ?? 'Tập trước',
+        'movieName': widget.movieName,
+        'thumb': prevEp['thumb'] ?? prevEp['still_path'] ?? prevEp['thumb_url'] ?? '',
+        'ep': prevEp
+      };
+    }
+    return null;
+  }
+
+  void _updateNextPrevEpisodeData() {
+    setState(() {
+      _nextEpisodeData = _getNextEpisode();
+      _prevEpisodeData = _getPrevEpisode();
+    });
+  }
+
+  void _playNextEpisode() {
+    _nextEpisodeTimer?.cancel();
+    final next = _getNextEpisode();
+    if (next != null && next['ep'] != null) {
+      _playNewEpisodeInternally(_currentServerIndex, next['ep']);
+    } else if (widget.onPlayNext != null) {
+      widget.onPlayNext!();
+    }
+  }
+
+  void _playPrevEpisode() {
+    final prev = _getPrevEpisode();
+    if (prev != null && prev['ep'] != null) {
+      _playNewEpisodeInternally(_currentServerIndex, prev['ep']);
+    } else if (widget.onPlayPrev != null) {
+      widget.onPlayPrev!();
     }
   }
 
@@ -867,21 +1059,21 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     }
 
     // Episode Navigation section for TV settings menu
-    if (widget.prevEpisode != null || widget.nextEpisode != null) {
+    if (_prevEpisodeData != null || _nextEpisodeData != null) {
       items.add({
         'type': 'section',
         'label': TxaLanguage.t('switch_episode'),
       });
-      if (widget.prevEpisode != null) {
+      if (_prevEpisodeData != null) {
         items.add({
           'type': 'play_prev',
-          'label': TxaLanguage.t('prev_episode_label', replace: {'name': widget.prevEpisode!['name'] ?? ''}),
+          'label': TxaLanguage.t('prev_episode_label', replace: {'name': _prevEpisodeData!['name'] ?? ''}),
         });
       }
-      if (widget.nextEpisode != null) {
+      if (_nextEpisodeData != null) {
         items.add({
           'type': 'play_next',
-          'label': TxaLanguage.t('next_episode_label', replace: {'name': widget.nextEpisode!['name'] ?? ''}),
+          'label': TxaLanguage.t('next_episode_label', replace: {'name': _nextEpisodeData!['name'] ?? ''}),
         });
       }
     }
@@ -955,10 +1147,10 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         _setPlaybackSpeed(item['value']);
         break;
       case 'play_prev':
-        if (widget.onPlayPrev != null) widget.onPlayPrev!();
+        _playPrevEpisode();
         break;
       case 'play_next':
-        if (widget.onPlayNext != null) widget.onPlayNext!();
+        _playNextEpisode();
         break;
       case 'tv_server':
         final server = widget.servers![item['index']];
@@ -1000,7 +1192,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   // --- NEXT EPISODE COUNTDOWN FLOW ---
   void _handleVideoEnded() {
-    if (!TxaPlatform.isTV && widget.nextEpisode != null && widget.onPlayNext != null) {
+    if (_nextEpisodeData != null) {
       setState(() {
         _showNextEpisodeOverlay = true;
         _nextEpisodeCountdown = 5;
@@ -1023,17 +1215,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           _nextEpisodeCountdown--;
         } else {
           timer.cancel();
+          _showNextEpisodeOverlay = false;
           _playNextEpisode();
         }
       });
     });
-  }
-
-  void _playNextEpisode() {
-    _nextEpisodeTimer?.cancel();
-    if (widget.onPlayNext != null) {
-      widget.onPlayNext!();
-    }
   }
 
   void _cancelNextEpisode() {
@@ -1363,6 +1549,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
       _currentEpisodeName = ep['name'] ?? '';
       _currentUrl = url;
       _showPlaylistPanel = false;
+      _nextEpisodeOverlayTriggered = false;
       
       _primaryCues = [];
       _secondaryCues = [];
@@ -1370,19 +1557,39 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
       _activeSecondaryCue = null;
     });
     
+    _updateNextPrevEpisodeData();
+
     final subs = ep['subtitles'] ?? ep['subtitles_data'];
     if (subs != null && subs is List && subs.isNotEmpty) {
-      _primarySubIdx = 0;
-      _loadSubtitleTrack(0, true);
-      if (subs.length > 1) {
-        _secondarySubIdx = 1;
-        _loadSubtitleTrack(1, false);
-        _subtitleMode = 'bilingual';
-      } else {
-        _subtitleMode = 'primary';
+      int targetIndex = -1;
+      for (int i = 0; i < subs.length; i++) {
+        final sub = subs[i];
+        final label = (sub['label'] ?? '').toString().toLowerCase();
+        final fileUrl = (sub['file'] ?? '').toString().toLowerCase();
+        
+        if (_preferredSubLang == 'vi' && (label.contains('việt') || label.contains('viet') || fileUrl.contains('/vie') || fileUrl.contains('/vi'))) {
+          targetIndex = i;
+          break;
+        } else if (_preferredSubLang == 'en' && (label.contains('anh') || label.contains('english') || label.contains('engsub') || fileUrl.contains('/eng') || fileUrl.contains('/en'))) {
+          targetIndex = i;
+          break;
+        } else if (_preferredSubLang == 'zh' && (label.contains('trung') || label.contains('china') || label.contains('chinese') || fileUrl.contains('/chi') || fileUrl.contains('/zh'))) {
+          targetIndex = i;
+          break;
+        }
       }
+
+      if (targetIndex == -1) targetIndex = 0;
+
+      setState(() {
+        _primarySubIdx = targetIndex;
+        _subtitleMode = 'primary';
+      });
+      _loadSubtitleTrack(targetIndex, true);
     } else {
-      _subtitleMode = 'off';
+      setState(() {
+        _subtitleMode = 'off';
+      });
     }
     
     _initMainPlayer();
@@ -1530,6 +1737,104 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
             fontWeight: FontWeight.bold,
             fontSize: 11,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsToggleItem({
+    required int index,
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final isFocused = TxaPlatform.isTV && _settingsSelectedIndex == index;
+    return InkWell(
+      onTap: () {
+        onChanged(!value);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isFocused ? const Color(0xFF737DFD).withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.02),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isFocused ? const Color(0xFF737DFD) : Colors.white12,
+            width: isFocused ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: isFocused ? const Color(0xFF737DFD) : Colors.white70, size: 18),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isFocused ? const Color(0xFF737DFD) : Colors.white,
+                    fontSize: 12,
+                    fontWeight: isFocused ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+            Switch(
+              value: value,
+              activeThumbColor: const Color(0xFF737DFD),
+              activeTrackColor: const Color(0xFF737DFD).withValues(alpha: 0.5),
+              inactiveThumbColor: Colors.grey,
+              inactiveTrackColor: Colors.white24,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsRadioItem({
+    required int index,
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final isFocused = TxaPlatform.isTV && _settingsSelectedIndex == index;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isFocused
+              ? const Color(0xFF737DFD).withValues(alpha: 0.15)
+              : (isSelected ? const Color(0xFF737DFD).withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.02)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isFocused
+                ? const Color(0xFF737DFD)
+                : (isSelected ? const Color(0xFF737DFD).withValues(alpha: 0.3) : Colors.white12),
+            width: isFocused ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? const Color(0xFF737DFD) : Colors.white,
+                fontSize: 12,
+                fontWeight: isSelected || isFocused ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.radio_button_checked_rounded, color: Color(0xFF737DFD), size: 18)
+            else
+              const Icon(Icons.radio_button_off_rounded, color: Colors.white24, size: 18),
+          ],
         ),
       ),
     );
@@ -1698,6 +2003,42 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       final logicalKey = event.logicalKey;
       
+      if (_showSettingsPanel) {
+        if (logicalKey == LogicalKeyboardKey.arrowUp) {
+          setState(() {
+            if (_settingsSelectedIndex > 0) {
+              _settingsSelectedIndex--;
+            }
+          });
+        } else if (logicalKey == LogicalKeyboardKey.arrowDown) {
+          setState(() {
+            if (_settingsSelectedIndex < 4) {
+              _settingsSelectedIndex++;
+            }
+          });
+        } else if (logicalKey == LogicalKeyboardKey.select ||
+                   logicalKey == LogicalKeyboardKey.enter ||
+                   logicalKey == LogicalKeyboardKey.gameButtonSelect) {
+          if (_settingsSelectedIndex == 0) {
+            _setPlayerSetting('auto_skip_intro', !_autoSkipIntro);
+          } else if (_settingsSelectedIndex == 1) {
+            _setPlayerSetting('auto_next_episode', !_autoNextEpisode);
+          } else if (_settingsSelectedIndex == 2) {
+            _setPlayerSetting('preferred_sub_lang', 'vi');
+          } else if (_settingsSelectedIndex == 3) {
+            _setPlayerSetting('preferred_sub_lang', 'en');
+          } else if (_settingsSelectedIndex == 4) {
+            _setPlayerSetting('preferred_sub_lang', 'zh');
+          }
+        } else if (logicalKey == LogicalKeyboardKey.escape ||
+                   logicalKey == LogicalKeyboardKey.goBack) {
+          setState(() {
+            _showSettingsPanel = false;
+          });
+        }
+        return;
+      }
+
       if (_showPlaylistPanel) {
         final server = widget.servers?[_playlistServerSelectedIndex];
         final rawEps = server?['server_data'] as List? ?? [];
@@ -2189,10 +2530,10 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          if (widget.prevEpisode != null) ...[
+                          if (_prevEpisodeData != null) ...[
                             IconButton(
                               icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 32),
-                              onPressed: widget.onPlayPrev,
+                              onPressed: _playPrevEpisode,
                             ),
                             const SizedBox(width: 16),
                           ],
@@ -2218,11 +2559,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                             icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 36),
                             onPressed: () => _seek(10),
                           ),
-                          if (widget.nextEpisode != null) ...[
+                          if (_nextEpisodeData != null) ...[
                             const SizedBox(width: 16),
                             IconButton(
                               icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 32),
-                              onPressed: widget.onPlayNext,
+                              onPressed: _playNextEpisode,
                             ),
                           ],
                         ],
@@ -2301,10 +2642,25 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                                   thumbShape: RoundSliderThumbShape(enabledThumbRadius: thumbRadius),
                                                 ),
                                                 child: Slider(
-                                                  value: _position.inSeconds.toDouble(),
+                                                  value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
                                                   max: _duration.inSeconds.toDouble(),
+                                                  onChangeStart: (val) {
+                                                    setState(() {
+                                                      _isDraggingSlider = true;
+                                                    });
+                                                  },
                                                   onChanged: (val) {
-                                                    _seek(val.toInt() - _position.inSeconds);
+                                                    setState(() {
+                                                      _position = Duration(seconds: val.toInt());
+                                                    });
+                                                  },
+                                                  onChangeEnd: (val) {
+                                                    if (_controller != null) {
+                                                      _controller!.seekTo(Duration(seconds: val.toInt()));
+                                                    }
+                                                    setState(() {
+                                                      _isDraggingSlider = false;
+                                                    });
                                                   },
                                                 ),
                                               ),
@@ -2352,6 +2708,17 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                           tooltip: TxaLanguage.t('episode_list'),
                                         ),
                                       ],
+                                      SizedBox(width: 8 * scale),
+                                      IconButton(
+                                        icon: Icon(Icons.settings_rounded, color: Colors.white, size: iconSize - 2),
+                                        onPressed: () {
+                                          setState(() {
+                                            _showSettingsPanel = !_showSettingsPanel;
+                                            _showPlaylistPanel = false;
+                                          });
+                                        },
+                                        tooltip: TxaLanguage.t('settings'),
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -2362,10 +2729,10 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      if (widget.prevEpisode != null) ...[
+                                       if (_prevEpisodeData != null) ...[
                                         IconButton(
                                           icon: Icon(Icons.skip_previous_rounded, color: Colors.white, size: iconSize + 2),
-                                          onPressed: widget.onPlayPrev,
+                                          onPressed: _playPrevEpisode,
                                         ),
                                         SizedBox(width: 8 * scale),
                                       ],
@@ -2391,11 +2758,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                         icon: Icon(Icons.forward_10_rounded, color: Colors.white, size: iconSize),
                                         onPressed: () => _seek(10),
                                       ),
-                                      if (widget.nextEpisode != null) ...[
+                                      if (_nextEpisodeData != null) ...[
                                         SizedBox(width: 8 * scale),
                                         IconButton(
                                           icon: Icon(Icons.skip_next_rounded, color: Colors.white, size: iconSize + 2),
-                                          onPressed: widget.onPlayNext,
+                                          onPressed: _playNextEpisode,
                                         ),
                                       ],
                                       // Desktop Volume Control
@@ -2433,6 +2800,17 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                           tooltip: TxaLanguage.t('episode_list'),
                                         ),
                                       ],
+                                      SizedBox(width: 12 * scale),
+                                      IconButton(
+                                        icon: Icon(Icons.settings_rounded, color: Colors.white, size: iconSize - 2),
+                                        onPressed: () {
+                                          setState(() {
+                                            _showSettingsPanel = !_showSettingsPanel;
+                                            _showPlaylistPanel = false;
+                                          });
+                                        },
+                                        tooltip: TxaLanguage.t('settings'),
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -2668,7 +3046,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           ),
 
         // 12. NEXT EPISODE COUNTDOWN OVERLAY (Mobile Only)
-        if (_showNextEpisodeOverlay && widget.nextEpisode != null)
+        if (_showNextEpisodeOverlay && _nextEpisodeData != null)
           Positioned.fill(
             child: Container(
               color: Colors.black.withValues(alpha: 0.90),
@@ -2697,9 +3075,9 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: widget.nextEpisode!['thumb'] != null && widget.nextEpisode!['thumb'].toString().isNotEmpty
+                                child: _nextEpisodeData!['thumb'] != null && _nextEpisodeData!['thumb'].toString().isNotEmpty
                                     ? Image.network(
-                                        widget.nextEpisode!['thumb'],
+                                        _nextEpisodeData!['thumb'],
                                         width: 160,
                                         height: 90,
                                         fit: BoxFit.cover,
@@ -2719,7 +3097,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      widget.nextEpisode!['name'] ?? '',
+                                      _nextEpisodeData!['name'] ?? '',
                                       style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
                                     ),
                                   ),
@@ -2732,14 +3110,14 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    widget.nextEpisode!['movieName'] ?? '',
+                                    _nextEpisodeData!['movieName'] ?? '',
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    widget.nextEpisode!['name'] ?? '',
+                                    _nextEpisodeData!['name'] ?? '',
                                     style: const TextStyle(color: Color(0xFF737DFD), fontSize: 13, fontWeight: FontWeight.bold),
                                   ),
                                 ],
@@ -2808,6 +3186,112 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
+                ),
+              ),
+            ),
+
+          // 14. SETTINGS SIDE PANEL DRAWER (Mobile & TV)
+          if (_showSettingsPanel)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: TxaPlatform.isTV ? 360 : 320,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.98),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    )
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.settings_rounded, color: Color(0xFF737DFD), size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              TxaLanguage.t('settings').toUpperCase(),
+                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                          onPressed: () {
+                            setState(() {
+                              _showSettingsPanel = false;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          _buildSettingsToggleItem(
+                            index: 0,
+                            icon: Icons.fast_forward_rounded,
+                            title: 'Tự động bỏ qua Intro',
+                            value: _autoSkipIntro,
+                            onChanged: (val) {
+                              _setPlayerSetting('auto_skip_intro', val);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSettingsToggleItem(
+                            index: 1,
+                            icon: Icons.skip_next_rounded,
+                            title: 'Tự động chuyển tập',
+                            value: _autoNextEpisode,
+                            onChanged: (val) {
+                              _setPlayerSetting('auto_next_episode', val);
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'NGÔN NGỮ PHỤ ĐỀ ƯU TIÊN',
+                            style: TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildSettingsRadioItem(
+                            index: 2,
+                            title: 'Tiếng Việt',
+                            isSelected: _preferredSubLang == 'vi',
+                            onTap: () {
+                              _setPlayerSetting('preferred_sub_lang', 'vi');
+                            },
+                          ),
+                          _buildSettingsRadioItem(
+                            index: 3,
+                            title: 'English',
+                            isSelected: _preferredSubLang == 'en',
+                            onTap: () {
+                              _setPlayerSetting('preferred_sub_lang', 'en');
+                            },
+                          ),
+                          _buildSettingsRadioItem(
+                            index: 4,
+                            title: 'Tiếng Trung',
+                            isSelected: _preferredSubLang == 'zh',
+                            onTap: () {
+                              _setPlayerSetting('preferred_sub_lang', 'zh');
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -3015,12 +3499,21 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         },
         onVerticalDragUpdate: (details) {
           if (_isLocked) return;
-          final screenWidth = MediaQuery.of(context).size.width;
+          final size = MediaQuery.of(context).size;
+          final screenWidth = size.width;
+          final screenHeight = size.height;
           final dragX = details.globalPosition.dx;
+          final dragY = details.globalPosition.dy;
+          
+          // Only active within middle vertical area
+          if (dragY < screenHeight * 0.15 || dragY > screenHeight * 0.80) {
+            return;
+          }
+          
           final delta = -details.delta.dy / 300.0;
-          if (dragX < screenWidth * 0.45) {
+          if (dragX < screenWidth * 0.3) {
             _adjustBrightness(delta);
-          } else if (dragX > screenWidth * 0.55) {
+          } else if (dragX > screenWidth * 0.7) {
             _adjustVolume(delta);
           }
         },

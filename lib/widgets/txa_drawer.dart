@@ -144,12 +144,15 @@ class _TxaDrawerState extends State<TxaDrawer> {
           if (await canLaunchUrl(uri)) {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
           } else {
+            if (!mounted) return;
             TxaToast.show(context, "Không thể mở liên kết tải iOS.", isError: true);
           }
         } catch (e) {
+          if (!mounted) return;
           TxaToast.show(context, "Lỗi mở liên kết: $e", isError: true);
         }
       } else {
+        if (!mounted) return;
         TxaToast.show(context, "Không tìm thấy liên kết tải iOS.", isError: true);
       }
     } else if (Platform.isWindows) {
