@@ -98,15 +98,72 @@ class TxaRichTextParser {
     return widgets.isNotEmpty ? widgets : [const SizedBox.shrink()];
   }
 
+  static Widget _buildBadge(String tag, double fontSize) {
+    final cleanTag = tag.toUpperCase().trim();
+    Color bg;
+    Color textCol;
+    
+    if (cleanTag == 'FIXED' || cleanTag == 'FIX') {
+      bg = const Color(0xFF2ECC71).withValues(alpha: 0.15);
+      textCol = const Color(0xFF2ECC71);
+    } else if (cleanTag == 'NEW' || cleanTag == 'FEATURE') {
+      bg = const Color(0xFF9B59B6).withValues(alpha: 0.15);
+      textCol = const Color(0xFFD896FF);
+    } else if (cleanTag == 'UPDATE' || cleanTag == 'IMPROVE' || cleanTag == 'UPGRADE') {
+      bg = const Color(0xFF3498DB).withValues(alpha: 0.15);
+      textCol = const Color(0xFF5DADE2);
+    } else if (cleanTag == 'HOTFIX' || cleanTag == 'CRITICAL') {
+      bg = const Color(0xFFE74C3C).withValues(alpha: 0.15);
+      textCol = const Color(0xFFEC7063);
+    } else {
+      bg = Colors.white.withValues(alpha: 0.08);
+      textCol = Colors.white70;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+      margin: const EdgeInsets.only(right: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: textCol.withValues(alpha: 0.3), width: 0.8),
+      ),
+      child: Text(
+        cleanTag,
+        style: TextStyle(
+          color: textCol,
+          fontSize: fontSize - 3,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
   static Widget _buildRichLine(String text, {required Color color, required double fontSize}) {
     final spans = <InlineSpan>[];
+    
+    // Parse tag if exists at the start
+    final tagRegex = RegExp(r'^\[([a-zA-Z0-9_\-\s]+)\]\s*(.*)$');
+    final tagMatch = tagRegex.firstMatch(text);
+    String remainingText = text;
+    
+    if (tagMatch != null) {
+      final tag = tagMatch.group(1)!;
+      remainingText = tagMatch.group(2)!;
+      spans.add(WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: _buildBadge(tag, fontSize),
+      ));
+    }
+
     // Parse **bold**, *italic*, `code`, __bold__, _italic_
     final regex = RegExp(r'(\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|_(.+?)_|`(.+?)`)');
     int lastEnd = 0;
 
-    for (final match in regex.allMatches(text)) {
+    for (final match in regex.allMatches(remainingText)) {
       if (match.start > lastEnd) {
-        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
+        spans.add(TextSpan(text: remainingText.substring(lastEnd, match.start)));
       }
       if (match.group(2) != null || match.group(3) != null) {
         // Bold
@@ -138,8 +195,8 @@ class TxaRichTextParser {
       }
       lastEnd = match.end;
     }
-    if (lastEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastEnd)));
+    if (lastEnd < remainingText.length) {
+      spans.add(TextSpan(text: remainingText.substring(lastEnd)));
     }
 
     return Text.rich(
