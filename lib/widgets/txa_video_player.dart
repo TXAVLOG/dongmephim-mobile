@@ -604,6 +604,10 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     try {
       await _controller!.initialize();
       if (!mounted) return;
+
+      // Restore volume and playback speed settings
+      await _controller!.setVolume(_volume);
+      await _controller!.setPlaybackSpeed(_playbackSpeed);
       
       setState(() {
         _duration = _controller!.value.duration;
