@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
@@ -348,7 +349,8 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   // --- DRM Secure Mode ---
   void _enableSecureMode() async {
-    if (TxaPlatform.isDesktop || TxaPlatform.isWeb) return;
+    if (TxaPlatform.isWeb) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
       await _platformChannel.invokeMethod('enableSecureMode');
       _secureEnabled = true;
@@ -358,7 +360,8 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
   }
 
   void _disableSecureMode() async {
-    if (TxaPlatform.isDesktop || TxaPlatform.isWeb) return;
+    if (TxaPlatform.isWeb) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     if (!_secureEnabled) return;
     try {
       await _platformChannel.invokeMethod('disableSecureMode');
@@ -602,13 +605,12 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   // --- Main Player Flow ---
   void _initMainPlayer({Duration? startFrom}) async {
-    final bool bypassHeaders = _currentUrl.contains('.r2.dev') ||
-        _currentUrl.contains('google') ||
+    final bool bypassHeaders = _currentUrl.contains('google') ||
         _currentUrl.contains('github') ||
         _currentUrl.contains('mediafire') ||
         _currentUrl.contains('dropbox');
 
-    final headers = (TxaPlatform.isDesktop || TxaPlatform.isWeb || bypassHeaders)
+    final headers = (TxaPlatform.isWeb || bypassHeaders)
         ? const <String, String>{}
         : const {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
