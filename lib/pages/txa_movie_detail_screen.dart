@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
@@ -9,6 +10,7 @@ import '../services/txa_favorite_manager.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
 import '../widgets/txa_video_player.dart';
+import '../utils/txa_schedule.dart';
 import 'txa_profile_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -1113,16 +1115,28 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
     final currentServer = servers[_selectedServerIndex];
     final isLocked = currentServer['is_locked'] == true;
     final rawEpisodes = currentServer['server_data'] as List? ?? [];
+    final movie = _data?['movie'] ?? {};
+    final schedule = movie['broadcast_schedule'] as Map<String, dynamic>?;
     
-    // Hide unreleased episodes
-    final episodes = rawEpisodes.where((ep) => ep['is_unreleased'] != true).toList();
+    // Hide unreleased episodes dynamically using TxaSchedule
+    final List<dynamic> episodes = [];
+    for (int i = 0; i < rawEpisodes.length; i++) {
+      final ep = rawEpisodes[i];
+      final epName = (ep['name'] ?? '').toString();
+      final isUnreleased = TxaSchedule.isEpisodeUnreleased(epName, i, rawEpisodes, schedule);
+      if (!isUnreleased) {
+        episodes.add(ep);
+      }
+    }
 
     // Check if there is any unreleased episode in ANY server
     bool hasUnreleased = false;
     for (var srv in servers) {
       final eps = srv['server_data'] as List? ?? [];
-      for (var ep in eps) {
-        if (ep['is_unreleased'] == true) {
+      for (int i = 0; i < eps.length; i++) {
+        final ep = eps[i];
+        final epName = (ep['name'] ?? '').toString();
+        if (TxaSchedule.isEpisodeUnreleased(epName, i, eps, schedule)) {
           hasUnreleased = true;
           break;
         }
@@ -1130,68 +1144,14 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
       if (hasUnreleased) break;
     }
 
-    final movie = _data?['movie'] ?? {};
-    final String broadcastNoticeRaw = movie['broadcast_at'] ?? '';
-    final schedule = movie['broadcast_schedule'];
-    
-    String broadcastNotice = broadcastNoticeRaw;
+    String broadcastNotice = '';
     if (schedule != null) {
-      final nextDate = schedule['next_date']?.toString() ?? '';
-      final nextTime = schedule['next_time']?.toString() ?? '';
-      final nextEpisode = schedule['next_episode']?.toString() ?? '';
+      final nextDate = schedule['next_date']?.toString() ?? schedule['nextDate']?.toString() ?? '';
+      final nextTime = schedule['next_time']?.toString() ?? schedule['nextTime']?.toString() ?? '';
+      final nextEpisode = schedule['next_episode']?.toString() ?? schedule['nextEpisode']?.toString() ?? '';
+      final movieType = movie['type']?.toString() ?? 'series';
       
-      if (nextDate.isNotEmpty) {
-        // Format date DD-MM-YYYY
-        String formattedDate = nextDate;
-        final dateParts = nextDate.split('-');
-        if (dateParts.length == 3) {
-          formattedDate = '${dateParts[2]}-${dateParts[1]}-${dateParts[0]}';
-        }
-        final timeStr = nextTime.isNotEmpty ? '$nextTime ' : '';
-        final fullTime = '$timeStr$formattedDate';
-        
-        final movieType = movie['type']?.toString() ?? 'series';
-        final isSingle = movieType == 'movie' || movieType == 'single';
-        
-        if (isSingle) {
-          if (nextEpisode.toLowerCase() == 'full') {
-            broadcastNotice = TxaLanguage.t('broadcast_msg', replace: {
-              'prefix': TxaLanguage.t('final_part'),
-              'time': fullTime,
-            });
-          } else {
-            broadcastNotice = TxaLanguage.t('broadcast_msg', replace: {
-              'prefix': 'Phim',
-              'time': fullTime,
-            });
-          }
-        } else {
-          if (nextEpisode.toLowerCase() == 'full') {
-            broadcastNotice = TxaLanguage.t('broadcast_msg', replace: {
-              'prefix': 'Trọn bộ',
-              'time': fullTime,
-            });
-          } else if (nextEpisode.toLowerCase() == 'tập cuối' || nextEpisode.toLowerCase() == 'tap cuoi') {
-            broadcastNotice = TxaLanguage.t('broadcast_final_msg', replace: {
-              'prefix': TxaLanguage.t('final_ep'),
-              'time': fullTime,
-            });
-          } else {
-            String prefix = nextEpisode;
-            if (prefix.toLowerCase().startsWith('tập')) {
-              prefix = '${TxaLanguage.t('episode')}${prefix.substring(3)}';
-            } else if (prefix.toLowerCase().startsWith('tap')) {
-              prefix = '${TxaLanguage.t('episode')}${prefix.substring(3)}';
-            } else if (RegExp(r'^\d+$').hasMatch(prefix)) {
-              prefix = '${TxaLanguage.t('episode')} $prefix';
-            }
-            broadcastNotice = TxaLanguage.t('broadcast_msg', replace: {
-              'prefix': prefix,
-              'time': fullTime,
-            });
-          }
-        }
-      }
+      broadcastNotice = TxaSchedule.generateNotice(nextDate, nextTime, nextEpisode, movieType);
     }
 
     final totalEps = episodes.length;
@@ -1217,25 +1177,38 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                 border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
               ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(Icons.alarm_on_rounded, color: Colors.amber, size: 24),
-                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          TxaLanguage.t('unreleased_warning_title'),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          broadcastNotice,
-                          style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 12),
+                        const Icon(Icons.alarm_on_rounded, color: Colors.amber, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                TxaLanguage.t('unreleased_warning_title'),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                broadcastNotice,
+                                style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  if (schedule != null)
+                    TxaBroadcastCountdown(
+                      nextDate: schedule['next_date']?.toString() ?? schedule['nextDate']?.toString() ?? '',
+                      nextTime: schedule['next_time']?.toString() ?? schedule['nextTime']?.toString() ?? '',
+                    ),
                 ],
               ),
             ),
@@ -2327,6 +2300,119 @@ class _HeroActionButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(30),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class TxaBroadcastCountdown extends StatefulWidget {
+  final String nextDate;
+  final String nextTime;
+
+  const TxaBroadcastCountdown({
+    super.key,
+    required this.nextDate,
+    required this.nextTime,
+  });
+
+  @override
+  State<TxaBroadcastCountdown> createState() => _TxaBroadcastCountdownState();
+}
+
+class _TxaBroadcastCountdownState extends State<TxaBroadcastCountdown> {
+  Timer? _timer;
+  String _countdownText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _updateCountdown();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        _updateCountdown();
+      }
+    });
+  }
+
+  void _updateCountdown() {
+    String targetStr = '${widget.nextDate}T00:00:00+07:00';
+    if (widget.nextTime.isNotEmpty) {
+      final parts = widget.nextTime.split(':');
+      if (parts.length == 2) {
+        targetStr = '${widget.nextDate}T${widget.nextTime}:00+07:00';
+      } else {
+        targetStr = '${widget.nextDate}T${widget.nextTime}+07:00';
+      }
+    }
+
+    try {
+      final targetDate = DateTime.parse(targetStr);
+      final now = DateTime.now();
+      final diff = targetDate.difference(now);
+
+      if (diff.isNegative) {
+        setState(() {
+          _countdownText = TxaLanguage.t('countdown_unreleased');
+        });
+        _timer?.cancel();
+        return;
+      }
+
+      final days = diff.inDays;
+      final hours = diff.inHours % 24;
+      final minutes = diff.inMinutes % 60;
+      final seconds = diff.inSeconds % 60;
+
+      String text = '';
+      if (days > 0) {
+        text += '$days${TxaLanguage.t('countdown_days')} ';
+      }
+      text += '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+      setState(() {
+        _countdownText = text;
+      });
+    } catch (_) {
+      setState(() {
+        _countdownText = '';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_countdownText.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            TxaLanguage.t('broadcast_countdown_label'),
+            style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _countdownText,
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+          ),
+        ],
       ),
     );
   }
