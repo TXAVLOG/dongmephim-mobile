@@ -605,6 +605,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   // --- Main Player Flow ---
   void _initMainPlayer({Duration? startFrom}) async {
+    TxaLogger.log('Bắt đầu khởi tạo Main Player. URL: $_currentUrl', type: 'app');
     final bool bypassHeaders = _currentUrl.contains('google') ||
         _currentUrl.contains('github') ||
         _currentUrl.contains('mediafire') ||
@@ -616,6 +617,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': 'https://dongmephim.online/',
           };
+    TxaLogger.log('Headers cấu hình: $headers', type: 'app');
     _controller = VideoPlayerController.networkUrl(
       Uri.parse(_currentUrl),
       httpHeaders: headers,
@@ -625,6 +627,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     try {
       await _controller!.initialize();
       if (!mounted) return;
+      TxaLogger.log('Khởi tạo Player thành công. Kích thước: ${_controller!.value.size}, Thời lượng: ${_controller!.value.duration}', type: 'app');
 
       // Restore volume and playback speed settings
       await _controller!.setVolume(_volume);
@@ -719,7 +722,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         _tvFocusNode.requestFocus();
       }
     } catch (e) {
-      TxaLogger.log('Main player initialize error: $e. URL: ${widget.url}', type: 'crash');
+      TxaLogger.log('Main player initialize error: $e. URL: $_currentUrl', type: 'crash');
       if (mounted) {
         TxaToast.show(context, TxaLanguage.t('player_error_stream'), isError: true);
       }

@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:local_notifier/local_notifier.dart';
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'theme/txa_theme.dart';
 import 'services/txa_language.dart';
 import 'services/txa_auth_service.dart';
@@ -18,6 +20,17 @@ String? launchFilePath;
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize MediaKit for Windows only
+  if (TxaPlatform.isDesktop && Platform.isWindows) {
+    try {
+      VideoPlayerMediaKit.ensureInitialized(
+        windows: true,
+      );
+    } catch (e) {
+      debugPrint('Failed to initialize VideoPlayerMediaKit: $e');
+    }
+  }
 
   if (args.isNotEmpty) {
     launchFilePath = args[0];
