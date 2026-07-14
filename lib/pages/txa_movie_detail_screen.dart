@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
@@ -9,6 +10,7 @@ import '../services/txa_auth_service.dart';
 import '../services/txa_favorite_manager.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
+import '../utils/txa_platform.dart';
 import '../widgets/txa_video_player.dart';
 import '../utils/txa_schedule.dart';
 import 'txa_profile_screen.dart';
@@ -301,10 +303,14 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
   }
 
   String? _resolveStreamUrl(Map<String, dynamic> ep) {
-    for (final key in ['link_m3u8', 'stream_m3u8', 'stream_v6']) {
-      final val = ep[key]?.toString();
-      if (val != null && val.trim().isNotEmpty) {
-        return val.trim();
+    // On Windows, HLS (m3u8) streams from R2 are not supported by WMF.
+    // Skip m3u8 on Windows and fall through to embed streams.
+    if (!TxaPlatform.isDesktop || !Platform.isWindows) {
+      for (final key in ['link_m3u8', 'stream_m3u8', 'stream_v6']) {
+        final val = ep[key]?.toString();
+        if (val != null && val.trim().isNotEmpty) {
+          return val.trim();
+        }
       }
     }
 
@@ -319,8 +325,23 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
           final hash = match.group(2);
           return 'https://$domain/stream/$hash/master.m3u8';
         }
+        // On Windows, also try returning raw embed URL for webview
+        if (TxaPlatform.isDesktop && Platform.isWindows) {
+          return cleanUrl;
+        }
       }
     }
+
+    // Windows fallback: try m3u8 anyway as last resort
+    if (TxaPlatform.isDesktop && Platform.isWindows) {
+      for (final key in ['link_m3u8', 'stream_m3u8', 'stream_v6']) {
+        final val = ep[key]?.toString();
+        if (val != null && val.trim().isNotEmpty) {
+          return val.trim();
+        }
+      }
+    }
+
     return null;
   }
 
@@ -843,61 +864,73 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                         // Action Buttons Row (Play, Favorite, Rate, Download, Share)
                         (() {
                           final history = _data?['history'];
+                          final movie = _data?['movie'] ?? {};
+                          final schedule = movie['broadcast_schedule'] as Map<String, dynamic>?;
                           String watchButtonLabel = TxaLanguage.t('watch_now');
+
+                          // Helper: check if an episode is unreleased
+                          bool epIsUnreleased(Map<String, dynamic> ep, List<dynamic> allEps) {
+                            final idx = allEps.indexOf(ep);
+                            return TxaSchedule.isEpisodeUnreleased(
+                              ep['name']?.toString() ?? '',
+                              idx < 0 ? 0 : idx,
+                              allEps,
+                              schedule,
+                            );
+                          }
+
+                          // Check history episode validity (not unreleased)
+                          bool historyValid = false;
+                          String? historyEpId;
+                          int historyServerIdx = 0;
+                          double historyTime = 0;
+                          String historyEpName = '';
+
                           if (history != null && history['episode_id'] != null) {
-                            final historyEpId = history['episode_id'].toString();
-                            final historyServerIdx = int.tryParse(history['server_index'].toString()) ?? 0;
-                            
-                            String epName = '';
+                            historyEpId = history['episode_id'].toString();
+                            historyServerIdx = int.tryParse(history['server_index'].toString()) ?? 0;
+                            historyTime = double.tryParse(history['current_time'].toString()) ?? 0.0;
                             if (servers.length > historyServerIdx) {
                               final serverEps = servers[historyServerIdx]['server_data'] as List? ?? [];
                               final foundEp = serverEps.firstWhere(
                                 (e) => e['id']?.toString() == historyEpId || e['slug']?.toString() == historyEpId,
                                 orElse: () => null,
                               );
-                              if (foundEp != null) {
-                                epName = foundEp['name'] ?? '';
+                              if (foundEp != null && !epIsUnreleased(foundEp as Map<String, dynamic>, serverEps)) {
+                                historyValid = true;
+                                historyEpName = foundEp['name']?.toString() ?? 'Tập tiếp theo';
                               }
                             }
-                            if (epName.isEmpty) epName = 'Tập tiếp theo';
-                            watchButtonLabel = TxaLanguage.t('watch_resume', replace: {'ep': epName});
                           }
-                          
+
+                          if (historyValid && historyEpName.isNotEmpty) {
+                            watchButtonLabel = TxaLanguage.t('watch_resume', replace: {'ep': historyEpName});
+                          }
+
                           return _HeroActionButton(
                             label: watchButtonLabel,
                             icon: Icons.play_arrow_rounded,
                             color: TxaTheme.accent,
                             onTap: () {
-                              if (history != null && history['episode_id'] != null) {
-                                final historyEpId = history['episode_id'].toString();
-                                final historyServerIdx = int.tryParse(history['server_index'].toString()) ?? 0;
-                                final historyTime = double.tryParse(history['current_time'].toString()) ?? 0.0;
-                                
-                                // Find episode name
-                                String epName = 'Tập tiếp tục';
-                                if (servers.length > historyServerIdx) {
-                                  final serverEps = servers[historyServerIdx]['server_data'] as List? ?? [];
-                                  final foundEp = serverEps.firstWhere(
-                                    (e) => e['id']?.toString() == historyEpId || e['slug']?.toString() == historyEpId,
-                                    orElse: () => null,
-                                  );
-                                  if (foundEp != null) {
-                                    epName = foundEp['name'] ?? epName;
-                                  }
-                                }
-                                
-                                // Select the server index
+                              if (historyValid && historyEpId != null) {
                                 setState(() {
                                   _selectedServerIndex = historyServerIdx;
                                 });
-                                
-                                _watchMovie(historyEpId, epName, startTime: historyTime.toInt());
+                                _watchMovie(historyEpId, historyEpName, startTime: historyTime.toInt());
                               } else {
+                                // Play first available (released) episode
                                 if (servers.isNotEmpty) {
                                   final epList = servers[_selectedServerIndex]['server_data'] as List? ?? [];
-                                  if (epList.isNotEmpty) {
-                                    final firstEp = epList.first;
-                                    _watchMovie(firstEp['id']?.toString() ?? firstEp['slug'] ?? 'full', firstEp['name'] ?? 'Full');
+                                  // Skip unreleased episodes to find first watchable
+                                  final firstReleasedEp = epList.firstWhere(
+                                    (ep) => !epIsUnreleased(ep as Map<String, dynamic>, epList),
+                                    orElse: () => null,
+                                  );
+                                  if (firstReleasedEp != null) {
+                                    _watchMovie(
+                                      firstReleasedEp['id']?.toString() ?? firstReleasedEp['slug'] ?? 'full',
+                                      firstReleasedEp['name'] ?? 'Full',
+                                    );
                                     return;
                                   }
                                 }
