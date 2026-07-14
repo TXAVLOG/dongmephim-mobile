@@ -26,6 +26,7 @@ class TxaVideoPlayer extends StatefulWidget {
   final Map<String, dynamic>? adSettings;
   final VoidCallback? onEnded;
   final List<dynamic>? subtitles;
+  final String? storyboardUrl;
   final int timeIntroStart;
   final int timeIntroEnd;
   final int timeOutroStart;
@@ -50,6 +51,7 @@ class TxaVideoPlayer extends StatefulWidget {
     this.adSettings,
     this.onEnded,
     this.subtitles,
+    this.storyboardUrl,
     this.timeIntroStart = 0,
     this.timeIntroEnd = 0,
     this.timeOutroStart = 0,
@@ -112,6 +114,19 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
   List<TxaSubtitleCue> _secondaryCues = [];
   TxaSubtitleCue? _activePrimaryCue;
   TxaSubtitleCue? _activeSecondaryCue;
+
+  // Storyboard States
+  List<TxaStoryboardItem> _storyboardItems = [];
+  bool _storyboardLoaded = false;
+  Timer? _tvStoryboardTimer;
+  bool _showTvStoryboardPreview = false;
+
+  // Subtitle custom styling states
+  double _subtitleFontSize = 16.0;
+  String _subtitleColor = '#FFFFFF';
+  String _subtitleBorder = 'shadow'; // 'shadow' | 'stroke' | 'none'
+  double _subtitleBgOpacity = 0.0; // 0.0 to 1.0
+  String _secondarySubPosition = 'top'; // 'top' | 'bottom'
 
   // TV Subtitles Menu States
   bool _showTvSubtitlesMenu = false;
@@ -220,6 +235,9 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     }
 
     _startClockTimer();
+    if (widget.storyboardUrl != null && widget.storyboardUrl!.isNotEmpty) {
+      _loadStoryboard(widget.storyboardUrl!);
+    }
     _checkAndInitAdFlow();
 
     // Battery monitoring & system brightness/volume (mobile only)
@@ -273,6 +291,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     _indicatorTimer?.cancel();
     _nextEpisodeTimer?.cancel();
     _lockButtonTimer?.cancel();
+    _tvStoryboardTimer?.cancel();
     _tvFocusNode.dispose();
 
     // Reset brightness on mobile
@@ -730,6 +749,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
         _autoNextEpisode = prefs.getBool('auto_next_episode') ?? false;
         _preferredSubLang = prefs.getString('preferred_sub_lang') ?? 'vi';
+        _subtitleFontSize = prefs.getDouble('subtitle_font_size') ?? 16.0;
+        _subtitleColor = prefs.getString('subtitle_color') ?? '#FFFFFF';
+        _subtitleBorder = prefs.getString('subtitle_border') ?? 'shadow';
+        _subtitleBgOpacity = prefs.getDouble('subtitle_bg_opacity') ?? 0.0;
+        _secondarySubPosition = prefs.getString('secondary_sub_position') ?? 'top';
       });
       _applyPreferredSubtitle();
     } catch (_) {}
@@ -742,6 +766,8 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         await prefs.setBool(key, value);
       } else if (value is String) {
         await prefs.setString(key, value);
+      } else if (value is double) {
+        await prefs.setDouble(key, value);
       }
       await _loadPlayerSettings();
     } catch (_) {}
@@ -951,6 +977,111 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     } catch (e) {
       TxaLogger.log("Lỗi tải phụ đề index $index: $e", type: 'crash');
     }
+  }
+
+  Future<void> _loadStoryboard(String url) async {
+    if (url.isEmpty) return;
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final text = utf8.decode(response.bodyBytes, allowMalformed: true);
+        final lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+        final List<TxaStoryboardItem> items = [];
+        final timeRegex = RegExp(
+          r'(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[.,](\d{3})'
+        );
+        final timeRegexShort = RegExp(
+          r'(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{2}):(\d{2})[.,](\d{3})'
+        );
+
+        for (int i = 0; i < lines.length; i++) {
+          final line = lines[i].trim();
+          if (line.contains('-->')) {
+            double startTime = 0;
+            double endTime = 0;
+            final match = timeRegex.firstMatch(line);
+            if (match != null) {
+              startTime = double.parse(match.group(1)!) * 3600 +
+                  double.parse(match.group(2)!) * 60 +
+                  double.parse(match.group(3)!) +
+                  double.parse(match.group(4)!) / 1000.0;
+              endTime = double.parse(match.group(5)!) * 3600 +
+                  double.parse(match.group(6)!) * 60 +
+                  double.parse(match.group(7)!) +
+                  double.parse(match.group(8)!) / 1000.0;
+            } else {
+              final matchShort = timeRegexShort.firstMatch(line);
+              if (matchShort != null) {
+                startTime = double.parse(matchShort.group(1)!) * 60 +
+                    double.parse(matchShort.group(2)!) +
+                    double.parse(matchShort.group(3)!) / 1000.0;
+                endTime = double.parse(matchShort.group(4)!) * 60 +
+                    double.parse(matchShort.group(5)!) +
+                    double.parse(matchShort.group(6)!) / 1000.0;
+              }
+            }
+
+            if (i + 1 < lines.length) {
+              final nextLine = lines[i + 1].trim();
+              if (nextLine.isNotEmpty) {
+                final hashIdx = nextLine.indexOf('#');
+                if (hashIdx != -1) {
+                  final imgPath = nextLine.substring(0, hashIdx);
+                  final xywhStr = nextLine.substring(hashIdx + 1).replaceAll('xywh=', '');
+                  final coords = xywhStr.split(',').map((c) {
+                    final cleanC = c.trim();
+                    return int.tryParse(cleanC) ?? 0;
+                  }).toList();
+                  if (coords.length == 4) {
+                    String imgUrl = imgPath;
+                    if (!imgPath.startsWith('http') && !imgPath.startsWith('/')) {
+                      final baseUri = Uri.parse(url);
+                      imgUrl = baseUri.resolve(imgPath).toString();
+                    }
+                    items.add(TxaStoryboardItem(
+                      startTime: startTime,
+                      endTime: endTime,
+                      imgUrl: imgUrl,
+                      x: coords[0],
+                      y: coords[1],
+                      w: coords[2],
+                      h: coords[3],
+                    ));
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _storyboardItems = items;
+            _storyboardLoaded = true;
+          });
+        }
+      }
+    } catch (e) {
+      TxaLogger.log("Lỗi tải storyboard: $e", type: 'crash');
+    }
+  }
+
+  TxaStoryboardItem? _getStoryboardItem(double time) {
+    if (_storyboardItems.isEmpty) return null;
+    int low = 0;
+    int high = _storyboardItems.length - 1;
+    while (low <= high) {
+      int mid = (low + high) >> 1;
+      final item = _storyboardItems[mid];
+      if (time >= item.startTime && time <= item.endTime) {
+        return item;
+      } else if (time < item.startTime) {
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+    return null;
   }
 
   void _updateActiveCues(Duration position) {
@@ -1603,8 +1734,17 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
       _secondaryCues = [];
       _activePrimaryCue = null;
       _activeSecondaryCue = null;
+      _storyboardItems = [];
+      _storyboardLoaded = false;
+      _showTvStoryboardPreview = false;
+      _tvStoryboardTimer?.cancel();
     });
     
+    final storyboard = ep['storyboardUrl'] ?? ep['storyboard_url'];
+    if (storyboard != null && storyboard.toString().isNotEmpty) {
+      _loadStoryboard(storyboard.toString());
+    }
+
     _updateNextPrevEpisodeData();
 
     final subs = ep['subtitles'] ?? ep['subtitles_data'];
@@ -1888,6 +2028,135 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     );
   }
 
+  // --- Subtitle customization options lists ---
+  final List<double> _fontSizes = const [12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0];
+  final List<Map<String, String>> _colors = const [
+    {'name': 'sub_color_white', 'value': '#FFFFFF'},
+    {'name': 'sub_color_yellow', 'value': '#FFFF00'},
+    {'name': 'sub_color_green', 'value': '#00FF00'},
+    {'name': 'sub_color_blue', 'value': '#00FFFF'}
+  ];
+  final List<Map<String, String>> _borders = const [
+    {'name': 'sub_border_shadow', 'value': 'shadow'},
+    {'name': 'sub_border_stroke', 'value': 'stroke'},
+    {'name': 'sub_border_none', 'value': 'none'}
+  ];
+  final List<Map<String, dynamic>> _bgOpacities = const [
+    {'name': '0%', 'value': 0.0},
+    {'name': '25%', 'value': 0.25},
+    {'name': '50%', 'value': 0.50},
+    {'name': '75%', 'value': 0.75}
+  ];
+  final List<Map<String, String>> _positions = const [
+    {'name': 'sub_pos_top', 'value': 'top'},
+    {'name': 'sub_pos_bottom', 'value': 'bottom'}
+  ];
+
+  void _cycleSettingsOption(bool forward) {
+    if (_settingsSelectedIndex == 5) {
+      final currentIdx = _fontSizes.indexOf(_subtitleFontSize);
+      if (currentIdx != -1) {
+        final nextIdx = (currentIdx + (forward ? 1 : -1)) % _fontSizes.length;
+        _setPlayerSetting('subtitle_font_size', _fontSizes[nextIdx]);
+      }
+    } else if (_settingsSelectedIndex == 6) {
+      final currentIdx = _colors.indexWhere((c) => c['value'] == _subtitleColor);
+      if (currentIdx != -1) {
+        final nextIdx = (currentIdx + (forward ? 1 : -1)) % _colors.length;
+        _setPlayerSetting('subtitle_color', _colors[nextIdx]['value']!);
+      }
+    } else if (_settingsSelectedIndex == 7) {
+      final currentIdx = _borders.indexWhere((b) => b['value'] == _subtitleBorder);
+      if (currentIdx != -1) {
+        final nextIdx = (currentIdx + (forward ? 1 : -1)) % _borders.length;
+        _setPlayerSetting('subtitle_border', _borders[nextIdx]['value']!);
+      }
+    } else if (_settingsSelectedIndex == 8) {
+      final currentIdx = _bgOpacities.indexWhere((b) => b['value'] == _subtitleBgOpacity);
+      if (currentIdx != -1) {
+        final nextIdx = (currentIdx + (forward ? 1 : -1)) % _bgOpacities.length;
+        _setPlayerSetting('subtitle_bg_opacity', _bgOpacities[nextIdx]['value'] as double);
+      }
+    } else if (_settingsSelectedIndex == 9) {
+      final currentIdx = _positions.indexWhere((p) => p['value'] == _secondarySubPosition);
+      if (currentIdx != -1) {
+        final nextIdx = (currentIdx + (forward ? 1 : -1)) % _positions.length;
+        _setPlayerSetting('secondary_sub_position', _positions[nextIdx]['value']!);
+      }
+    }
+  }
+
+  Widget _buildSettingsHorizontalOptionsRow({
+    required int index,
+    required String title,
+    required List<Widget> items,
+  }) {
+    final isFocused = TxaPlatform.isTV && _settingsSelectedIndex == index;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isFocused
+            ? const Color(0xFF737DFD).withValues(alpha: 0.1)
+            : Colors.white.withValues(alpha: 0.01),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isFocused ? const Color(0xFF737DFD) : Colors.white12,
+          width: isFocused ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: isFocused ? const Color(0xFF737DFD) : Colors.white60,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: items,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptionBtn<T>({
+    required String label,
+    required T value,
+    required T currentValue,
+    required ValueChanged<T> onTap,
+  }) {
+    final isSelected = value == currentValue;
+    return GestureDetector(
+      onTap: () => onTap(value),
+      child: Container(
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF737DFD) : Colors.white12,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.black : Colors.white70,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _togglePlayPause() {
     if (_isLocked) return;
     if (_controller == null || !_isPlayerInitialized) return;
@@ -1914,6 +2183,22 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         : (newPos > _duration ? _duration : newPos);
     _controller!.seekTo(clamped);
     _resetHideControlsTimer();
+    _triggerTvStoryboardPreview();
+  }
+
+  void _triggerTvStoryboardPreview() {
+    if (_storyboardItems.isEmpty) return;
+    _tvStoryboardTimer?.cancel();
+    setState(() {
+      _showTvStoryboardPreview = true;
+    });
+    _tvStoryboardTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() {
+          _showTvStoryboardPreview = false;
+        });
+      }
+    });
   }
 
   void _resetHideControlsTimer() {
@@ -2212,10 +2497,14 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           });
         } else if (logicalKey == LogicalKeyboardKey.arrowDown) {
           setState(() {
-            if (_settingsSelectedIndex < 4) {
+            if (_settingsSelectedIndex < 9) {
               _settingsSelectedIndex++;
             }
           });
+        } else if (logicalKey == LogicalKeyboardKey.arrowLeft) {
+          _cycleSettingsOption(false);
+        } else if (logicalKey == LogicalKeyboardKey.arrowRight) {
+          _cycleSettingsOption(true);
         } else if (logicalKey == LogicalKeyboardKey.select ||
                    logicalKey == LogicalKeyboardKey.enter ||
                    logicalKey == LogicalKeyboardKey.gameButtonSelect) {
@@ -2877,7 +3166,14 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                       child: LayoutBuilder(
                                         builder: (context, sliderConstraints) {
                                           final sliderWidth = sliderConstraints.maxWidth;
+                                          final percent = _duration > Duration.zero ? (_position.inSeconds / _duration.inSeconds).clamp(0.0, 1.0) : 0.0;
+                                          final thumbX = 24 + percent * (sliderWidth - 48);
+                                          final previewItem = _storyboardLoaded && (_isDraggingSlider || _showTvStoryboardPreview)
+                                              ? _getStoryboardItem(_position.inSeconds.toDouble())
+                                              : null;
+
                                           return Stack(
+                                            clipBehavior: Clip.none,
                                             alignment: Alignment.centerLeft,
                                             children: [
                                               // Track Markers (behind the Slider)
@@ -2933,6 +3229,64 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                                   },
                                                 ),
                                               ),
+                                              // Storyboard Preview
+                                              if (previewItem != null)
+                                                Positioned(
+                                                  bottom: 24,
+                                                  left: (thumbX - 80).clamp(0.0, sliderWidth - 160),
+                                                  child: Container(
+                                                    width: 160,
+                                                    height: 110,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black.withValues(alpha: 0.95),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      border: Border.all(color: const Color(0xFF737DFD), width: 1.5),
+                                                      boxShadow: const [
+                                                        BoxShadow(color: Colors.black54, blurRadius: 8)
+                                                      ],
+                                                    ),
+                                                    child: Column(
+                                                      children: [
+                                                        ClipRRect(
+                                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                                                          child: Container(
+                                                            width: 160,
+                                                            height: 90,
+                                                            clipBehavior: Clip.hardEdge,
+                                                            decoration: const BoxDecoration(color: Colors.black),
+                                                            child: Stack(
+                                                              children: [
+                                                                Positioned(
+                                                                  left: -previewItem.x.toDouble(),
+                                                                  top: -previewItem.y.toDouble(),
+                                                                  child: Image.network(
+                                                                    previewItem.imgUrl,
+                                                                    fit: BoxFit.none,
+                                                                    alignment: Alignment.topLeft,
+                                                                    errorBuilder: (c, e, s) => Container(
+                                                                      width: 160,
+                                                                      height: 90,
+                                                                      color: Colors.black,
+                                                                      child: const Icon(Icons.broken_image, color: Colors.white24, size: 24),
+                                                                    ),
+                                                                  ),
+                                                                )
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Container(
+                                                          height: 17,
+                                                          alignment: Alignment.center,
+                                                          child: Text(
+                                                            _formatDuration(_position),
+                                                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
                                             ],
                                           );
                                         },
@@ -3161,67 +3515,88 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           ),
 
         // 9. SUBTITLES DISPLAY OVERLAY
-        // Primary Subtitle (always at bottom)
-        if (_subtitleMode != 'off' && _activePrimaryCue != null && !_showAd)
-          Positioned(
-            bottom: _showControls ? 110 : 40,
-            left: 40,
-            right: 40,
-            child: IgnorePointer(
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _activePrimaryCue!.text,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1)),
+        if (_subtitleMode != 'off' && !_showAd && (_activePrimaryCue != null || _activeSecondaryCue != null)) ...[
+          if (_activePrimaryCue != null || (_subtitleMode == 'bilingual' && _activeSecondaryCue != null && _secondarySubPosition == 'bottom'))
+            Positioned(
+              bottom: _showControls ? 110 : 40,
+              left: 40,
+              right: 40,
+              child: IgnorePointer(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_subtitleMode == 'bilingual' && _activeSecondaryCue != null && _secondarySubPosition == 'bottom') ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: _subtitleBgOpacity),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _activeSecondaryCue!.text,
+                            style: TextStyle(
+                              color: Colors.amberAccent,
+                              fontSize: _subtitleFontSize * 0.9,
+                              fontWeight: FontWeight.bold,
+                              shadows: _getSubtitleShadows(_subtitleBorder),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                       ],
-                    ),
-                    textAlign: TextAlign.center,
+                      if (_activePrimaryCue != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: _subtitleBgOpacity),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _activePrimaryCue!.text,
+                            style: TextStyle(
+                              color: _parseHexColor(_subtitleColor),
+                              fontSize: _subtitleFontSize,
+                              fontWeight: FontWeight.bold,
+                              shadows: _getSubtitleShadows(_subtitleBorder),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
             ),
-          ),
-
-        // Secondary Subtitle (always at top center, below the top title overlay)
-        if (_subtitleMode == 'bilingual' && _activeSecondaryCue != null && !_showAd)
-          Positioned(
-            top: _showControls ? 110 : 50,
-            left: 40,
-            right: 40,
-            child: IgnorePointer(
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _activeSecondaryCue!.text,
-                    style: const TextStyle(
-                      color: Colors.amberAccent,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1)),
-                      ],
+          if (_subtitleMode == 'bilingual' && _activeSecondaryCue != null && _secondarySubPosition == 'top')
+            Positioned(
+              top: _showControls ? 110 : 50,
+              left: 40,
+              right: 40,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: _subtitleBgOpacity),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    textAlign: TextAlign.center,
+                    child: Text(
+                      _activeSecondaryCue!.text,
+                      style: TextStyle(
+                        color: Colors.amberAccent,
+                        fontSize: _subtitleFontSize * 0.9,
+                        fontWeight: FontWeight.bold,
+                        shadows: _getSubtitleShadows(_subtitleBorder),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+        ],
 
         // 10. SKIP INTRO/OUTRO BUTTON OVERLAY
         if (_isSkipVisible() && !_showAd)
@@ -3577,6 +3952,82 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                               _setPlayerSetting('preferred_sub_lang', 'zh');
                             },
                           ),
+                          const SizedBox(height: 20),
+                          Text(
+                            TxaLanguage.t('sub_style_title'),
+                            style: const TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSettingsHorizontalOptionsRow(
+                            index: 5,
+                            title: TxaLanguage.t('sub_font_size'),
+                            items: _fontSizes.map((size) {
+                              return _buildOptionBtn(
+                                label: '${size.toInt()}px',
+                                value: size,
+                                currentValue: _subtitleFontSize,
+                                onTap: (val) {
+                                  _setPlayerSetting('subtitle_font_size', val);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          _buildSettingsHorizontalOptionsRow(
+                            index: 6,
+                            title: TxaLanguage.t('sub_color'),
+                            items: _colors.map((c) {
+                              return _buildOptionBtn(
+                                label: TxaLanguage.t(c['name']!),
+                                value: c['value']!,
+                                currentValue: _subtitleColor,
+                                onTap: (val) {
+                                  _setPlayerSetting('subtitle_color', val);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          _buildSettingsHorizontalOptionsRow(
+                            index: 7,
+                            title: TxaLanguage.t('sub_border'),
+                            items: _borders.map((b) {
+                              return _buildOptionBtn(
+                                label: TxaLanguage.t(b['name']!),
+                                value: b['value']!,
+                                currentValue: _subtitleBorder,
+                                onTap: (val) {
+                                  _setPlayerSetting('subtitle_border', val);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          _buildSettingsHorizontalOptionsRow(
+                            index: 8,
+                            title: TxaLanguage.t('sub_opacity'),
+                            items: _bgOpacities.map((o) {
+                              return _buildOptionBtn(
+                                label: o['name']!,
+                                value: o['value'] as double,
+                                currentValue: _subtitleBgOpacity,
+                                onTap: (val) {
+                                  _setPlayerSetting('subtitle_bg_opacity', val);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          _buildSettingsHorizontalOptionsRow(
+                            index: 9,
+                            title: TxaLanguage.t('sub_pos'),
+                            items: _positions.map((p) {
+                              return _buildOptionBtn(
+                                label: TxaLanguage.t(p['name']!),
+                                value: p['value']!,
+                                currentValue: _secondarySubPosition,
+                                onTap: (val) {
+                                  _setPlayerSetting('secondary_sub_position', val);
+                                },
+                              );
+                            }).toList(),
+                          ),
                         ],
                       ),
                     ),
@@ -3844,6 +4295,34 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     }
   }
 
+  Color _parseHexColor(String hex) {
+    try {
+      String cleanHex = hex.toUpperCase().replaceAll('#', '');
+      if (cleanHex.length == 6) {
+        cleanHex = 'FF$cleanHex';
+      }
+      return Color(int.parse(cleanHex, radix: 16));
+    } catch (_) {
+      return Colors.white;
+    }
+  }
+
+  List<Shadow> _getSubtitleShadows(String style) {
+    if (style == 'shadow') {
+      return const [
+        Shadow(color: Colors.black, blurRadius: 4, offset: Offset(2, 2)),
+      ];
+    } else if (style == 'stroke') {
+      return const [
+        Shadow(color: Colors.black, blurRadius: 1, offset: Offset(1, 1)),
+        Shadow(color: Colors.black, blurRadius: 1, offset: Offset(-1, 1)),
+        Shadow(color: Colors.black, blurRadius: 1, offset: Offset(1, -1)),
+        Shadow(color: Colors.black, blurRadius: 1, offset: Offset(-1, -1)),
+      ];
+    }
+    return const [];
+  }
+
   // --- Battery Helpers ---
   IconData _getBatteryIcon() {
     if (_isCharging) {
@@ -3962,5 +4441,25 @@ class TxaSubtitleCue {
     required this.startTime,
     required this.endTime,
     required this.text,
+  });
+}
+
+class TxaStoryboardItem {
+  final double startTime; // in seconds
+  final double endTime;   // in seconds
+  final String imgUrl;
+  final int x;
+  final int y;
+  final int w;
+  final int h;
+
+  TxaStoryboardItem({
+    required this.startTime,
+    required this.endTime,
+    required this.imgUrl,
+    required this.x,
+    required this.y,
+    required this.w,
+    required this.h,
   });
 }

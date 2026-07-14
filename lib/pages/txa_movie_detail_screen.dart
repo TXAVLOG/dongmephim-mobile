@@ -435,6 +435,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
             serverName: resolvedServer,
             adSettings: _data?['ads'] as Map<String, dynamic>?,
             subtitles: activeEp?['subtitles'] ?? activeEp?['subtitles_data'],
+            storyboardUrl: activeEp?['storyboardUrl'] ?? activeEp?['storyboard_url'],
             timeIntroStart: int.tryParse(activeEp?['timeIntroStart']?.toString() ?? '') ?? int.tryParse(activeEp?['time_intro_start']?.toString() ?? '') ?? 0,
             timeIntroEnd: int.tryParse(activeEp?['timeIntroEnd']?.toString() ?? '') ?? int.tryParse(activeEp?['time_intro_end']?.toString() ?? '') ?? 0,
             timeOutroStart: int.tryParse(activeEp?['timeOutroStart']?.toString() ?? '') ?? int.tryParse(activeEp?['time_outro_start']?.toString() ?? '') ?? 0,
