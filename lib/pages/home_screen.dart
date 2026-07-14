@@ -26,6 +26,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import '../services/txa_permission.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../widgets/txa_download_dialog.dart';
 import '../services/txa_url_resolver.dart';
 import '../utils/txa_logger.dart';
@@ -237,26 +238,25 @@ class _HomeScreenState extends State<HomeScreen> {
       final String? sha256 = (isTV ? info['smart_tv_sha256'] : info['sha256'])?.toString();
       final String filename = isTV ? 'DongMePhim_TV_$version.apk' : 'DongMePhim_$version.apk';
 
-      if (!await TxaPermission.checkAllRequired()) {
+      // Chỉ cần quyền install packages để mở APK — không cần manageExternalStorage
+      final installStatus = await Permission.requestInstallPackages.status;
+      if (!installStatus.isGranted) {
         if (!mounted) return;
         TxaToast.show(
           context,
-          TxaLanguage.t('permissions_required'),
+          TxaLanguage.t('permission_install_desc'),
           isError: true,
         );
-        await TxaPermission.requestInitial();
-        
-        // Wait in a loop for the user to return and grant permissions (up to 30 seconds)
-        bool granted = false;
-        for (int i = 0; i < 60; i++) {
-          await Future.delayed(const Duration(milliseconds: 500));
+        final result = await Permission.requestInstallPackages.request();
+        if (!result.isGranted) {
           if (!mounted) return;
-          if (await TxaPermission.checkAllRequired()) {
-            granted = true;
-            break;
-          }
+          TxaToast.show(
+            context,
+            TxaLanguage.t('permissions_required'),
+            isError: true,
+          );
+          return;
         }
-        if (!granted) return;
       }
 
       if (!mounted) return;
