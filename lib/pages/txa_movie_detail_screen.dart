@@ -303,41 +303,34 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
   }
 
   String? _resolveStreamUrl(Map<String, dynamic> ep) {
-    // On Windows, HLS (m3u8) streams from R2 are not supported by WMF.
-    // Skip m3u8 on Windows and fall through to embed streams.
-    if (!TxaPlatform.isDesktop || !Platform.isWindows) {
-      for (final key in ['link_m3u8', 'stream_m3u8', 'stream_v6']) {
-        final val = ep[key]?.toString();
-        if (val != null && val.trim().isNotEmpty) {
-          return val.trim();
-        }
+    // MediaKit hỗ trợ HLS/m3u8 trên tất cả nền tảng (kể cả Windows)
+    // Ưu tiên link m3u8 trực tiếp trước
+    for (final key in ['link_m3u8', 'stream_m3u8', 'stream_v6']) {
+      final val = ep[key]?.toString();
+      if (val != null && val.trim().isNotEmpty) {
+        return val.trim();
       }
     }
 
+    // Fallback: thử parse embed URL để lấy m3u8 trực tiếp
     for (final key in ['link_embed', 'stream_embed']) {
       final val = ep[key]?.toString();
       if (val != null && val.trim().isNotEmpty) {
         final cleanUrl = val.trim();
+
+        // Thử extract ?url= param từ embed player
+        final uriParam = Uri.tryParse(cleanUrl)?.queryParameters['url'];
+        if (uriParam != null && uriParam.isNotEmpty) {
+          return uriParam; // ← Trả về link m3u8 thực sự
+        }
+
+        // Pattern: domain/video/HASH → stream/HASH/master.m3u8
         final regExp = RegExp(r'https?://([^/]+)/video/([a-zA-Z0-9_-]+)');
         final match = regExp.firstMatch(cleanUrl);
         if (match != null) {
           final domain = match.group(1);
           final hash = match.group(2);
           return 'https://$domain/stream/$hash/master.m3u8';
-        }
-        // On Windows, also try returning raw embed URL for webview
-        if (TxaPlatform.isDesktop && Platform.isWindows) {
-          return cleanUrl;
-        }
-      }
-    }
-
-    // Windows fallback: try m3u8 anyway as last resort
-    if (TxaPlatform.isDesktop && Platform.isWindows) {
-      for (final key in ['link_m3u8', 'stream_m3u8', 'stream_v6']) {
-        final val = ep[key]?.toString();
-        if (val != null && val.trim().isNotEmpty) {
-          return val.trim();
         }
       }
     }
