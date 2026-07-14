@@ -49,7 +49,15 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
     for (final key in ['link_m3u8', 'stream_m3u8', 'stream_v6']) {
       final val = ep[key]?.toString();
       if (val != null && val.trim().isNotEmpty) {
-        return val.trim();
+        final clean = val.trim();
+        if (clean.contains('?url=')) {
+          final parts = clean.split('?url=');
+          if (parts.length > 1) {
+            final decoded = Uri.decodeComponent(parts[1]);
+            if (decoded.isNotEmpty) return decoded;
+          }
+        }
+        return clean;
       }
     }
 

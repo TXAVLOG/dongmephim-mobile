@@ -4203,14 +4203,20 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
     // Apply Gestures Listener wrapper for mobile vs keyboard for TV
     if (TxaPlatform.isTV) {
-      return Focus(
-        focusNode: _tvFocusNode,
-        autofocus: true,
-        onKeyEvent: (node, event) {
-          _handleTvKeyEvent(event);
-          return KeyEventResult.handled;
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          _toggleControls();
         },
-        child: playerView,
+        child: Focus(
+          focusNode: _tvFocusNode,
+          autofocus: true,
+          onKeyEvent: (node, event) {
+            _handleTvKeyEvent(event);
+            return KeyEventResult.handled;
+          },
+          child: playerView,
+        ),
       );
     } else if (TxaPlatform.isDesktop) {
       // Desktop: keyboard shortcuts, double click to fullscreen, click to toggle controls

@@ -2122,10 +2122,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.64,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 12,
+              crossAxisCount: 4,
+              childAspectRatio: 0.62,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 10,
             ),
             itemCount: related.length,
             itemBuilder: (context, index) {

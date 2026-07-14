@@ -12,6 +12,8 @@ import '../navigation/tv_focus_system.dart';
 import '../navigation/tv_key_handler.dart';
 import '../services/tv_cache_service.dart';
 import 'tv_player_screen.dart';
+import '../../pages/txa_movie_detail_screen.dart';
+import '../../utils/txa_schedule.dart';
 
 class TvMovieDetailScreen extends StatefulWidget {
   final String slug;
@@ -29,6 +31,8 @@ class _TvMovieDetailScreenState extends State<TvMovieDetailScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _movie;
   List<dynamic> _episodes = [];
+  List<dynamic> _servers = [];
+  int _selectedServerIndex = 0;
 
   @override
   void initState() {
@@ -56,7 +60,9 @@ class _TvMovieDetailScreenState extends State<TvMovieDetailScreen> {
           TvFocusSystem.getNode('detail_back').requestFocus();
           return KeyEventResult.handled;
         } else if (TvKeyHandler.isDpadDown(event)) {
-          if (_movie?['seasons'] != null && (_movie!['seasons'] as List).isNotEmpty) {
+          if (_servers.length > 1) {
+            TvFocusSystem.getNode('detail_server_0').requestFocus();
+          } else if (_movie?['seasons'] != null && (_movie!['seasons'] as List).isNotEmpty) {
             TvFocusSystem.getNode('detail_season_0').requestFocus();
           } else if (_episodes.isNotEmpty) {
             TvFocusSystem.getNode('detail_episode_0').requestFocus();
@@ -67,11 +73,48 @@ class _TvMovieDetailScreenState extends State<TvMovieDetailScreen> {
       return KeyEventResult.ignored;
     };
 
+    // Server Focus Nodes
+    if (_servers.length > 1) {
+      for (int i = 0; i < _servers.length; i++) {
+        final serverNode = TvFocusSystem.getNode('detail_server_$i');
+        serverNode.onKeyEvent = (node, event) {
+          if (event is KeyDownEvent) {
+            if (TvKeyHandler.isDpadUp(event)) {
+              TvFocusSystem.getNode('detail_favorite').requestFocus();
+              return KeyEventResult.handled;
+            } else if (TvKeyHandler.isDpadDown(event)) {
+              if (_movie?['seasons'] != null && (_movie!['seasons'] as List).isNotEmpty) {
+                TvFocusSystem.getNode('detail_season_0').requestFocus();
+              } else if (_episodes.isNotEmpty) {
+                TvFocusSystem.getNode('detail_episode_0').requestFocus();
+              }
+              return KeyEventResult.handled;
+            } else if (TvKeyHandler.isDpadLeft(event)) {
+              if (i > 0) {
+                TvFocusSystem.getNode('detail_server_${i - 1}').requestFocus();
+              }
+              return KeyEventResult.handled;
+            } else if (TvKeyHandler.isDpadRight(event)) {
+              if (i < _servers.length - 1) {
+                TvFocusSystem.getNode('detail_server_${i + 1}').requestFocus();
+              }
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        };
+      }
+    }
+
     final seasonNode = TvFocusSystem.getNode('detail_season_0');
     seasonNode.onKeyEvent = (node, event) {
       if (event is KeyDownEvent) {
         if (TvKeyHandler.isDpadUp(event)) {
-          TvFocusSystem.getNode('detail_favorite').requestFocus();
+          if (_servers.length > 1) {
+            TvFocusSystem.getNode('detail_server_0').requestFocus();
+          } else {
+            TvFocusSystem.getNode('detail_favorite').requestFocus();
+          }
           return KeyEventResult.handled;
         } else if (TvKeyHandler.isDpadDown(event)) {
           if (_episodes.isNotEmpty) {
@@ -89,6 +132,8 @@ class _TvMovieDetailScreenState extends State<TvMovieDetailScreen> {
         if (TvKeyHandler.isDpadUp(event)) {
           if (_movie?['seasons'] != null && (_movie!['seasons'] as List).isNotEmpty) {
             TvFocusSystem.getNode('detail_season_0').requestFocus();
+          } else if (_servers.length > 1) {
+            TvFocusSystem.getNode('detail_server_0').requestFocus();
           } else {
             TvFocusSystem.getNode('detail_favorite').requestFocus();
           }
@@ -122,6 +167,7 @@ class _TvMovieDetailScreenState extends State<TvMovieDetailScreen> {
         TxaFavoriteManager().setFavorite(widget.slug, isFav);
         setState(() {
           _movie = cached['movie'] as Map<String, dynamic>;
+          _servers = cached['servers'] as List<dynamic>? ?? [];
           _episodes = _extractEpisodes(cached);
           _isLoading = false;
         });
@@ -139,6 +185,7 @@ class _TvMovieDetailScreenState extends State<TvMovieDetailScreen> {
         TxaFavoriteManager().setFavorite(widget.slug, isFav);
         setState(() {
           _movie = res['movie'] as Map<String, dynamic>;
+          _servers = res['servers'] as List<dynamic>? ?? [];
           _episodes = _extractEpisodes(res);
           _isLoading = false;
         });
@@ -188,15 +235,26 @@ class _TvMovieDetailScreenState extends State<TvMovieDetailScreen> {
   /// Extract episode list from API response.
   /// The API returns servers[].server_data[] containing episodes.
   List<dynamic> _extractEpisodes(Map<String, dynamic> data) {
-    // Try servers[0].server_data first (standard API response)
     final servers = data['servers'] as List<dynamic>? ?? [];
-    if (servers.isNotEmpty) {
-      final firstServer = servers[0] as Map<String, dynamic>? ?? {};
-      final serverData = firstServer['server_data'] as List<dynamic>? ?? [];
-      if (serverData.isNotEmpty) return serverData;
+    if (servers.isNotEmpty && _selectedServerIndex < servers.length) {
+      final server = servers[_selectedServerIndex] as Map<String, dynamic>? ?? {};
+      final rawEpisodes = server['server_data'] as List<dynamic>? ?? [];
+      
+      final schedule = data['movie']?['broadcast_schedule'] as Map<String, dynamic>? ?? data['movie']?['broadcastSchedule'] as Map<String, dynamic>?;
+      final List<dynamic> episodes = [];
+      for (int i = 0; i < rawEpisodes.length; i++) {
+        final ep = rawEpisodes[i];
+        final epName = (ep['name'] ?? '').toString();
+        final isUnreleased = TxaSchedule.isEpisodeUnreleased(epName, i, rawEpisodes, schedule);
+        if (!isUnreleased) {
+          episodes.add(ep);
+        }
+      }
+      return episodes;
     }
-    // Fallback to episodes key (legacy/cache)
-    return data['episodes'] as List<dynamic>? ?? [];
+    
+    final rawEpisodes = data['episodes'] as List<dynamic>? ?? [];
+    return rawEpisodes;
   }
 
   @override
@@ -441,6 +499,138 @@ class _TvMovieDetailScreenState extends State<TvMovieDetailScreen> {
                                       alignment: Alignment.center,
                                       child: Text(
                                         part['season_name'] ?? part['name'] ?? '',
+                                        style: TextStyle(
+                                          color: isSelected ? const Color(0xFF737DFD) : Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+
+                        // Lịch chiếu và đếm ngược tập mới
+                        (() {
+                          final schedule = movieInfo['broadcast_schedule'] as Map<String, dynamic>? ?? movieInfo['broadcastSchedule'] as Map<String, dynamic>?;
+                          bool hasUnreleased = false;
+                          for (var srv in _servers) {
+                            final eps = srv['server_data'] as List? ?? [];
+                            for (int i = 0; i < eps.length; i++) {
+                              final ep = eps[i];
+                              final epName = (ep['name'] ?? '').toString();
+                              if (TxaSchedule.isEpisodeUnreleased(epName, i, eps, schedule)) {
+                                hasUnreleased = true;
+                                break;
+                              }
+                            }
+                            if (hasUnreleased) break;
+                          }
+
+                          String broadcastNotice = '';
+                          if (schedule != null) {
+                            final nextDate = schedule['next_date']?.toString() ?? schedule['nextDate']?.toString() ?? '';
+                            final nextTime = schedule['next_time']?.toString() ?? schedule['nextTime']?.toString() ?? '';
+                            final nextEpisode = schedule['next_episode']?.toString() ?? schedule['nextEpisode']?.toString() ?? '';
+                            final movieType = movieInfo['type']?.toString() ?? 'series';
+                            
+                            broadcastNotice = TxaSchedule.generateNotice(nextDate, nextTime, nextEpisode, movieType);
+                          }
+
+                          if (broadcastNotice.isEmpty || !hasUnreleased) return const SizedBox.shrink();
+
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.alarm_on_rounded, color: Colors.amber, size: 24),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              TxaLanguage.t('unreleased_warning_title'),
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              broadcastNotice,
+                                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                if (schedule != null)
+                                  TxaBroadcastCountdown(
+                                    nextDate: schedule['next_date']?.toString() ?? schedule['nextDate']?.toString() ?? '',
+                                    nextTime: schedule['next_time']?.toString() ?? schedule['nextTime']?.toString() ?? '',
+                                  ),
+                              ],
+                            ),
+                          );
+                        })(),
+
+                        // Server/Nguồn phát selector
+                        if (_servers.length > 1) ...[
+                          Text(
+                            TxaLanguage.t('select_server'),
+                            style: const TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.8),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 48,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _servers.length,
+                              itemBuilder: (context, index) {
+                                final server = _servers[index];
+                                final isSelected = _selectedServerIndex == index;
+                                final node = TvFocusSystem.getNode('detail_server_$index');
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 12.0),
+                                  child: TvFocusableCard(
+                                    focusNode: node,
+                                    scaleOnFocus: 1.05,
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () {
+                                      if (!isSelected) {
+                                        setState(() {
+                                          _selectedServerIndex = index;
+                                          _episodes = _extractEpisodes(movieInfo);
+                                        });
+                                        _setupFocusNodes();
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                      color: isSelected
+                                          ? const Color(0xFF737DFD).withValues(alpha: 0.3)
+                                          : Colors.white.withValues(alpha: 0.05),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        server['server_name'] ?? 'Server ${index + 1}',
                                         style: TextStyle(
                                           color: isSelected ? const Color(0xFF737DFD) : Colors.white,
                                           fontWeight: FontWeight.bold,
