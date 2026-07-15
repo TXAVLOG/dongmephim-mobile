@@ -8,7 +8,7 @@ plugins {
 
 configure<ApplicationExtension> {
     namespace = "com.tphimx.tphimx_setup"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
