@@ -25,7 +25,6 @@ import 'dart:ui';
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
-import '../services/txa_permission.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../widgets/txa_download_dialog.dart';
 import '../services/txa_url_resolver.dart';
@@ -261,8 +260,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
 
-      final dir = await getExternalStorageDirectory();
-      final String savePath = '${dir?.path}/$filename';
+      final dir = await getTemporaryDirectory();
+      final String savePath = '${dir.path}/$filename';
       final File cachedFile = File(savePath);
 
       if (cachedFile.existsSync()) {

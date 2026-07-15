@@ -72,8 +72,8 @@ class _TxaDrawerState extends State<TxaDrawer> {
 
       if (!mounted) return;
 
-      final dir = await getExternalStorageDirectory();
-      final String savePath = '${dir?.path}/$filename';
+      final dir = await getTemporaryDirectory();
+      final String savePath = '${dir.path}/$filename';
       final File cachedFile = File(savePath);
 
       if (cachedFile.existsSync()) {

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
@@ -10,7 +9,6 @@ import '../services/txa_auth_service.dart';
 import '../services/txa_favorite_manager.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
-import '../utils/txa_platform.dart';
 import '../widgets/txa_video_player.dart';
 import '../utils/txa_schedule.dart';
 import 'txa_profile_screen.dart';

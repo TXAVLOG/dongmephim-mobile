@@ -660,6 +660,13 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           return;
         }
         
+        final dur = _controller!.value.duration;
+        if (dur != _duration) {
+          setState(() {
+            _duration = dur;
+          });
+        }
+
         final pos = _controller!.value.position;
         _updateActiveCues(pos);
 
@@ -691,16 +698,16 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         if (!_isDraggingSlider) {
           setState(() {
             _position = pos;
-            if (_controller!.value.position >= _controller!.value.duration &&
-                _controller!.value.duration > Duration.zero &&
+            if (_controller!.value.position >= dur &&
+                dur > Duration.zero &&
                 _isPlaying) {
               _isPlaying = false;
               _handleVideoEnded();
             }
           });
         } else {
-          if (_controller!.value.position >= _controller!.value.duration &&
-              _controller!.value.duration > Duration.zero &&
+          if (_controller!.value.position >= dur &&
+              dur > Duration.zero &&
               _isPlaying) {
             setState(() {
               _isPlaying = false;
@@ -3212,27 +3219,27 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                                   thumbShape: RoundSliderThumbShape(enabledThumbRadius: thumbRadius),
                                                 ),
                                                 child: Slider(
-                                                  value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
-                                                  max: _duration.inSeconds.toDouble(),
-                                                  onChangeStart: (val) {
-                                                    setState(() {
-                                                      _isDraggingSlider = true;
-                                                    });
-                                                  },
-                                                  onChanged: (val) {
-                                                    setState(() {
-                                                      _position = Duration(seconds: val.toInt());
-                                                    });
-                                                  },
-                                                  onChangeEnd: (val) {
-                                                    if (_controller != null) {
-                                                      _controller!.seekTo(Duration(seconds: val.toInt()));
-                                                    }
-                                                    setState(() {
-                                                      _isDraggingSlider = false;
-                                                    });
-                                                  },
-                                                ),
+                                                   value: _duration > Duration.zero ? _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()) : 0.0,
+                                                   max: _duration > Duration.zero ? _duration.inSeconds.toDouble() : 1.0,
+                                                   onChangeStart: (val) {
+                                                     setState(() {
+                                                       _isDraggingSlider = true;
+                                                     });
+                                                   },
+                                                   onChanged: (val) {
+                                                     setState(() {
+                                                       _position = Duration(seconds: val.toInt());
+                                                     });
+                                                   },
+                                                   onChangeEnd: (val) {
+                                                     if (_controller != null) {
+                                                       _controller!.seekTo(Duration(seconds: val.toInt()));
+                                                     }
+                                                     setState(() {
+                                                       _isDraggingSlider = false;
+                                                     });
+                                                   },
+                                                 ),
                                               ),
                                               // Storyboard Preview
                                               if (previewItem != null)
@@ -3848,7 +3855,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                 ),
                 alignment: Alignment.centerLeft,
                 child: FractionallySizedBox(
-                  widthFactor: (_position.inSeconds / _duration.inSeconds).clamp(0.0, 1.0),
+                  widthFactor: _duration > Duration.zero ? (_position.inSeconds / _duration.inSeconds).clamp(0.0, 1.0) : 0.0,
                   child: Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFF737DFD),

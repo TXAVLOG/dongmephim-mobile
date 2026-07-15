@@ -58,8 +58,8 @@ class TxaDownload {
 
       String savePath = '';
       if (Platform.isAndroid) {
-        final dir = await getExternalStorageDirectory();
-        savePath = '${dir?.path}/$filename';
+        final dir = await getTemporaryDirectory();
+        savePath = '${dir.path}/$filename';
       } else if (Platform.isWindows) {
         final dir = await getDownloadsDirectory() ?? await getTemporaryDirectory();
         savePath = '${dir.path}/$filename';
