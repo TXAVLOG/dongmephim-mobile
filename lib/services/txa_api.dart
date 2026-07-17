@@ -308,6 +308,7 @@ class TxaApi {
           'publish_year': publishYear,
           'link': link,
           'author': author,
+          'source': 'app',
         }),
       );
       TxaLogger.logApi(
