@@ -182,6 +182,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
   // Secure Mode (DRM)
   bool _secureEnabled = false;
 
+  // Audio Effects settings states
+  bool _is3dAudioEnabled = false;
+  bool _isAudioOptimizerEnabled = false;
+  double _audioBoostLevel = 1.0;
+
   // TV D-Pad Focus Nodes
   final FocusNode _tvFocusNode = FocusNode();
 
@@ -716,9 +721,9 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
           }
         }
 
-        // Save progress dynamically every 5 seconds
+        // Save progress dynamically every 10 seconds
         final now = DateTime.now();
-        if (_lastSavedTime == null || now.difference(_lastSavedTime!).inSeconds >= 5) {
+        if (_lastSavedTime == null || now.difference(_lastSavedTime!).inSeconds >= 10) {
           _lastSavedTime = now;
           _saveWatchProgress();
         }
@@ -766,9 +771,27 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         _subtitleBorder = prefs.getString('subtitle_border') ?? 'shadow';
         _subtitleBgOpacity = prefs.getDouble('subtitle_bg_opacity') ?? 0.0;
         _secondarySubPosition = prefs.getString('secondary_sub_position') ?? 'top';
+        
+        // Load audio effects settings
+        _is3dAudioEnabled = prefs.getBool('audio_3d_enabled') ?? false;
+        _isAudioOptimizerEnabled = prefs.getBool('audio_optimize_enabled') ?? false;
+        _audioBoostLevel = prefs.getDouble('audio_boost_level') ?? 1.0;
       });
       _applyPreferredSubtitle();
+      _applyAudioEffects();
     } catch (_) {}
+  }
+
+  void _applyAudioEffects() async {
+    if (TxaPlatform.isMobile) {
+      try {
+        await _platformChannel.invokeMethod('set3DAudioEnabled', {'enabled': _is3dAudioEnabled});
+        await _platformChannel.invokeMethod('setAudioOptimizeEnabled', {'enabled': _isAudioOptimizerEnabled});
+        await _platformChannel.invokeMethod('setAudioBoostLevel', {'level': _audioBoostLevel});
+      } catch (e) {
+        TxaLogger.log('Failed to apply native audio effects: $e', type: 'app');
+      }
+    }
   }
 
   Future<void> _setPlayerSetting(String key, dynamic value) async {
@@ -2094,6 +2117,14 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
       if (currentIdx != -1) {
         final nextIdx = (currentIdx + (forward ? 1 : -1)) % _positions.length;
         _setPlayerSetting('secondary_sub_position', _positions[nextIdx]['value']!);
+      }
+    } else if (_settingsSelectedIndex == 12) {
+      final list = [1.0, 1.5, 2.0, 2.5, 3.0];
+      final currentIdx = list.indexOf(_audioBoostLevel);
+      if (currentIdx != -1) {
+        final nextIdx = (currentIdx + (forward ? 1 : -1)) % list.length;
+        _setPlayerSetting('audio_boost_level', list[nextIdx]);
+        _applyAudioEffects();
       }
     }
   }
@@ -4036,6 +4067,49 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
                                 currentValue: _secondarySubPosition,
                                 onTap: (val) {
                                   _setPlayerSetting('secondary_sub_position', val);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'CẤU HÌNH ÂM THANH NÂNG CAO',
+                            style: TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSettingsToggleItem(
+                            index: 10,
+                            icon: Icons.surround_sound_rounded,
+                            title: 'Âm thanh vòm 3D',
+                            value: _is3dAudioEnabled,
+                            onChanged: (val) {
+                              _setPlayerSetting('audio_3d_enabled', val);
+                              _applyAudioEffects();
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSettingsToggleItem(
+                            index: 11,
+                            icon: Icons.equalizer_rounded,
+                            title: 'Tối ưu EQ (Giọng nói/Bass)',
+                            value: _isAudioOptimizerEnabled,
+                            onChanged: (val) {
+                              _setPlayerSetting('audio_optimize_enabled', val);
+                              _applyAudioEffects();
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          _buildSettingsHorizontalOptionsRow(
+                            index: 12,
+                            title: 'KHUẾCH ĐẠI ÂM LƯỢNG (BOOST)',
+                            items: [1.0, 1.5, 2.0, 2.5, 3.0].map((level) {
+                              return _buildOptionBtn(
+                                label: '${(level * 100).toInt()}%',
+                                value: level,
+                                currentValue: _audioBoostLevel,
+                                onTap: (val) {
+                                  _setPlayerSetting('audio_boost_level', val);
+                                  _applyAudioEffects();
                                 },
                               );
                             }).toList(),

@@ -1137,7 +1137,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
     }
 
     final currentServer = servers[_selectedServerIndex];
-    final isLocked = currentServer['is_locked'] == true;
+    final auth = Provider.of<TxaAuthService>(context, listen: false);
+    final packageSystemEnable = _data?['package_system_enable'] != false;
+    final isLocked = packageSystemEnable ? (currentServer['is_locked'] == true) : !auth.isLoggedIn;
     final rawEpisodes = currentServer['server_data'] as List? ?? [];
     final movie = _data?['movie'] ?? {};
     final schedule = movie['broadcast_schedule'] as Map<String, dynamic>?;
@@ -1322,54 +1324,102 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
           const SizedBox(height: 12),
 
           if (isLocked)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
-              decoration: BoxDecoration(
-                color: TxaTheme.secondaryBg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), shape: BoxShape.circle),
-                    child: const Icon(Icons.lock_outline_rounded, color: Colors.amber, size: 40),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    TxaLanguage.t('vip_server_locked_title'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    TxaLanguage.t('vip_server_locked_desc'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 12.5, height: 1.4),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      // Navigate to Profile Tab to buy VIP
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (ctx) => const TxaProfileScreen()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            packageSystemEnable
+                ? Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+                    decoration: BoxDecoration(
+                      color: TxaTheme.secondaryBg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
                     ),
-                    child: Text(TxaLanguage.t('upgrade_vip_btn'), style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            )
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), shape: BoxShape.circle),
+                          child: const Icon(Icons.lock_outline_rounded, color: Colors.amber, size: 40),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          TxaLanguage.t('vip_server_locked_title'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          TxaLanguage.t('vip_server_locked_desc'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 12.5, height: 1.4),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: () {
+                            // Navigate to Profile Tab to buy VIP
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (ctx) => const TxaProfileScreen()),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                          ),
+                          child: Text(TxaLanguage.t('upgrade_vip_btn'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+                    decoration: BoxDecoration(
+                      color: TxaTheme.secondaryBg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: TxaTheme.accent.withValues(alpha: 0.1), shape: BoxShape.circle),
+                          child: const Icon(Icons.login_rounded, color: TxaTheme.accent, size: 40),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          TxaLanguage.t('login_required_watch_title'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          TxaLanguage.t('login_required_watch_desc'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 12.5, height: 1.4),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (ctx) => const TxaProfileScreen()),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: TxaTheme.accent,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                          ),
+                          child: Text(TxaLanguage.t('login_now'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  )
           else if (episodes.isEmpty)
             Container(
               padding: const EdgeInsets.all(32),

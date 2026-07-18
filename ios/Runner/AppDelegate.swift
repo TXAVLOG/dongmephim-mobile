@@ -36,6 +36,9 @@ import UIKit
           self?.disableSecureMode()
           result(true)
           
+        case "set3DAudioEnabled", "setAudioOptimizeEnabled", "setAudioBoostLevel":
+          result(true)
+          
         default:
           result(FlutterMethodNotImplemented)
         }

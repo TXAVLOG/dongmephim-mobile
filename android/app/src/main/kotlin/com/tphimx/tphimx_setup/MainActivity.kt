@@ -13,10 +13,40 @@ import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.media.audiofx.Virtualizer
+import android.media.audiofx.Equalizer
+import android.media.audiofx.LoudnessEnhancer
 import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "online.dongmephim/platform"
+    private var virtualizer: Virtualizer? = null
+    private var equalizer: Equalizer? = null
+    private var loudnessEnhancer: LoudnessEnhancer? = null
+
+    private fun initAudioEffects() {
+        try {
+            if (virtualizer == null) {
+                virtualizer = Virtualizer(0, 0).apply {
+                    enabled = false
+                }
+            }
+            if (equalizer == null) {
+                equalizer = Equalizer(0, 0).apply {
+                    enabled = false
+                }
+            }
+            if (loudnessEnhancer == null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    loudnessEnhancer = LoudnessEnhancer(0).apply {
+                        enabled = false
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -113,6 +143,66 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("INSTALL_ERROR", "Failed to start installation: ${e.message}", null)
+                    }
+                }
+                "set3DAudioEnabled" -> {
+                    val enabledVal = call.argument<Boolean>("enabled") ?: false
+                    try {
+                        initAudioEffects()
+                        virtualizer?.apply {
+                            if (enabledVal) {
+                                setStrength(1000.toShort())
+                                enabled = true
+                            } else {
+                                enabled = false
+                            }
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("AUDIO_ERROR", e.message, null)
+                    }
+                }
+                "setAudioOptimizeEnabled" -> {
+                    val enabledVal = call.argument<Boolean>("enabled") ?: false
+                    try {
+                        initAudioEffects()
+                        equalizer?.apply {
+                            if (enabledVal) {
+                                if (numberOfBands > 0) {
+                                    setBandLevel(0.toShort(), 500.toShort())
+                                }
+                                if (numberOfBands > 3) {
+                                    setBandLevel(3.toShort(), 400.toShort())
+                                }
+                                enabled = true
+                            } else {
+                                enabled = false
+                            }
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("AUDIO_ERROR", e.message, null)
+                    }
+                }
+                "setAudioBoostLevel" -> {
+                    val level = call.argument<Double>("level") ?: 1.0
+                    try {
+                        initAudioEffects()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                            loudnessEnhancer?.apply {
+                                if (level > 1.0) {
+                                    val dbBoost = (level - 1.0) * 10.0
+                                    val targetGain = (dbBoost * 100).toInt()
+                                    setTargetGain(targetGain)
+                                    enabled = true
+                                } else {
+                                    enabled = false
+                                }
+                            }
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("AUDIO_ERROR", e.message, null)
                     }
                 }
                 else -> {
