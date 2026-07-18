@@ -238,24 +238,26 @@ class _HomeScreenState extends State<HomeScreen> {
       final String filename = isTV ? 'DongMePhim_TV_$version.apk' : 'DongMePhim_$version.apk';
 
       // Chỉ cần quyền install packages để mở APK — không cần manageExternalStorage
-      final installStatus = await Permission.requestInstallPackages.status;
-      if (!installStatus.isGranted) {
+      if (!await Permission.requestInstallPackages.isGranted) {
         if (!mounted) return;
         TxaToast.show(
           context,
           TxaLanguage.t('permission_install_desc'),
           isError: true,
         );
-        final result = await Permission.requestInstallPackages.request();
-        if (!result.isGranted) {
+        await Permission.requestInstallPackages.request();
+        
+        // Đợi trong vòng lặp xem người dùng có cấp quyền hay không (tối đa 30 giây)
+        bool granted = false;
+        for (int i = 0; i < 60; i++) {
+          await Future.delayed(const Duration(milliseconds: 500));
           if (!mounted) return;
-          TxaToast.show(
-            context,
-            TxaLanguage.t('permissions_required'),
-            isError: true,
-          );
-          return;
+          if (await Permission.requestInstallPackages.isGranted) {
+            granted = true;
+            break;
+          }
         }
+        if (!granted) return;
       }
 
       if (!mounted) return;
