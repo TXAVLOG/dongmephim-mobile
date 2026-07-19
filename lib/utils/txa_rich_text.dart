@@ -14,6 +14,7 @@ class TxaRichTextParser {
 
     // Normalize HTML line breaks and block elements
     String normalized = text
+        .replaceAll('\\n', '\n') // Support literal \n from JSON
         .replaceAll('<br>', '\n')
         .replaceAll('<br/>', '\n')
         .replaceAll('<br />', '\n')
@@ -32,6 +33,17 @@ class TxaRichTextParser {
         .replaceAll(RegExp(r'<code>(.*?)</code>'), '`\$1`')
         .replaceAll(RegExp(r'<h[1-6][^>]*>'), '\n## ')
         .replaceAll(RegExp(r'</h[1-6]>'), '\n');
+
+    // Normalize BBCode elements
+    normalized = normalized
+        .replaceAll(RegExp(r'\[b\](.*?)\[/b\]', caseSensitive: false), '**\$1**')
+        .replaceAll(RegExp(r'\[i\](.*?)\[/i\]', caseSensitive: false), '*\$1*')
+        .replaceAll(RegExp(r'\[code\](.*?)\[/code\]', caseSensitive: false), '`\$1`')
+        .replaceAll(RegExp(r'\[u\](.*?)\[/u\]', caseSensitive: false), '\$1')
+        .replaceAll(RegExp(r'\[color=[^\]]+\](.*?)\[/color\]', caseSensitive: false), '\$1')
+        .replaceAll(RegExp(r'\[size=[^\]]+\](.*?)\[/size\]', caseSensitive: false), '\$1')
+        .replaceAll(RegExp(r'\[url=[^\]]+\](.*?)\[/url\]', caseSensitive: false), '\$1')
+        .replaceAll(RegExp(r'\[\*\]\s*(.*)', caseSensitive: false), '• \$1');
 
     // Remove remaining HTML tags
     normalized = normalized.replaceAll(RegExp(r'<[^>]*>'), '');

@@ -525,7 +525,13 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
 
   void _initAdPlayer() async {
     if (_adUrl == null) return;
-    final headers = (TxaPlatform.isDesktop || TxaPlatform.isWeb)
+    final bool bypassAdHeaders = _adUrl!.contains('google') ||
+        _adUrl!.contains('github') ||
+        _adUrl!.contains('mediafire') ||
+        _adUrl!.contains('dropbox') ||
+        _adUrl!.contains('r2.dev');
+
+    final headers = (TxaPlatform.isDesktop || TxaPlatform.isWeb || bypassAdHeaders)
         ? const <String, String>{}
         : const {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -614,7 +620,8 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     final bool bypassHeaders = _currentUrl.contains('google') ||
         _currentUrl.contains('github') ||
         _currentUrl.contains('mediafire') ||
-        _currentUrl.contains('dropbox');
+        _currentUrl.contains('dropbox') ||
+        _currentUrl.contains('r2.dev');
 
     final headers = (TxaPlatform.isWeb || bypassHeaders)
         ? const <String, String>{}

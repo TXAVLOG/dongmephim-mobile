@@ -16,7 +16,6 @@ import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../services/txa_permission.dart';
 import '../widgets/txa_download_dialog.dart';
 import '../services/txa_url_resolver.dart';
 import '../utils/txa_logger.dart';
@@ -32,6 +31,26 @@ class TxaDrawer extends StatefulWidget {
 
 class _TxaDrawerState extends State<TxaDrawer> {
   bool _checkingUpdate = false;
+  String? _discordUrl;
+  bool _discordEnable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDiscordSettings();
+  }
+
+  void _loadDiscordSettings() async {
+    try {
+      final info = await TxaApi().getCheckUpdate();
+      if (info != null && mounted) {
+        setState(() {
+          _discordUrl = info['discord_server_url']?.toString();
+          _discordEnable = (info['discord_server_enable'] == true || info['discord_server_enable']?.toString() == 'true');
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _handleUpdate(
     Map<String, dynamic> info,
@@ -705,6 +724,32 @@ class _TxaDrawerState extends State<TxaDrawer> {
                             onTap: _toggleLanguage,
                           ),
 
+                          // Discord Server Button (Conditional)
+                          if (_discordEnable && _discordUrl != null && _discordUrl!.isNotEmpty)
+                            _buildDrawerTile(
+                              customLeading: buildDiscordIcon(),
+                              title: TxaLanguage.t('discord_server'),
+                              subtitle: TxaLanguage.t('join_discord_server'),
+                              onTap: () async {
+                                final uri = Uri.parse(_discordUrl!);
+                                try {
+                                  final canLaunch = await canLaunchUrl(uri);
+                                  if (!context.mounted) return;
+                                  if (canLaunch) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  } else {
+                                    if (context.mounted) {
+                                      TxaToast.show(context, "Không thể mở liên kết Discord.", isError: true);
+                                    }
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    TxaToast.show(context, "Lỗi mở liên kết: $e", isError: true);
+                                  }
+                                }
+                              },
+                            ),
+
                           // Movie Request Button
                           _buildDrawerTile(
                             icon: Icons.movie_filter_rounded,
@@ -778,7 +823,8 @@ class _TxaDrawerState extends State<TxaDrawer> {
   }
 
   Widget _buildDrawerTile({
-    required IconData icon,
+    IconData? icon,
+    Widget? customLeading,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -791,7 +837,7 @@ class _TxaDrawerState extends State<TxaDrawer> {
           color: Colors.white.withValues(alpha: 0.03),
           child: ListTile(
             onTap: onTap,
-            leading: Icon(icon, color: TxaTheme.accent, size: 22),
+            leading: customLeading ?? (icon != null ? Icon(icon, color: TxaTheme.accent, size: 22) : null),
             title: Text(
               title,
               style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
@@ -806,4 +852,65 @@ class _TxaDrawerState extends State<TxaDrawer> {
       ),
     );
   }
+}
+
+Widget buildDiscordIcon({double size = 22}) {
+  return SizedBox(
+    width: size,
+    height: size,
+    child: CustomPaint(
+      painter: DiscordIconPainter(),
+    ),
+  );
+}
+
+class DiscordIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF5865F2)
+      ..style = PaintingStyle.fill;
+    
+    final path = Path();
+    final w = size.width;
+    final h = size.height;
+    
+    path.moveTo(w * 0.86, h * 0.13);
+    path.cubicTo(w * 0.77, h * 0.08, w * 0.67, h * 0.05, w * 0.57, h * 0.03);
+    path.lineTo(w * 0.56, h * 0.06);
+    path.cubicTo(w * 0.67, h * 0.09, w * 0.78, h * 0.14, w * 0.87, h * 0.22);
+    path.cubicTo(w * 0.77, h * 0.71, w * 0.59, h * 0.89, w * 0.51, h * 0.96);
+    path.lineTo(w * 0.49, h * 0.96);
+    path.cubicTo(w * 0.41, h * 0.89, w * 0.23, h * 0.71, w * 0.13, h * 0.22);
+    path.cubicTo(w * 0.22, h * 0.14, w * 0.33, h * 0.09, w * 0.44, h * 0.06);
+    path.lineTo(w * 0.43, h * 0.03);
+    path.cubicTo(w * 0.33, h * 0.05, w * 0.23, h * 0.08, w * 0.14, h * 0.13);
+    path.cubicTo(w * 0.03, h * 0.38, -0.02, h * 0.63, 0.01, h * 0.88);
+    path.cubicTo(w * 0.12, h * 0.96, w * 0.27, h * 1.0, w * 0.38, h * 1.0);
+    path.lineTo(w * 0.41, h * 0.93);
+    path.cubicTo(w * 0.34, h * 0.91, w * 0.27, h * 0.87, w * 0.21, h * 0.82);
+    path.lineTo(w * 0.23, h * 0.8);
+    path.cubicTo(w * 0.41, h * 0.89, w * 0.59, h * 0.89, w * 0.77, h * 0.8);
+    path.lineTo(w * 0.79, h * 0.82);
+    path.cubicTo(w * 0.73, h * 0.87, w * 0.66, h * 0.91, w * 0.59, h * 0.93);
+    path.lineTo(w * 0.62, h * 1.0);
+    path.cubicTo(w * 0.73, h * 1.0, w * 0.88, h * 0.96, w * 0.99, h * 0.88);
+    path.cubicTo(w * 1.02, h * 0.63, w * 0.97, h * 0.38, w * 0.86, h * 0.13);
+    
+    final eyeLeft = Path()
+      ..addOval(Rect.fromLTWH(w * 0.28, h * 0.42, w * 0.14, h * 0.14));
+    final eyeRight = Path()
+      ..addOval(Rect.fromLTWH(w * 0.58, h * 0.42, w * 0.14, h * 0.14));
+      
+    canvas.drawPath(path, paint);
+    
+    final eyePaint = Paint()
+      ..color = const Color(0xFF1E1E2C)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(eyeLeft, eyePaint);
+    canvas.drawPath(eyeRight, eyePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

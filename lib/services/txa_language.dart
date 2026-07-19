@@ -640,6 +640,8 @@ class TxaLanguage extends ChangeNotifier {
       'request_success': 'Gửi yêu cầu phim thành công!',
       'request_failed': 'Gửi yêu cầu thất bại!',
       'enter_film_name': 'Vui lòng nhập tên phim!',
+      'discord_server': 'Máy chủ Discord',
+      'join_discord_server': 'Tham gia máy chủ Discord để cập nhật lịch chiếu, sự kiện và giao lưu',
       // Smart TV Keys
       'tv_unsupported_device': 'Thiết bị Samsung Smart TV chưa được hỗ trợ chính thức.',
       'tv_smarttv_enable': 'Giả lập Smart TV',
@@ -1119,6 +1121,8 @@ class TxaLanguage extends ChangeNotifier {
       'load_error': 'Failed to load information',
       'login_again_msg': 'Please login again to continue',
       'up_to_date': 'You are on the latest version (%version%)',
+      'discord_server': 'Discord Server',
+      'join_discord_server': 'Join our Discord server for schedules, events and chat',
       'update_error': 'Failed to check for updates',
       'checking_update': 'Checking for new version...',
       'whats_new': 'What\'s new:',
