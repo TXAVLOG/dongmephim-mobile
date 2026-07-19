@@ -1574,6 +1574,9 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       if (!mounted) return;
       if (res != null && res['status'] == 'success') {
         TxaToast.show(context, 'Cập nhật ảnh đại diện thành công!', isError: false);
+        // Sync avatar_url toàn app (Home Drawer, TV Confirm, v.v.)
+        final auth = Provider.of<TxaAuthService>(context, listen: false);
+        auth.updateUserField('avatar_url', base64Image);
         _loadCabinetData();
       } else {
         final msg = res?['message'] ?? 'Không thể cập nhật ảnh đại diện!';

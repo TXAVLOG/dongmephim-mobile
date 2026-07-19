@@ -92,6 +92,16 @@ class TxaAuthService extends ChangeNotifier {
     }
   }
 
+  /// Update a single field in the user object and persist to SharedPreferences
+  void updateUserField(String key, dynamic value) {
+    if (_user == null) return;
+    _user![key] = value;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString('txa_auth_user', jsonEncode(_user));
+    });
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     try {
       final prefs = await SharedPreferences.getInstance();
