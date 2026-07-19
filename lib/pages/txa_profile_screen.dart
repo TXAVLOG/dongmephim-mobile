@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -1367,18 +1368,8 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       if (file == null) return;
 
       final bytes = await file.readAsBytes();
-      
-      // Decode image dimensions to check size limit (> 512px)
-      final codec = await instantiateImageCodec(bytes);
-      final frameInfo = await codec.getNextFrame();
-      final width = frameInfo.image.width;
-      final height = frameInfo.image.height;
-
-      // On Mobile, if dimensions > 512px, show interactive cropping modal
-      final isMobileDevice = TxaPlatform.isMobile;
-      final needsCrop = isMobileDevice && (width > 512 || height > 512);
-
-      if (needsCrop) {
+      // Always show crop dialog on mobile for precise control
+      if (TxaPlatform.isMobile) {
         _showCropDialog(bytes);
       } else {
         _directResizeAndUpload(bytes);
@@ -1394,87 +1385,133 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogCtx) {
-        final controller = TransformationController();
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0F111E),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Text(
-            'Cắt ảnh đại diện',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Kéo để di chuyển, dùng 2 ngón để thu phóng ảnh vừa với vòng tròn nét đứt.',
-                style: TextStyle(color: Colors.white54, fontSize: 11),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: 260,
-                height: 260,
+        // Crop state: offset of image center relative to circle center, scale
+        double imgScale = 1.0;
+        double imgOffsetX = 0.0;
+        double imgOffsetY = 0.0;
+        double? lastFocalScale;
+        Offset? lastFocalOffset;
+
+        const double viewSize = 300.0;
+        const double circleRadius = 120.0;
+
+        return StatefulBuilder(
+          builder: (ctx, setStateCrop) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(20),
+              child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(16),
+                  color: const Color(0xFF0F111E),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: Colors.white10),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      InteractiveViewer(
-                        transformationController: controller,
-                        minScale: 0.1,
-                        maxScale: 5.0,
-                        boundaryMargin: const EdgeInsets.all(130),
-                        child: Image.memory(imageBytes, fit: BoxFit.contain),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
+                      child: Text(
+                        'Cắt ảnh đại diện',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
                       ),
-                      IgnorePointer(
-                        child: Container(
-                          width: 200,
-                          height: 200,
-                          decoration: ShapeDecoration(
-                            shape: CircleBorder(
-                              side: BorderSide(
-                                color: TxaTheme.accent.withValues(alpha: 0.8),
-                                width: 2,
-                                style: BorderStyle.solid,
-                              ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                      child: Text(
+                        'Kéo để di chuyển • Chụm/Mở 2 ngón để thu phóng',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Crop area
+                    GestureDetector(
+                      onScaleStart: (details) {
+                        lastFocalScale = imgScale;
+                        lastFocalOffset = Offset(imgOffsetX, imgOffsetY);
+                      },
+                      onScaleUpdate: (details) {
+                        setStateCrop(() {
+                          // Pan
+                          if (details.scale == 1.0) {
+                            imgOffsetX = (lastFocalOffset?.dx ?? imgOffsetX) + details.focalPointDelta.dx;
+                            imgOffsetY = (lastFocalOffset?.dy ?? imgOffsetY) + details.focalPointDelta.dy;
+                          } else {
+                            // Pinch zoom
+                            imgScale = ((lastFocalScale ?? imgScale) * details.scale).clamp(0.3, 8.0);
+                          }
+                        });
+                      },
+                      child: ClipRect(
+                        child: SizedBox(
+                          width: viewSize,
+                          height: viewSize,
+                          child: CustomPaint(
+                            painter: _CropOverlayPainter(
+                              imageBytes: imageBytes,
+                              scale: imgScale,
+                              offsetX: imgOffsetX,
+                              offsetY: imgOffsetY,
+                              viewSize: viewSize,
+                              circleRadius: circleRadius,
+                              accentColor: TxaTheme.accent,
                             ),
+                            child: const SizedBox.expand(),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(dialogCtx),
+                            child: const Text('Hủy', style: TextStyle(color: Colors.white54)),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () async {
+                              Navigator.pop(dialogCtx);
+                              _cropAndUploadCustom(
+                                imageBytes,
+                                imgScale,
+                                imgOffsetX,
+                                imgOffsetY,
+                                viewSize,
+                                circleRadius,
+                              );
+                            },
+                            child: const Text(
+                              'Cắt & Lưu',
+                              style: TextStyle(color: TxaTheme.accent, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Hủy', style: TextStyle(color: Colors.white54)),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(dialogCtx);
-                _cropAndUpload(imageBytes, controller.value);
-              },
-              child: const Text(
-                'Cắt & Lưu',
-                style: TextStyle(color: TxaTheme.accent, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+            );
+          },
         );
       },
     );
   }
 
-  Future<void> _cropAndUpload(Uint8List imageBytes, Matrix4 transform) async {
+  Future<void> _cropAndUploadCustom(
+    Uint8List imageBytes,
+    double imgScale,
+    double imgOffsetX,
+    double imgOffsetY,
+    double viewSize,
+    double circleRadius,
+  ) async {
     if (mounted) {
       TxaToast.show(context, 'Đang cắt ảnh...', isError: false);
     }
@@ -1483,44 +1520,47 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       final frameInfo = await codec.getNextFrame();
       final originalImage = frameInfo.image;
 
-      final recorder = PictureRecorder();
-      final canvas = Canvas(recorder);
-      
       const double outputSize = 256.0;
-      
-      // Center output coordinate system
-      canvas.translate(outputSize / 2, outputSize / 2);
-      
-      // Scale from viewport (200px) to output size (256px)
-      const double scaleViewportToOutput = outputSize / 200.0;
-      canvas.scale(scaleViewportToOutput, scaleViewportToOutput);
-      
-      // Decompose scale & translation from InteractiveViewer transformation matrix
-      final matrix = transform.clone();
-      final double scaleX = matrix.getMaxScaleOnAxis();
-      
-      // Adjust translation coordinate offsets
-      final double tx = matrix.storage[12] - 130.0;
-      final double ty = matrix.storage[13] - 130.0;
-      
-      canvas.translate(tx, ty);
-      canvas.scale(scaleX, scaleX);
-      
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, outputSize, outputSize));
+
+      // The circle center in view coordinates
+      final double circleCx = viewSize / 2;
+      final double circleCy = viewSize / 2;
+
+      // Image is drawn centered at (circleCx + imgOffsetX, circleCy + imgOffsetY)
+      // with its natural size scaled by imgScale
+      final double imgW = originalImage.width * imgScale;
+      final double imgH = originalImage.height * imgScale;
+      final double imgLeft = circleCx + imgOffsetX - imgW / 2;
+      final double imgTop = circleCy + imgOffsetY - imgH / 2;
+
+      // Circle bounds in view coordinates
+      final double circleLeft = circleCx - circleRadius;
+      final double circleTop = circleCy - circleRadius;
+
+      // Source rect in original image coordinates
+      final double srcScale = 1.0 / imgScale;
+      final double srcX = (circleLeft - imgLeft) * srcScale;
+      final double srcY = (circleTop - imgTop) * srcScale;
+      final double srcW = (circleRadius * 2) * srcScale;
+      final double srcH = (circleRadius * 2) * srcScale;
+
       final paint = Paint()..filterQuality = FilterQuality.high;
-      canvas.drawImage(
+      canvas.drawImageRect(
         originalImage,
-        Offset(-originalImage.width / 2, -originalImage.height / 2),
+        Rect.fromLTWH(srcX, srcY, srcW, srcH),
+        Rect.fromLTWH(0, 0, outputSize, outputSize),
         paint,
       );
-      
+
       final picture = recorder.endRecording();
       final img = await picture.toImage(outputSize.toInt(), outputSize.toInt());
       final byteData = await img.toByteData(format: ImageByteFormat.png);
       if (byteData == null) return;
-      
+
       final croppedBytes = byteData.buffer.asUint8List();
       final base64Image = 'data:image/jpeg;base64,${base64Encode(croppedBytes)}';
-      
       _uploadAvatarToServer(base64Image);
     } catch (e) {
       debugPrint('Error cropping image: $e');
@@ -2420,5 +2460,93 @@ class NumberFormatCurrency {
     }
     buffer.write('đ');
     return buffer.toString();
+  }
+}
+
+class _CropOverlayPainter extends CustomPainter {
+  final Uint8List imageBytes;
+  final double scale;
+  final double offsetX;
+  final double offsetY;
+  final double viewSize;
+  final double circleRadius;
+  final Color accentColor;
+
+  ui.Image? _decodedImage;
+  bool _isDecoding = false;
+
+  _CropOverlayPainter({
+    required this.imageBytes,
+    required this.scale,
+    required this.offsetX,
+    required this.offsetY,
+    required this.viewSize,
+    required this.circleRadius,
+    required this.accentColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (_decodedImage == null) {
+      if (!_isDecoding) {
+        _isDecoding = true;
+        ui.instantiateImageCodec(imageBytes).then((codec) {
+          return codec.getNextFrame();
+        }).then((frameInfo) {
+          _decodedImage = frameInfo.image;
+          // Trigger repaint
+        });
+      }
+      return;
+    }
+
+    final img = _decodedImage!;
+    
+    // Draw image centered with scale and offset
+    final double cx = viewSize / 2;
+    final double cy = viewSize / 2;
+    
+    final double imgW = img.width * scale;
+    final double imgH = img.height * scale;
+    
+    final double left = cx + offsetX - imgW / 2;
+    final double top = cy + offsetY - imgH / 2;
+
+    final paintImg = Paint()..filterQuality = FilterQuality.high;
+    canvas.drawImageRect(
+      img,
+      Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+      Rect.fromLTWH(left, top, imgW, imgH),
+      paintImg,
+    );
+
+    // Draw Dark Overlay with Circular Cutout
+    final overlayPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, viewSize, viewSize))
+      ..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: circleRadius))
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.drawPath(path, overlayPaint);
+
+    // Draw Circular Border Guide
+    final borderPaint = Paint()
+      ..color = accentColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    canvas.drawCircle(Offset(cx, cy), circleRadius, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CropOverlayPainter oldDelegate) {
+    return oldDelegate.scale != scale ||
+        oldDelegate.offsetX != offsetX ||
+        oldDelegate.offsetY != offsetY ||
+        oldDelegate.imageBytes != imageBytes ||
+        _decodedImage == null;
   }
 }
