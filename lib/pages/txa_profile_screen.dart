@@ -1619,7 +1619,21 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         auth.updateUserField('avatar_url', base64Image);
         _loadCabinetData();
       } else {
-        final msg = res?['message'] ?? 'Không thể cập nhật ảnh đại diện!';
+        final data = res?['data'] as Map<String, dynamic>?;
+        final errorCode = data?['error_code'] ?? '';
+        String msg = res?['message'] ?? 'Không thể cập nhật ảnh đại diện!';
+        
+        if (errorCode == 'LIMIT_REACHED') {
+          final trans = TxaLanguage.t('avatar_limit_reached');
+          msg = trans.isNotEmpty ? trans : 'Bạn đã đạt giới hạn đổi ảnh đại diện trong tháng này!';
+        } else if (errorCode == 'UNAUTHORIZED') {
+          final trans = TxaLanguage.t('session_expired_please_login');
+          msg = trans.isNotEmpty ? trans : 'Phiên đăng nhập hết hạn, vui lòng đăng nhập lại!';
+        } else if (errorCode == 'INVALID_FORMAT') {
+          final trans = TxaLanguage.t('invalid_image_format');
+          msg = trans.isNotEmpty ? trans : 'Định dạng ảnh không hợp lệ!';
+        }
+        
         TxaToast.show(context, msg, isError: true);
       }
     } catch (e) {
