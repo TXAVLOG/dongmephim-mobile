@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -19,7 +20,6 @@ import 'txa_search_tab.dart';
 import 'txa_profile_screen.dart';
 import 'txa_schedule_tab.dart';
 import '../widgets/txa_coachmark.dart';
-
 import 'dart:io';
 import 'dart:ui';
 import 'package:crypto/crypto.dart';
@@ -29,10 +29,24 @@ import 'package:permission_handler/permission_handler.dart';
 import '../widgets/txa_download_dialog.dart';
 import '../services/txa_url_resolver.dart';
 import '../utils/txa_logger.dart';
+
 import '../utils/txa_rich_text.dart';
 import '../services/txa_version.dart';
 import '../utils/txa_platform.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+ImageProvider? _getAvatarProvider(String? avatarUrl) {
+  if (avatarUrl == null || avatarUrl.isEmpty) return null;
+  if (avatarUrl.startsWith('data:image/')) {
+    try {
+      final base64String = avatarUrl.split(',').last;
+      return MemoryImage(base64Decode(base64String));
+    } catch (e) {
+      return null;
+    }
+  }
+  return CachedNetworkImageProvider(avatarUrl);
+}
 
 class HomeScreen extends StatefulWidget {
   static final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
@@ -661,9 +675,7 @@ class _HomeTabState extends State<HomeTab> {
                                   child: CircleAvatar(
                                     radius: 18,
                                     backgroundColor: auth.isLoggedIn ? TxaTheme.secondaryBg : Colors.white.withValues(alpha: 0.08),
-                                    backgroundImage: (auth.isLoggedIn && auth.user?['avatar_url'] != null && auth.user!['avatar_url'].toString().isNotEmpty)
-                                        ? NetworkImage(auth.user!['avatar_url'].toString())
-                                        : null,
+                                    backgroundImage: auth.isLoggedIn ? _getAvatarProvider(auth.user?['avatar_url']?.toString()) : null,
                                     child: auth.isLoggedIn
                                         ? ((auth.user?['avatar_url'] == null || auth.user!['avatar_url'].toString().isEmpty)
                                             ? Text(

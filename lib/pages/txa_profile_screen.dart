@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_api.dart';
 import '../services/txa_language.dart';
@@ -1341,6 +1346,244 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
     );
   }
 
+  ImageProvider? _getAvatarProvider(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) return null;
+    if (avatarUrl.startsWith('data:image/')) {
+      try {
+        final base64String = avatarUrl.split(',').last;
+        return MemoryImage(base64Decode(base64String));
+      } catch (e) {
+        debugPrint('Error decoding base64 avatar: $e');
+        return null;
+      }
+    }
+    return CachedNetworkImageProvider(avatarUrl);
+  }
+
+  Future<void> _pickAndCropAvatar() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+      if (file == null) return;
+
+      final bytes = await file.readAsBytes();
+      
+      // Decode image dimensions to check size limit (> 512px)
+      final codec = await instantiateImageCodec(bytes);
+      final frameInfo = await codec.getNextFrame();
+      final width = frameInfo.image.width;
+      final height = frameInfo.image.height;
+
+      // On Mobile, if dimensions > 512px, show interactive cropping modal
+      final isMobileDevice = TxaPlatform.isMobile;
+      final needsCrop = isMobileDevice && (width > 512 || height > 512);
+
+      if (needsCrop) {
+        _showCropDialog(bytes);
+      } else {
+        _directResizeAndUpload(bytes);
+      }
+    } catch (e) {
+      debugPrint('Error picking avatar: $e');
+      if (mounted) TxaToast.show(context, 'Lỗi chọn ảnh: $e', isError: true);
+    }
+  }
+
+  void _showCropDialog(Uint8List imageBytes) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        final controller = TransformationController();
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F111E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Text(
+            'Cắt ảnh đại diện',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Kéo để di chuyển, dùng 2 ngón để thu phóng ảnh vừa với vòng tròn nét đứt.',
+                style: TextStyle(color: Colors.white54, fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      InteractiveViewer(
+                        transformationController: controller,
+                        minScale: 0.1,
+                        maxScale: 5.0,
+                        boundaryMargin: const EdgeInsets.all(130),
+                        child: Image.memory(imageBytes, fit: BoxFit.contain),
+                      ),
+                      IgnorePointer(
+                        child: Container(
+                          width: 200,
+                          height: 200,
+                          decoration: ShapeDecoration(
+                            shape: CircleBorder(
+                              side: BorderSide(
+                                color: TxaTheme.accent.withValues(alpha: 0.8),
+                                width: 2,
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Hủy', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                _cropAndUpload(imageBytes, controller.value);
+              },
+              child: const Text(
+                'Cắt & Lưu',
+                style: TextStyle(color: TxaTheme.accent, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _cropAndUpload(Uint8List imageBytes, Matrix4 transform) async {
+    if (mounted) {
+      TxaToast.show(context, 'Đang cắt ảnh...', isError: false);
+    }
+    try {
+      final codec = await instantiateImageCodec(imageBytes);
+      final frameInfo = await codec.getNextFrame();
+      final originalImage = frameInfo.image;
+
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      
+      const double outputSize = 256.0;
+      
+      // Center output coordinate system
+      canvas.translate(outputSize / 2, outputSize / 2);
+      
+      // Scale from viewport (200px) to output size (256px)
+      const double scaleViewportToOutput = outputSize / 200.0;
+      canvas.scale(scaleViewportToOutput, scaleViewportToOutput);
+      
+      // Decompose scale & translation from InteractiveViewer transformation matrix
+      final matrix = transform.clone();
+      final double scaleX = matrix.getMaxScaleOnAxis();
+      
+      // Adjust translation coordinate offsets
+      final double tx = matrix.storage[12] - 130.0;
+      final double ty = matrix.storage[13] - 130.0;
+      
+      canvas.translate(tx, ty);
+      canvas.scale(scaleX, scaleX);
+      
+      final paint = Paint()..filterQuality = FilterQuality.high;
+      canvas.drawImage(
+        originalImage,
+        Offset(-originalImage.width / 2, -originalImage.height / 2),
+        paint,
+      );
+      
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(outputSize.toInt(), outputSize.toInt());
+      final byteData = await img.toByteData(format: ImageByteFormat.png);
+      if (byteData == null) return;
+      
+      final croppedBytes = byteData.buffer.asUint8List();
+      final base64Image = 'data:image/jpeg;base64,${base64Encode(croppedBytes)}';
+      
+      _uploadAvatarToServer(base64Image);
+    } catch (e) {
+      debugPrint('Error cropping image: $e');
+      if (mounted) TxaToast.show(context, 'Lỗi cắt ảnh!', isError: true);
+    }
+  }
+
+  Future<void> _directResizeAndUpload(Uint8List imageBytes) async {
+    try {
+      final codec = await instantiateImageCodec(imageBytes);
+      final frameInfo = await codec.getNextFrame();
+      final originalImage = frameInfo.image;
+
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      
+      const double outputSize = 256.0;
+      final paint = Paint()..filterQuality = FilterQuality.high;
+      
+      final double minDim = math.min(originalImage.width.toDouble(), originalImage.height.toDouble());
+      final double sx = (originalImage.width - minDim) / 2;
+      final double sy = (originalImage.height - minDim) / 2;
+      
+      canvas.drawImageRect(
+        originalImage,
+        Rect.fromLTWH(sx, sy, minDim, minDim),
+        Rect.fromLTWH(0, 0, outputSize, outputSize),
+        paint,
+      );
+      
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(outputSize.toInt(), outputSize.toInt());
+      final byteData = await img.toByteData(format: ImageByteFormat.png);
+      if (byteData == null) return;
+      
+      final resizedBytes = byteData.buffer.asUint8List();
+      final base64Image = 'data:image/jpeg;base64,${base64Encode(resizedBytes)}';
+      
+      _uploadAvatarToServer(base64Image);
+    } catch (e) {
+      debugPrint('Error resizing image: $e');
+    }
+  }
+
+  Future<void> _uploadAvatarToServer(String base64Image) async {
+    if (mounted) {
+      TxaToast.show(context, 'Đang gửi ảnh lên máy chủ...', isError: false);
+    }
+    try {
+      final res = await TxaApi().updateAvatar(base64Image);
+      if (!mounted) return;
+      if (res != null && res['status'] == 'success') {
+        TxaToast.show(context, 'Cập nhật ảnh đại diện thành công!', isError: false);
+        _loadCabinetData();
+      } else {
+        final msg = res?['message'] ?? 'Không thể cập nhật ảnh đại diện!';
+        TxaToast.show(context, msg, isError: true);
+      }
+    } catch (e) {
+      if (mounted) TxaToast.show(context, 'Lỗi kết nối máy chủ!', isError: true);
+    }
+  }
+
   // --- Builders ---
 
   @override
@@ -1603,26 +1846,48 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         child: Row(
           children: [
             // Circular Avatar Glow
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: TxaTheme.accent, width: 2),
-                boxShadow: [
-                  BoxShadow(color: TxaTheme.accent.withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1),
+            GestureDetector(
+              onTap: _pickAndCropAvatar,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: TxaTheme.accent, width: 2),
+                      boxShadow: [
+                        BoxShadow(color: TxaTheme.accent.withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      radius: 36,
+                      backgroundColor: TxaTheme.secondaryBg,
+                      backgroundImage: _getAvatarProvider(user['avatar_url']?.toString()),
+                      child: (user['avatar_url'] == null || user['avatar_url'].toString().isEmpty)
+                          ? Text(
+                              initials,
+                              style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                            )
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: TxaTheme.accent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        color: Colors.black,
+                        size: 14,
+                      ),
+                    ),
+                  ),
                 ],
-              ),
-              child: CircleAvatar(
-                radius: 36,
-                backgroundColor: TxaTheme.secondaryBg,
-                backgroundImage: (user['avatar_url'] != null && user['avatar_url'].toString().isNotEmpty)
-                    ? NetworkImage(user['avatar_url'].toString())
-                    : null,
-                child: (user['avatar_url'] == null || user['avatar_url'].toString().isEmpty)
-                    ? Text(
-                        initials,
-                        style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
-                      )
-                    : null,
               ),
             ),
             const SizedBox(width: 16),

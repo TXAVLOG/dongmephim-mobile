@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../theme/txa_theme.dart';
@@ -23,6 +23,18 @@ class TxaTvConfirmScreen extends StatefulWidget {
 
 class _TxaTvConfirmScreenState extends State<TxaTvConfirmScreen> {
   bool _isLoading = false;
+  ImageProvider? _getAvatarProvider(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) return null;
+    if (avatarUrl.startsWith('data:image/')) {
+      try {
+        final base64String = avatarUrl.split(',').last;
+        return MemoryImage(base64Decode(base64String));
+      } catch (e) {
+        return null;
+      }
+    }
+    return NetworkImage(avatarUrl);
+  }
 
   Future<void> _onConfirm() async {
     setState(() {
@@ -210,11 +222,11 @@ class _TxaTvConfirmScreenState extends State<TxaTvConfirmScreen> {
                     ),
                     child: Row(
                       children: [
-                        CircleAvatar(
+                         CircleAvatar(
                           radius: 20,
                           backgroundColor: TxaTheme.accent.withValues(alpha: 0.1),
-                          backgroundImage: user?['avatar_url'] != null ? NetworkImage(user!['avatar_url']) : null,
-                          child: user?['avatar_url'] == null
+                          backgroundImage: _getAvatarProvider(user?['avatar_url']?.toString()),
+                          child: (user?['avatar_url'] == null || user?['avatar_url']?.toString().isEmpty == true)
                               ? const Icon(Icons.person_rounded, color: TxaTheme.accent)
                               : null,
                         ),

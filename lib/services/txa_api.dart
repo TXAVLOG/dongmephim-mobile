@@ -84,6 +84,30 @@ class TxaApi {
     return null;
   }
 
+  Future<Map<String, dynamic>?> updateAvatar(String base64Image, {String? userId}) async {
+    final url = Uri.parse('$baseUrl/api/user/update-avatar');
+    try {
+      final response = await http.post(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'avatar': base64Image,
+          if (userId != null) 'userId': userId,
+        }),
+      );
+      TxaLogger.logApi(
+        method: 'POST',
+        path: url.toString(),
+        statusCode: response.statusCode,
+        responseBody: utf8.decode(response.bodyBytes),
+      );
+      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>?;
+    } catch (e) {
+      TxaLogger.log('TxaApi updateAvatar error: $e', type: 'api');
+    }
+    return null;
+  }
+
   // --- Home and Movie Details ---
 
   Future<Map<String, dynamic>?> getHome() async {
