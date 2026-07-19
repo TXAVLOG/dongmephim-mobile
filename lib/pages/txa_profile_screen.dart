@@ -1370,7 +1370,13 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       final bytes = await file.readAsBytes();
       // Always show crop dialog on mobile for precise control
       if (TxaPlatform.isMobile) {
-        _showCropDialog(bytes);
+        if (mounted) {
+          TxaToast.show(context, 'Đang tải ảnh...', isError: false);
+        }
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frameInfo = await codec.getNextFrame();
+        final decodedImage = frameInfo.image;
+        _showCropDialog(bytes, decodedImage);
       } else {
         _directResizeAndUpload(bytes);
       }
@@ -1380,7 +1386,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
     }
   }
 
-  void _showCropDialog(Uint8List imageBytes) {
+  void _showCropDialog(Uint8List imageBytes, ui.Image decodedImage) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1450,7 +1456,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                           height: viewSize,
                           child: CustomPaint(
                             painter: _CropOverlayPainter(
-                              imageBytes: imageBytes,
+                              decodedImage: decodedImage,
                               scale: imgScale,
                               offsetX: imgOffsetX,
                               offsetY: imgOffsetY,
@@ -2478,7 +2484,7 @@ class NumberFormatCurrency {
 }
 
 class _CropOverlayPainter extends CustomPainter {
-  final Uint8List imageBytes;
+  final ui.Image decodedImage;
   final double scale;
   final double offsetX;
   final double offsetY;
@@ -2486,11 +2492,8 @@ class _CropOverlayPainter extends CustomPainter {
   final double circleRadius;
   final Color accentColor;
 
-  ui.Image? _decodedImage;
-  bool _isDecoding = false;
-
   _CropOverlayPainter({
-    required this.imageBytes,
+    required this.decodedImage,
     required this.scale,
     required this.offsetX,
     required this.offsetY,
@@ -2501,20 +2504,7 @@ class _CropOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (_decodedImage == null) {
-      if (!_isDecoding) {
-        _isDecoding = true;
-        ui.instantiateImageCodec(imageBytes).then((codec) {
-          return codec.getNextFrame();
-        }).then((frameInfo) {
-          _decodedImage = frameInfo.image;
-          // Trigger repaint
-        });
-      }
-      return;
-    }
-
-    final img = _decodedImage!;
+    final img = decodedImage;
     
     // Draw image centered with scale and offset
     final double cx = viewSize / 2;
@@ -2560,7 +2550,6 @@ class _CropOverlayPainter extends CustomPainter {
     return oldDelegate.scale != scale ||
         oldDelegate.offsetX != offsetX ||
         oldDelegate.offsetY != offsetY ||
-        oldDelegate.imageBytes != imageBytes ||
-        _decodedImage == null;
+        oldDelegate.decodedImage != decodedImage;
   }
 }

@@ -528,8 +528,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     final bool bypassAdHeaders = _adUrl!.contains('google') ||
         _adUrl!.contains('github') ||
         _adUrl!.contains('mediafire') ||
-        _adUrl!.contains('dropbox') ||
-        _adUrl!.contains('r2.dev');
+        _adUrl!.contains('dropbox');
 
     final headers = (TxaPlatform.isDesktop || TxaPlatform.isWeb || bypassAdHeaders)
         ? const <String, String>{}
@@ -620,8 +619,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
     final bool bypassHeaders = _currentUrl.contains('google') ||
         _currentUrl.contains('github') ||
         _currentUrl.contains('mediafire') ||
-        _currentUrl.contains('dropbox') ||
-        _currentUrl.contains('r2.dev');
+        _currentUrl.contains('dropbox');
 
     final headers = (TxaPlatform.isWeb || bypassHeaders)
         ? const <String, String>{}
@@ -669,6 +667,12 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         if (_controller!.value.hasError) {
           final errorDescription = _controller!.value.errorDescription;
           TxaLogger.log('Main player playback error: $errorDescription', type: 'crash');
+          if (mounted) {
+            TxaToast.show(context, TxaLanguage.t('player_error_stream'), isError: true);
+            setState(() {
+              _isPlaying = false;
+            });
+          }
           return;
         }
         

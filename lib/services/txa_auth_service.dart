@@ -12,6 +12,20 @@ class TxaAuthService extends ChangeNotifier {
   String? _token;
   Map<String, dynamic>? _user;
 
+  void _setUser(Map<String, dynamic>? user) {
+    if (user != null) {
+      final modifiableUser = Map<String, dynamic>.from(user);
+      if (modifiableUser['avatar_url'] == null && modifiableUser['avatar'] != null) {
+        modifiableUser['avatar_url'] = modifiableUser['avatar'];
+      } else if (modifiableUser['avatar'] == null && modifiableUser['avatar_url'] != null) {
+        modifiableUser['avatar'] = modifiableUser['avatar_url'];
+      }
+      _user = modifiableUser;
+    } else {
+      _user = null;
+    }
+  }
+
   bool get isLoggedIn => _token != null;
   String? get token => _token;
   Map<String, dynamic>? get user => _user;
@@ -22,7 +36,7 @@ class TxaAuthService extends ChangeNotifier {
       _token = prefs.getString('txa_auth_token');
       final userStr = prefs.getString('txa_auth_user');
       if (userStr != null) {
-        _user = jsonDecode(userStr) as Map<String, dynamic>?;
+        _setUser(jsonDecode(userStr) as Map<String, dynamic>?);
       }
       TxaLogger.log('TxaAuthService initialized: isLoggedIn=$isLoggedIn', type: 'auth');
       if (isLoggedIn) {
@@ -41,7 +55,7 @@ class TxaAuthService extends ChangeNotifier {
     try {
       final profile = await TxaApi().getProfile();
       if (profile != null) {
-        _user = profile;
+        _setUser(profile);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('txa_auth_user', jsonEncode(_user));
         notifyListeners();
@@ -58,7 +72,7 @@ class TxaAuthService extends ChangeNotifier {
         final data = response['data'] as Map<String, dynamic>?;
         if (data != null) {
           _token = data['access_token'] ?? data['token'];
-          _user = data['user'] as Map<String, dynamic>?;
+          _setUser(data['user'] as Map<String, dynamic>?);
 
           if (_token != null) {
             final prefs = await SharedPreferences.getInstance();
@@ -95,7 +109,14 @@ class TxaAuthService extends ChangeNotifier {
   /// Update a single field in the user object and persist to SharedPreferences
   void updateUserField(String key, dynamic value) {
     if (_user == null) return;
-    _user![key] = value;
+    final modifiableUser = Map<String, dynamic>.from(_user!);
+    modifiableUser[key] = value;
+    if (key == 'avatar_url') {
+      modifiableUser['avatar'] = value;
+    } else if (key == 'avatar') {
+      modifiableUser['avatar_url'] = value;
+    }
+    _user = modifiableUser;
     SharedPreferences.getInstance().then((prefs) {
       prefs.setString('txa_auth_user', jsonEncode(_user));
     });
