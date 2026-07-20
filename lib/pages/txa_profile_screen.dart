@@ -1395,8 +1395,9 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         double imgScale = 1.0;
         double imgOffsetX = 0.0;
         double imgOffsetY = 0.0;
-        double? lastFocalScale;
-        Offset? lastFocalOffset;
+        double startScale = 1.0;
+        Offset startOffset = Offset.zero;
+        Offset? startFocalPoint;
 
         const double viewSize = 300.0;
         const double circleRadius = 120.0;
@@ -1435,18 +1436,17 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                     // Crop area
                     GestureDetector(
                       onScaleStart: (details) {
-                        lastFocalScale = imgScale;
-                        lastFocalOffset = Offset(imgOffsetX, imgOffsetY);
+                        startScale = imgScale;
+                        startOffset = Offset(imgOffsetX, imgOffsetY);
+                        startFocalPoint = details.localFocalPoint;
                       },
                       onScaleUpdate: (details) {
                         setStateCrop(() {
-                          // Pan
-                          if (details.scale == 1.0) {
-                            imgOffsetX = (lastFocalOffset?.dx ?? imgOffsetX) + details.focalPointDelta.dx;
-                            imgOffsetY = (lastFocalOffset?.dy ?? imgOffsetY) + details.focalPointDelta.dy;
-                          } else {
-                            // Pinch zoom
-                            imgScale = ((lastFocalScale ?? imgScale) * details.scale).clamp(0.3, 8.0);
+                          imgScale = (startScale * details.scale).clamp(0.3, 8.0);
+                          if (startFocalPoint != null) {
+                            final Offset delta = details.localFocalPoint - startFocalPoint!;
+                            imgOffsetX = startOffset.dx + delta.dx;
+                            imgOffsetY = startOffset.dy + delta.dy;
                           }
                         });
                       },
@@ -2516,7 +2516,7 @@ class _CropOverlayPainter extends CustomPainter {
     final double left = cx + offsetX - imgW / 2;
     final double top = cy + offsetY - imgH / 2;
 
-    final paintImg = Paint()..filterQuality = FilterQuality.high;
+    final paintImg = Paint()..filterQuality = FilterQuality.medium;
     canvas.drawImageRect(
       img,
       Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
