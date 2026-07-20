@@ -153,7 +153,7 @@ class _TxaDrawerState extends State<TxaDrawer> {
         if (!mounted) return;
         TxaToast.show(
           context,
-          "Không thể giải quyết đường dẫn tải về.",
+          TxaLanguage.t('cannot_resolve_download_path'),
           isError: true,
         );
       }
@@ -166,22 +166,22 @@ class _TxaDrawerState extends State<TxaDrawer> {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
           } else {
             if (!mounted) return;
-            TxaToast.show(context, "Không thể mở liên kết tải iOS.", isError: true);
+            TxaToast.show(context, TxaLanguage.t('cannot_open_ios_link'), isError: true);
           }
         } catch (e) {
           if (!mounted) return;
-          TxaToast.show(context, "Lỗi mở liên kết: $e", isError: true);
+          TxaToast.show(context, TxaLanguage.t('error_open_link').replaceAll('%error%', '$e'), isError: true);
         }
       } else {
         if (!mounted) return;
-        TxaToast.show(context, "Không tìm thấy liên kết tải iOS.", isError: true);
+        TxaToast.show(context, TxaLanguage.t('cannot_find_ios_link'), isError: true);
       }
     } else if (Platform.isWindows) {
       final String rawUrl = (info['windows_download_url'] ?? '').toString();
       final String filename = 'DongMePhim_v${version}_Setup.exe';
 
       if (rawUrl.isEmpty) {
-        TxaToast.show(context, "Không tìm thấy liên kết tải Windows.", isError: true);
+        TxaToast.show(context, TxaLanguage.t('cannot_find_win_link'), isError: true);
         return;
       }
 
@@ -206,7 +206,7 @@ class _TxaDrawerState extends State<TxaDrawer> {
         if (!mounted) return;
         TxaToast.show(
           context,
-          "Không thể giải quyết đường dẫn tải về.",
+          TxaLanguage.t('cannot_resolve_download_path'),
           isError: true,
         );
       }
@@ -731,20 +731,24 @@ class _TxaDrawerState extends State<TxaDrawer> {
                               title: TxaLanguage.t('discord_server'),
                               subtitle: TxaLanguage.t('join_discord_server'),
                               onTap: () async {
-                                final uri = Uri.parse(_discordUrl!);
+                                String urlStr = _discordUrl!.trim();
+                                if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) {
+                                  urlStr = 'https://$urlStr';
+                                }
                                 try {
-                                  final canLaunch = await canLaunchUrl(uri);
-                                  if (!context.mounted) return;
-                                  if (canLaunch) {
-                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                  } else {
-                                    if (context.mounted) {
-                                      TxaToast.show(context, "Không thể mở liên kết Discord.", isError: true);
-                                    }
+                                  final uri = Uri.parse(urlStr);
+                                  bool launched = false;
+                                  try {
+                                    launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  } catch (_) {
+                                    launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+                                  }
+                                  if (!launched && context.mounted) {
+                                    TxaToast.show(context, TxaLanguage.t('cannot_open_discord_link'), isError: true);
                                   }
                                 } catch (e) {
                                   if (context.mounted) {
-                                    TxaToast.show(context, "Lỗi mở liên kết: $e", isError: true);
+                                    TxaToast.show(context, TxaLanguage.t('error_open_link').replaceAll('%error%', '$e'), isError: true);
                                   }
                                 }
                               },
@@ -754,7 +758,7 @@ class _TxaDrawerState extends State<TxaDrawer> {
                           _buildDrawerTile(
                             icon: Icons.movie_filter_rounded,
                             title: TxaLanguage.t('request_movie'),
-                            subtitle: TxaLanguage.currentLang == 'vi' ? 'Yêu cầu phim bạn muốn xem' : 'Request a movie you want to watch',
+                            subtitle: TxaLanguage.t('request_movie_subtitle'),
                             onTap: () {
                               Navigator.pop(context); // Close Drawer
                               _showMovieRequestDialog();
@@ -765,7 +769,7 @@ class _TxaDrawerState extends State<TxaDrawer> {
                           _buildDrawerTile(
                             icon: Icons.system_update_rounded,
                             title: TxaLanguage.t('check_update'),
-                            subtitle: _checkingUpdate ? 'Loading...' : 'Kiểm tra phiên bản mới',
+                            subtitle: _checkingUpdate ? 'Loading...' : TxaLanguage.t('check_update_subtitle'),
                             onTap: _checkUpdate,
                           ),
 

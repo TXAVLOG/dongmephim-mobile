@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -258,7 +259,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final url = Uri.parse('https://dongmephim.online/');
+              final url = Uri.parse('${TxaApi.baseUrl}/');
               if (await canLaunchUrl(url)) {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
               } else {
@@ -272,7 +273,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Đi tới Website', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(TxaLanguage.t('go_to_website'), style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -307,7 +308,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final url = Uri.parse('https://dongmephim.online/');
+              final url = Uri.parse('${TxaApi.baseUrl}/');
               if (await canLaunchUrl(url)) {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
               } else {
@@ -321,7 +322,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Đi tới Website', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(TxaLanguage.t('go_to_website'), style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1058,8 +1059,8 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                       'actionType': isCurrentPkg ? 'renew' : 'upgrade',
                                       'promoCode': appliedPromoCode,
                                       'note': isCurrentPkg
-                                          ? 'Gia hạn gói $pkgTitle trên App Mobile'
-                                          : 'Nâng cấp VIP trên App Mobile',
+                                          ? TxaLanguage.t('payment_note_renew').replaceAll('%pkg%', pkgTitle)
+                                          : TxaLanguage.t('payment_note_upgrade'),
                                     });
 
                                     if (!context.mounted) return;
@@ -1067,7 +1068,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
 
                                     if (selectedPaymentMethod == 'sepay') {
                                       // Open SePay Payment gateway web page
-                                      const siteUrl = 'https://dongmephim.online';
+                                      const siteUrl = TxaApi.baseUrl;
                                       final checkoutUri = Uri.parse(
                                         '$siteUrl/checkout/sepay?txid=$txid&price=$finalPrice&cycle=$selectedCycle&packageTitle=${Uri.encodeComponent(pkgTitle)}&packageId=${Uri.encodeComponent(pkgId)}&email=${Uri.encodeComponent(user?['email']?.toString() ?? '')}'
                                       );
@@ -1091,7 +1092,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                     }
                                   } catch (e) {
                                     if (context.mounted) {
-                                      TxaToast.show(context, 'Lỗi khởi tạo thanh toán: $e', isError: true);
+                                      TxaToast.show(context, '${TxaLanguage.t('payment_init_error')}: $e', isError: true);
                                     }
                                   } finally {
                                     if (context.mounted) {
@@ -1172,8 +1173,8 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       'actionType': actionType,
       'promoCode': promoCode,
       'note': actionType == 'renew'
-          ? 'Gia h\u00e3n g\u00f3i $pkgTitle tr\u00ean App Mobile'
-          : 'N\u00e2ng c\u1ea5p VIP tr\u00ean App Mobile',
+          ? TxaLanguage.t('payment_note_renew').replaceAll('%pkg%', pkgTitle)
+          : TxaLanguage.t('payment_note_upgrade'),
     });
 
     if (!mounted) return;
@@ -1295,7 +1296,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
               TextButton(
                 onPressed: () async {
                   // Open web checkout page
-                  const siteUrl = 'https://dongmephim.online';
+                  const siteUrl = TxaApi.baseUrl;
                   final checkoutUri = Uri.parse(
                     '$siteUrl/checkout/sepay?txid=$txid&price=$price&cycle=$effectiveCycle&packageTitle=${Uri.encodeComponent(pkgTitle)}&packageId=${Uri.encodeComponent(pkgId)}&email=${Uri.encodeComponent(user['email']?.toString() ?? '')}'
                   );
@@ -1368,92 +1369,119 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       if (file == null) return;
 
       final bytes = await file.readAsBytes();
-      // Always show crop dialog on mobile for precise control
-      if (TxaPlatform.isMobile) {
-        if (mounted) {
-          TxaToast.show(context, 'Đang tải ảnh...', isError: false);
-        }
-        final codec = await ui.instantiateImageCodec(bytes);
-        final frameInfo = await codec.getNextFrame();
-        final decodedImage = frameInfo.image;
-        _showCropDialog(bytes, decodedImage);
-      } else {
-        _directResizeAndUpload(bytes);
+      if (mounted) {
+        TxaToast.show(context, TxaLanguage.t('loading_image'), isError: false);
       }
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frameInfo = await codec.getNextFrame();
+      final decodedImage = frameInfo.image;
+      _showCropDialog(bytes, decodedImage);
     } catch (e) {
       debugPrint('Error picking avatar: $e');
-      if (mounted) TxaToast.show(context, 'Lỗi chọn ảnh: $e', isError: true);
+      if (mounted) TxaToast.show(context, TxaLanguage.t('error_pick_image').replaceAll('%error%', '$e'), isError: true);
     }
   }
 
   void _showCropDialog(Uint8List imageBytes, ui.Image decodedImage) {
+    const double viewSize = 300.0;
+    const double circleRadius = 112.0;
+
+    // The scale where the image fits the crop view
+    final double baseScale = math.max(
+      viewSize / decodedImage.width.toDouble(),
+      viewSize / decodedImage.height.toDouble(),
+    );
+
+    double imgScale = baseScale;
+    double imgOffsetX = 0.0;
+    double imgOffsetY = 0.0;
+    double startScale = baseScale;
+    Offset startOffset = Offset.zero;
+    Offset? startFocalPoint;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogCtx) {
-        // Crop state: offset of image center relative to circle center, scale
-        double imgScale = 1.0;
-        double imgOffsetX = 0.0;
-        double imgOffsetY = 0.0;
-        double startScale = 1.0;
-        Offset startOffset = Offset.zero;
-        Offset? startFocalPoint;
-
-        const double viewSize = 300.0;
-        const double circleRadius = 120.0;
-
         return StatefulBuilder(
           builder: (ctx, setStateCrop) {
+            final int zoomPercent = ((imgScale / baseScale) * 100).round();
+
             return Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.all(20),
               child: Container(
+                constraints: const BoxConstraints(maxWidth: 380),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F111E),
+                  color: const Color(0xFF09090B),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white10),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 24,
+                      spreadRadius: 4,
+                    ),
+                  ],
                 ),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
-                      child: Text(
-                        'Cắt ảnh đại diện',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
+                    Text(
+                      TxaLanguage.t('crop_avatar_title'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                      child: Text(
-                        'Kéo để di chuyển • Chụm/Mở 2 ngón để thu phóng',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
-                        textAlign: TextAlign.center,
-                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      TxaLanguage.t('crop_avatar_hint'),
+                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
-                    // Crop area
-                    GestureDetector(
-                      onScaleStart: (details) {
-                        startScale = imgScale;
-                        startOffset = Offset(imgOffsetX, imgOffsetY);
-                        startFocalPoint = details.localFocalPoint;
+                    const SizedBox(height: 16),
+
+                    // Crop viewport area
+                    Listener(
+                      onPointerSignal: (pointerSignal) {
+                        if (pointerSignal is PointerScrollEvent) {
+                          setStateCrop(() {
+                            final zoomFactor = pointerSignal.scrollDelta.dy < 0 ? 0.05 : -0.05;
+                            imgScale = (imgScale + baseScale * zoomFactor)
+                                .clamp(baseScale * 0.1, baseScale * 4.0);
+                          });
+                        }
                       },
-                      onScaleUpdate: (details) {
-                        setStateCrop(() {
-                          imgScale = (startScale * details.scale).clamp(0.3, 8.0);
-                          if (startFocalPoint != null) {
-                            final Offset delta = details.localFocalPoint - startFocalPoint!;
-                            imgOffsetX = startOffset.dx + delta.dx;
-                            imgOffsetY = startOffset.dy + delta.dy;
-                          }
-                        });
-                      },
-                      child: ClipRect(
-                        child: SizedBox(
+                      child: GestureDetector(
+                        onScaleStart: (details) {
+                          startScale = imgScale;
+                          startOffset = Offset(imgOffsetX, imgOffsetY);
+                          startFocalPoint = details.localFocalPoint;
+                        },
+                        onScaleUpdate: (details) {
+                          setStateCrop(() {
+                            imgScale = (startScale * details.scale)
+                                .clamp(baseScale * 0.1, baseScale * 4.0);
+                            if (startFocalPoint != null) {
+                              final Offset delta = details.localFocalPoint - startFocalPoint!;
+                              imgOffsetX = startOffset.dx + delta.dx;
+                              imgOffsetY = startOffset.dy + delta.dy;
+                            }
+                          });
+                        },
+                        child: Container(
                           width: viewSize,
                           height: viewSize,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF18181B),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                          ),
+                          clipBehavior: Clip.antiAlias,
                           child: CustomPaint(
                             painter: _CropOverlayPainter(
                               decodedImage: decodedImage,
@@ -1462,7 +1490,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                               offsetY: imgOffsetY,
                               viewSize: viewSize,
                               circleRadius: circleRadius,
-                              accentColor: TxaTheme.accent,
+                              accentColor: const Color(0xFFA855F7),
                             ),
                             child: const SizedBox.expand(),
                           ),
@@ -1470,16 +1498,78 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Zoom slider & percentage controls
+                    Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              TxaLanguage.t('zoom_image'),
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            Text(
+                              '$zoomPercent%',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 3,
+                            activeTrackColor: TxaTheme.accent,
+                            inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+                            thumbColor: TxaTheme.accent,
+                            overlayColor: TxaTheme.accent.withValues(alpha: 0.2),
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          ),
+                          child: Slider(
+                            min: 10.0,
+                            max: 400.0,
+                            value: zoomPercent.toDouble().clamp(10.0, 400.0),
+                            onChanged: (val) {
+                              setStateCrop(() {
+                                imgScale = baseScale * (val / 100.0);
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Action buttons
                     Row(
                       children: [
                         Expanded(
-                          child: TextButton(
+                          child: OutlinedButton(
                             onPressed: () => Navigator.pop(dialogCtx),
-                            child: const Text('Hủy', style: TextStyle(color: Colors.white54)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                              backgroundColor: Colors.white.withValues(alpha: 0.05),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: Text(TxaLanguage.t('cancel'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           ),
                         ),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: TextButton(
+                          child: ElevatedButton(
                             onPressed: () async {
                               Navigator.pop(dialogCtx);
                               _cropAndUploadCustom(
@@ -1491,15 +1581,23 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                 circleRadius,
                               );
                             },
-                            child: const Text(
-                              'Cắt & Lưu',
-                              style: TextStyle(color: TxaTheme.accent, fontWeight: FontWeight.bold),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: TxaTheme.accent,
+                              foregroundColor: Colors.white,
+                              elevation: 4,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: Text(
+                              TxaLanguage.t('crop_save'),
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -1519,7 +1617,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
     double circleRadius,
   ) async {
     if (mounted) {
-      TxaToast.show(context, 'Đang cắt ảnh...', isError: false);
+      TxaToast.show(context, TxaLanguage.t('cropping_image'), isError: false);
     }
     try {
       final codec = await instantiateImageCodec(imageBytes);
@@ -1528,7 +1626,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
 
       const double outputSize = 256.0;
       final recorder = PictureRecorder();
-      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, outputSize, outputSize));
+      final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, outputSize, outputSize));
 
       // The circle center in view coordinates
       final double circleCx = viewSize / 2;
@@ -1556,7 +1654,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       canvas.drawImageRect(
         originalImage,
         Rect.fromLTWH(srcX, srcY, srcW, srcH),
-        Rect.fromLTWH(0, 0, outputSize, outputSize),
+        const Rect.fromLTWH(0, 0, outputSize, outputSize),
         paint,
       );
 
@@ -1570,56 +1668,19 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       _uploadAvatarToServer(base64Image);
     } catch (e) {
       debugPrint('Error cropping image: $e');
-      if (mounted) TxaToast.show(context, 'Lỗi cắt ảnh!', isError: true);
-    }
-  }
-
-  Future<void> _directResizeAndUpload(Uint8List imageBytes) async {
-    try {
-      final codec = await instantiateImageCodec(imageBytes);
-      final frameInfo = await codec.getNextFrame();
-      final originalImage = frameInfo.image;
-
-      final recorder = PictureRecorder();
-      final canvas = Canvas(recorder);
-      
-      const double outputSize = 256.0;
-      final paint = Paint()..filterQuality = FilterQuality.high;
-      
-      final double minDim = math.min(originalImage.width.toDouble(), originalImage.height.toDouble());
-      final double sx = (originalImage.width - minDim) / 2;
-      final double sy = (originalImage.height - minDim) / 2;
-      
-      canvas.drawImageRect(
-        originalImage,
-        Rect.fromLTWH(sx, sy, minDim, minDim),
-        Rect.fromLTWH(0, 0, outputSize, outputSize),
-        paint,
-      );
-      
-      final picture = recorder.endRecording();
-      final img = await picture.toImage(outputSize.toInt(), outputSize.toInt());
-      final byteData = await img.toByteData(format: ImageByteFormat.png);
-      if (byteData == null) return;
-      
-      final resizedBytes = byteData.buffer.asUint8List();
-      final base64Image = 'data:image/jpeg;base64,${base64Encode(resizedBytes)}';
-      
-      _uploadAvatarToServer(base64Image);
-    } catch (e) {
-      debugPrint('Error resizing image: $e');
+      if (mounted) TxaToast.show(context, TxaLanguage.t('error_crop_image'), isError: true);
     }
   }
 
   Future<void> _uploadAvatarToServer(String base64Image) async {
     if (mounted) {
-      TxaToast.show(context, 'Đang gửi ảnh lên máy chủ...', isError: false);
+      TxaToast.show(context, TxaLanguage.t('uploading_avatar'), isError: false);
     }
     try {
       final res = await TxaApi().updateAvatar(base64Image);
       if (!mounted) return;
       if (res != null && res['status'] == 'success') {
-        TxaToast.show(context, 'Cập nhật ảnh đại diện thành công!', isError: false);
+        TxaToast.show(context, TxaLanguage.t('avatar_updated_success'), isError: false);
         // Sync avatar_url toàn app (Home Drawer, TV Confirm, v.v.)
         final auth = Provider.of<TxaAuthService>(context, listen: false);
         auth.updateUserField('avatar_url', base64Image);
@@ -1627,7 +1688,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       } else {
         final data = res?['data'] as Map<String, dynamic>?;
         final errorCode = data?['error_code'] ?? '';
-        String msg = res?['message'] ?? 'Không thể cập nhật ảnh đại diện!';
+        String msg = res?['message'] ?? TxaLanguage.t('avatar_update_failed');
         
         if (errorCode == 'LIMIT_REACHED') {
           final trans = TxaLanguage.t('avatar_limit_reached');
@@ -1643,7 +1704,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         TxaToast.show(context, msg, isError: true);
       }
     } catch (e) {
-      if (mounted) TxaToast.show(context, 'Lỗi kết nối máy chủ!', isError: true);
+      if (mounted) TxaToast.show(context, TxaLanguage.t('server_conn_error_simple'), isError: true);
     }
   }
 
@@ -2095,9 +2156,9 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                         MaterialPageRoute(builder: (ctx) => const TxaWatchHistoryScreen()),
                       ).then((_) => _loadCabinetData());
                     },
-                    child: const Text(
-                      'Xem tất cả',
-                      style: TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
+                    child: Text(
+                      TxaLanguage.t('see_all_movies'),
+                      style: const TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -2216,9 +2277,9 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                       MaterialPageRoute(builder: (ctx) => const TxaFavoritesListScreen()),
                     ).then((_) => _loadCabinetData());
                   },
-                  child: const Text(
-                    'Xem tất cả',
-                    style: TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
+                  child: Text(
+                    TxaLanguage.t('see_all_movies'),
+                    style: const TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -2258,9 +2319,9 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                     MaterialPageRoute(builder: (ctx) => const TxaFavoritesListScreen()),
                   ).then((_) => _loadCabinetData());
                 },
-                child: const Text(
-                  'Xem tất cả',
-                  style: TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
+                child: Text(
+                  TxaLanguage.t('see_all_movies'),
+                  style: const TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -2349,9 +2410,9 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                     MaterialPageRoute(builder: (ctx) => const TxaPaymentHistoryScreen()),
                   ).then((_) => _loadCabinetData());
                 },
-                child: const Text(
-                  'Xem tất cả',
-                  style: TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
+                child: Text(
+                  TxaLanguage.t('see_all_movies'),
+                  style: const TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -2373,7 +2434,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
               separatorBuilder: (c, i) => const Divider(color: Colors.white10, height: 1),
               itemBuilder: (context, index) {
                 final log = _payments[index];
-                final title = log['packageTitle'] ?? 'Gói VIP';
+                final title = log['packageTitle'] ?? TxaLanguage.t('vip_package_default');
                 final price = NumberFormatCurrency.format(log['price']);
                 final status = log['status']?.toString().toLowerCase() ?? 'pending';
                 final date = log['date'] != null ? log['date'].toString().split('T')[0] : '';
@@ -2390,7 +2451,12 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   
                 return ListTile(
                   title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                  subtitle: Text('Giao dịch: ${log['txid']}\nNgày: $date', style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 11)),
+                  subtitle: Text(
+                    TxaLanguage.t('transaction_id_label')
+                        .replaceAll('%txid%', log['txid']?.toString() ?? '')
+                        .replaceAll('%date%', date),
+                    style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 11),
+                  ),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -2524,9 +2590,9 @@ class _CropOverlayPainter extends CustomPainter {
       paintImg,
     );
 
-    // Draw Dark Overlay with Circular Cutout
+    // Draw Dark Overlay with Circular Cutout (rgba(9, 9, 11, 0.7))
     final overlayPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.7)
+      ..color = const Color(0xB309090B)
       ..style = PaintingStyle.fill;
 
     final path = Path()
@@ -2536,13 +2602,27 @@ class _CropOverlayPainter extends CustomPainter {
 
     canvas.drawPath(path, overlayPaint);
 
-    // Draw Circular Border Guide
+    // Draw Dashed Circular Border Guide (#A855F7)
     final borderPaint = Paint()
-      ..color = accentColor
+      ..color = const Color(0xFFA855F7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
-    canvas.drawCircle(Offset(cx, cy), circleRadius, borderPaint);
+    final double circumference = 2 * math.pi * circleRadius;
+    final int dashCount = (circumference / 10).floor();
+    final double anglePerDash = (2 * math.pi) / dashCount;
+    final double dashAngle = anglePerDash * 0.5;
+
+    for (int i = 0; i < dashCount; i++) {
+      final double startAngle = i * anglePerDash;
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(cx, cy), radius: circleRadius),
+        startAngle,
+        dashAngle,
+        false,
+        borderPaint,
+      );
+    }
   }
 
   @override

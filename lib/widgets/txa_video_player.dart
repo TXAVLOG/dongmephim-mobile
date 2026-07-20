@@ -534,7 +534,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         ? const <String, String>{}
         : const {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://dongmephim.online/',
+            'Referer': '${TxaApi.baseUrl}/',
           };
     _adController = VideoPlayerController.networkUrl(
       Uri.parse(_adUrl!),
@@ -625,7 +625,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
         ? const <String, String>{}
         : const {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://dongmephim.online/',
+            'Referer': '${TxaApi.baseUrl}/',
           };
     TxaLogger.log('Headers cấu hình: $headers', type: 'app');
     _controller = VideoPlayerController.networkUrl(

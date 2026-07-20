@@ -17,9 +17,7 @@ class TxaErrorWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String errorTitle = TxaLanguage.t('error_connection');
-    final String errorDesc = message ?? (TxaLanguage.currentLang == 'vi'
-        ? 'Lỗi kết nối máy chủ. Vui lòng kiểm tra lại mạng hoặc thử lại sau.'
-        : 'Server connection error. Please check your network or try again later.');
+    final String errorDesc = message ?? TxaLanguage.t('error_connection_desc');
 
     return Center(
       child: Container(
