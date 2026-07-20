@@ -1363,6 +1363,12 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   }
 
   Future<void> _pickAndCropAvatar() async {
+    if (TxaPlatform.isTV) {
+      if (mounted) {
+        TxaToast.show(context, 'Tính năng đổi ảnh đại diện không khả dụng trên Smart TV!', isError: true);
+      }
+      return;
+    }
     try {
       final picker = ImagePicker();
       final XFile? file = await picker.pickImage(source: ImageSource.gallery);
@@ -1971,7 +1977,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
           children: [
             // Circular Avatar Glow
             GestureDetector(
-              onTap: _pickAndCropAvatar,
+              onTap: TxaPlatform.isTV ? null : _pickAndCropAvatar,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -1995,22 +2001,23 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                           : null,
                     ),
                   ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: TxaTheme.accent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt_rounded,
-                        color: Colors.black,
-                        size: 14,
+                  if (!TxaPlatform.isTV)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: TxaTheme.accent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: Colors.black,
+                          size: 14,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
