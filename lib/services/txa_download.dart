@@ -37,7 +37,7 @@ class TxaDownload {
 
   void _initNotifications() async {
     if (!Platform.isAndroid) return;
-    const android = AndroidInitializationSettings('launcher_icon');
+    const android = AndroidInitializationSettings('@mipmap/launcher_icon');
     await _notifications.initialize(
       settings: const InitializationSettings(android: android),
       onDidReceiveNotificationResponse: (details) async {
@@ -206,7 +206,7 @@ class TxaDownload {
     final android = AndroidNotificationDetails(
       'txa_download',
       'TPhimX Tải về',
-      icon: 'launcher_icon',
+      icon: '@mipmap/launcher_icon',
       importance: Importance.max,
       priority: Priority.high,
       category: AndroidNotificationCategory.service,
@@ -249,7 +249,7 @@ class TxaDownload {
     const android = AndroidNotificationDetails(
       'txa_download',
       'TPhimX Tải về',
-      icon: 'launcher_icon',
+      icon: '@mipmap/launcher_icon',
       importance: Importance.high,
       priority: Priority.high,
       ongoing: false,
