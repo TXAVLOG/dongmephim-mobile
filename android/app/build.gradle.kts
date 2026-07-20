@@ -9,8 +9,14 @@ plugins {
 }
 
 val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
+val keyFileCandidates = listOf(
+    rootProject.file("key.properties"),
+    project.file("key.properties"),
+    rootProject.file("app/key.properties"),
+    file("../key.properties")
+)
+val keystorePropertiesFile = keyFileCandidates.firstOrNull { it.exists() }
+if (keystorePropertiesFile != null) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
@@ -36,20 +42,48 @@ configure<ApplicationExtension> {
 
     signingConfigs {
         create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String? ?: ""
-            keyPassword = keystoreProperties["keyPassword"] as String? ?: ""
-            storeFile = keystoreProperties["storeFile"]?.let { file(it as String) }
-            storePassword = keystoreProperties["storePassword"] as String? ?: ""
+            val alias = keystoreProperties.getProperty("keyAlias")
+            val keyPass = keystoreProperties.getProperty("keyPassword")
+            val storePass = keystoreProperties.getProperty("storePassword")
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+
+            if (!storeFilePath.isNullOrEmpty()) {
+                val candidateFiles = listOf(
+                    file(storeFilePath),
+                    rootProject.file(storeFilePath),
+                    rootProject.file("app/$storeFilePath")
+                )
+                val targetKeystore = candidateFiles.firstOrNull { it.exists() }
+                if (targetKeystore != null) {
+                    storeFile = targetKeystore
+                }
+            }
+            keyAlias = alias
+            keyPassword = keyPass
+            storePassword = storePass
         }
     }
 
     buildTypes {
         release {
-            if (keystorePropertiesFile.exists() && keystoreProperties["storeFile"] != null) {
-                signingConfig = signingConfigs.getByName("release")
+            val relConfig = signingConfigs.getByName("release")
+            val isValidReleaseConfig = relConfig.storeFile?.exists() == true &&
+                    !relConfig.keyAlias.isNullOrEmpty() &&
+                    !relConfig.keyPassword.isNullOrEmpty() &&
+                    !relConfig.storePassword.isNullOrEmpty()
+
+            if (isValidReleaseConfig) {
+                println("===> [SIGNING_CONFIG] Release signing configuration successfully applied using storeFile: ${relConfig.storeFile?.absolutePath}")
+                signingConfig = relConfig
             } else {
-                signingConfig = signingConfigs.getByName("debug")
+                throw GradleException(
+                    "BUILD FAILED: Release signing configuration is invalid or missing.\n" +
+                    "key.properties exists: ${keystorePropertiesFile != null}\n" +
+                    "storeFile exists: ${relConfig.storeFile?.exists()}\n" +
+                    "Make sure key.properties contains keyAlias, keyPassword, storePassword, storeFile and points to a valid keystore."
+                )
             }
+            isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
