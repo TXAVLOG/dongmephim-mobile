@@ -73,7 +73,7 @@ class TxaVideoPlayer extends StatefulWidget {
   State<TxaVideoPlayer> createState() => _TxaVideoPlayerState();
 }
 
-class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
+class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObserver {
   // Main Player
   VideoPlayerController? _controller;
   bool _isPlayerInitialized = false;
@@ -193,6 +193,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     
     _currentServerIndex = widget.initialServerIndex;
     _currentEpisodeId = widget.currentEpisodeId ?? '';
@@ -264,7 +265,32 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed || state == AppLifecycleState.inactive) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      if (mounted) {
+        setState(() {
+          _isHoldingSpeedUp = false;
+          _isDraggingSlider = false;
+          _showLockButtonOnly = false;
+          _showControls = true;
+          _isLocked = false;
+        });
+        _stopSpeedUp2x();
+        _resetHideControlsTimer();
+        if (TxaPlatform.isTV) {
+          _tvFocusNode.requestFocus();
+        } else if (TxaPlatform.isDesktop) {
+          _desktopFocusNode.requestFocus();
+        }
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Reset wake lock
     try {
       WakelockPlus.disable();
@@ -4391,6 +4417,24 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> {
             _adjustBrightness(delta);
           } else if (dragX > screenWidth * 0.7) {
             _adjustVolume(delta);
+          }
+        },
+        onTapCancel: () {
+          if (mounted) {
+            setState(() {
+              _showControls = true;
+              _isLocked = false;
+            });
+          }
+        },
+        onLongPressCancel: () {
+          _stopSpeedUp2x();
+        },
+        onVerticalDragCancel: () {
+          if (mounted) {
+            setState(() {
+              _showControls = true;
+            });
           }
         },
         child: playerView,
