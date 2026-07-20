@@ -1365,7 +1365,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   Future<void> _pickAndCropAvatar() async {
     if (TxaPlatform.isTV) {
       if (mounted) {
-        TxaToast.show(context, 'Tính năng đổi ảnh đại diện không khả dụng trên Smart TV!', isError: true);
+        TxaToast.show(context, TxaLanguage.t('avatar_tv_unsupported'), isError: true);
       }
       return;
     }
