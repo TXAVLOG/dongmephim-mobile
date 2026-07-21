@@ -21,7 +21,7 @@ class DesktopGoogleAuthStrategy implements TxaGoogleAuthStrategy {
       }
 
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      final redirectUri = 'http://127.0.0.1:${server.port}/callback';
+      final redirectUri = 'http://127.0.0.1:${server.port}';
       
       // Tạo PKCE
       final codeVerifier = _generateCodeVerifier();
