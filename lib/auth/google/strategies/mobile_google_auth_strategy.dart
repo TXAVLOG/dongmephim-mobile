@@ -6,7 +6,7 @@ import '../../../utils/txa_logger.dart';
 
 class MobileGoogleAuthStrategy implements TxaGoogleAuthStrategy {
   // Web Client ID dùng để Backend xác thực idToken từ Mobile (Android & iOS)
-  static final String _webClientId = ['372335152910', 'jooebl1a7pln9jh6alhf7r0pu1gk7s5e.apps', 'googleusercontent.com'].join('-');
+  static final String _webClientId = '372335152910-jooebl1a7pln9jh6alhf7r0pu1gk7s5e' + '.apps.googleusercontent.com';
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     serverClientId: _webClientId,

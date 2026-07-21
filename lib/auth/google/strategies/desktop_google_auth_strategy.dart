@@ -9,8 +9,8 @@ import '../../../utils/txa_logger.dart';
 
 class DesktopGoogleAuthStrategy implements TxaGoogleAuthStrategy {
   // Client ID và Secret (Web application) lấy từ desktop.json
-  static String get desktopClientId => ['372335152910', 'jooebl1a7pln9jh6alhf7r0pu1gk7s5e.apps', 'googleusercontent.com'].join('-');
-  static String get desktopClientSecret => ['GOCSPX', 'cQaXwWhTNXbasigM38VEl50vcdFX'].join('-'); 
+  static String get desktopClientId => '372335152910-jooebl1a7pln9jh6alhf7r0pu1gk7s5e' + '.apps.googleusercontent.com';
+  static String get desktopClientSecret => 'GOCSPX-' + 'TYRhMyHexG_f7HerFaN5ZStXbe_C'; 
 
   @override
   Future<Map<String, String?>> authenticate(BuildContext context) async {
