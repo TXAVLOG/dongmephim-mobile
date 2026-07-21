@@ -277,7 +277,7 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
                   ),
                   child: Text(
                     isAdmin
-                        ? 'Mua Ngay qua Google Play (3,000đ)'
+                        ? 'Mua Ngay qua Google Play (Ưu đãi Admin)'
                         : 'Mua Ngay qua Google Play',
                     style: const TextStyle(
                       fontSize: 15,
