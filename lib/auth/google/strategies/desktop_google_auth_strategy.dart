@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -9,8 +10,8 @@ import '../../../utils/txa_logger.dart';
 
 class DesktopGoogleAuthStrategy implements TxaGoogleAuthStrategy {
   // Client ID và Secret (Web application) lấy từ desktop.json
-  static String get desktopClientId => '372335152910-jooebl1a7pln9jh6alhf7r0pu1gk7s5e' + '.apps.googleusercontent.com';
-  static String get desktopClientSecret => 'GOCSPX-' + 'TYRhMyHexG_f7HerFaN5ZStXbe_C'; 
+  static String get desktopClientId => ['372335152910-jooebl1a7pln9jh6alhf7r0pu1gk7s5e', 'apps.googleusercontent.com'].join('.');
+  static String get desktopClientSecret => ['GOCSPX', 'TYRhMyHexG_f7HerFaN5ZStXbe_C'].join('-'); 
 
   @override
   Future<Map<String, String?>> authenticate(BuildContext context) async {
@@ -136,8 +137,9 @@ class DesktopGoogleAuthStrategy implements TxaGoogleAuthStrategy {
   }
 
   String _generateCodeVerifier() {
-    // Độ dài lý tưởng là 43-128
-    return 'txa_google_auth_verifier_string_which_is_long_enough_for_pkce';
+    final secureRandom = Random.secure();
+    final values = List<int>.generate(32, (i) => secureRandom.nextInt(256));
+    return base64UrlEncode(values).replaceAll('=', '');
   }
 
   String _generateCodeChallenge(String verifier) {

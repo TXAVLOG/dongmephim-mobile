@@ -37,6 +37,27 @@ class TxaPlayUpdateService {
     }
   }
 
+  /// Try Google Play In-App Update explicitly
+  static Future<bool> tryInAppUpdate() async {
+    if (kIsWeb || !Platform.isAndroid || TxaPlatform.isTV) return false;
+    try {
+      final updateInfo = await InAppUpdate.checkForUpdate();
+      if (updateInfo.updateAvailability == UpdateAvailability.updateAvailable) {
+        if (updateInfo.immediateUpdateAllowed) {
+          await InAppUpdate.performImmediateUpdate();
+          return true;
+        } else if (updateInfo.flexibleUpdateAllowed) {
+          await InAppUpdate.startFlexibleUpdate();
+          await InAppUpdate.completeFlexibleUpdate();
+          return true;
+        }
+      }
+    } catch (e) {
+      TxaLogger.log('tryInAppUpdate error: $e', type: 'app');
+    }
+    return false;
+  }
+
   /// Open Google Play Store page directly
   static Future<bool> openPlayStore() async {
     if (kIsWeb || !Platform.isAndroid) return false;
@@ -135,7 +156,11 @@ class TxaPlayUpdateService {
         final tvUrl = (info['smart_tv_url'] ?? info['download_url'] ?? 'https://pub-ffb3837c19c940af8cc1bc7f2682fd70.r2.dev/DongMePhim-TV.apk').toString();
         _startFileDownload(context, tvUrl, 'DongMePhim_TV_$version.apk');
       } else {
-        // Android Mobile: Try opening Play Store first to avoid signature conflicts!
+        // Android Mobile: Try InAppUpdate first
+        final inAppSuccess = await tryInAppUpdate();
+        if (inAppSuccess) return;
+
+        // Fallback: Try opening Play Store to avoid signature conflicts!
         final opened = await openPlayStore();
         if (!opened && context.mounted) {
           final apkUrl = (info['apk_url'] ?? info['download_url'] ?? 'https://pub-ffb3837c19c940af8cc1bc7f2682fd70.r2.dev/DongMePhim-Mobile.apk').toString();

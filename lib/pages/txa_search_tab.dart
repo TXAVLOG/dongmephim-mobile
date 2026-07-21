@@ -369,7 +369,9 @@ class _SearchTabState extends State<SearchTab>
             // Type Filter (Phim bộ / Phim lẻ)
             _buildFilterRow(
               title: 'Loại hình',
-              child: Row(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   _buildFilterChip('Tất cả', null, _selectedType, (val) {
                     setState(() => _selectedType = val);
@@ -405,11 +407,10 @@ class _SearchTabState extends State<SearchTab>
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: TxaTheme.accent))),
                     )
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        children: [
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
                           _buildFilterChip('Tất cả', null, _selectedCategory,
                               (val) {
                             setState(() => _selectedCategory = val);
@@ -418,18 +419,14 @@ class _SearchTabState extends State<SearchTab>
                           ..._categories.map((c) {
                             final slug = c['slug'] as String;
                             final name = c['name'] as String;
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child: _buildFilterChip(
-                                  name, slug, _selectedCategory, (val) {
-                                setState(() => _selectedCategory = val);
-                                _executeSearch(isNewSearch: true);
-                              }),
-                            );
+                            return _buildFilterChip(
+                                name, slug, _selectedCategory, (val) {
+                              setState(() => _selectedCategory = val);
+                              _executeSearch(isNewSearch: true);
+                            });
                           }),
                         ],
                       ),
-                    ),
             ),
             const Divider(color: Colors.white10, height: 16),
 
@@ -446,11 +443,10 @@ class _SearchTabState extends State<SearchTab>
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: TxaTheme.accent))),
                     )
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        children: [
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
                           _buildFilterChip('Tất cả', null, _selectedRegion,
                               (val) {
                             setState(() => _selectedRegion = val);
@@ -459,18 +455,14 @@ class _SearchTabState extends State<SearchTab>
                           ..._regions.map((r) {
                             final slug = r['slug'] as String;
                             final name = r['name'] as String;
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child: _buildFilterChip(
-                                  name, slug, _selectedRegion, (val) {
-                                setState(() => _selectedRegion = val);
-                                _executeSearch(isNewSearch: true);
-                              }),
-                            );
+                            return _buildFilterChip(
+                                name, slug, _selectedRegion, (val) {
+                              setState(() => _selectedRegion = val);
+                              _executeSearch(isNewSearch: true);
+                            });
                           }),
                         ],
                       ),
-                    ),
             ),
             const Divider(color: Colors.white10, height: 16),
 
@@ -487,29 +479,23 @@ class _SearchTabState extends State<SearchTab>
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: TxaTheme.accent))),
                     )
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        children: [
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
                           _buildFilterChip('Tất cả', null, _selectedYear,
                               (val) {
                             setState(() => _selectedYear = val);
                             _executeSearch(isNewSearch: true);
                           }),
                           ..._years.map((y) {
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child:
-                                  _buildFilterChip(y, y, _selectedYear, (val) {
-                                setState(() => _selectedYear = val);
-                                _executeSearch(isNewSearch: true);
-                              }),
-                            );
+                            return _buildFilterChip(y, y, _selectedYear, (val) {
+                              setState(() => _selectedYear = val);
+                              _executeSearch(isNewSearch: true);
+                            });
                           }),
                         ],
                       ),
-                    ),
             ),
           ],
         ),
@@ -611,24 +597,29 @@ class _SearchTabState extends State<SearchTab>
                       onTap: () => _performImmediateSearch(kw),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
+                            horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                          color: TxaTheme.cardBg.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(12),
+                          gradient: clicks > 50
+                              ? const LinearGradient(colors: [Colors.orange, Colors.red])
+                              : LinearGradient(colors: [TxaTheme.cardBg.withValues(alpha: 0.8), TxaTheme.cardBg]),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            width: 0.8,
+                            color: clicks > 50 ? Colors.transparent : Colors.white.withValues(alpha: 0.1),
+                            width: 1,
                           ),
+                          boxShadow: clicks > 50 ? [
+                            BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 8, spreadRadius: 1)
+                          ] : [],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               kw,
-                              style: const TextStyle(
-                                  color: Colors.white70,
+                              style: TextStyle(
+                                  color: clicks > 50 ? Colors.white : Colors.white70,
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w500),
+                                  fontWeight: clicks > 50 ? FontWeight.bold : FontWeight.w500),
                             ),
                             if (clicks > 20) ...[
                               const SizedBox(width: 6),
@@ -636,14 +627,14 @@ class _SearchTabState extends State<SearchTab>
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: Colors.redAccent.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(4),
+                                  color: clicks > 50 ? Colors.white : Colors.redAccent.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   'HOT',
                                   style: TextStyle(
-                                    color: Colors.redAccent[100],
-                                    fontSize: 8,
+                                    color: clicks > 50 ? Colors.red : Colors.redAccent[100],
+                                    fontSize: 9,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -768,6 +759,7 @@ class _SearchTabState extends State<SearchTab>
   Widget _buildMovieGridCard(dynamic movie) {
     final posterUrl = movie['poster_url'] ?? movie['thumb_url'] ?? '';
     final name = movie['name'] ?? '';
+    final originName = movie['origin_name'] ?? '';
     final episode = movie['episode_current'] ?? 'Full';
     final quality = movie['quality'] ?? 'FHD';
     final year = movie['year']?.toString() ?? '';
@@ -985,6 +977,19 @@ class _SearchTabState extends State<SearchTab>
                 ),
               ),
             ),
+            if (originName.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: Text(
+                  originName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

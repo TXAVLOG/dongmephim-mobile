@@ -21,6 +21,7 @@ import 'txa_profile_screen.dart';
 import 'txa_schedule_tab.dart';
 import '../widgets/txa_coachmark.dart';
 import '../services/txa_play_update_service.dart';
+import '../utils/txa_movie_ranker.dart';
 
 ImageProvider? _getAvatarProvider(String? avatarUrl) {
   if (avatarUrl == null || avatarUrl.isEmpty) return null;
@@ -173,6 +174,7 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab> {
   late Future<Map<String, dynamic>?> _homeDataFuture;
   String _selectedCategoryKey = 'ALL';
+  String? _selectedCountryKey;
 
   @override
   void initState() {
@@ -242,13 +244,41 @@ class _HomeTabState extends State<HomeTab> {
 
           // Parse sections
           final sliderList = getList(data['featured'] ?? data['slider']);
-          final newMovies = getList(data['TXA_NEW1']);
-          final hotMovies = getList(data['TXA_HOT1']);
-          final animeList = getList(data['TXA_HH1']);
-          final seriesList = getList(data['TXA_PB1']);
-          final singleList = getList(data['TXA_PL1']);
-          final theaterList = getList(data['TXA_CR1']);
-          final tvShowsList = getList(data['TXA_TV1']);
+          final rawNewMovies = getList(data['TXA_NEW1']);
+          final rawHotMovies = getList(data['TXA_HOT1']);
+          final rawAnimeList = getList(data['TXA_HH1']);
+          final rawSeriesList = getList(data['TXA_PB1']);
+          final rawSingleList = getList(data['TXA_PL1']);
+          final rawTheaterList = getList(data['TXA_CR1']);
+          final rawTvShowsList = getList(data['TXA_TV1']);
+
+          // Helper to filter by country
+          List<dynamic> filterByCountry(List<dynamic> list) {
+            if (_selectedCountryKey == null) return list;
+            final keyword = _selectedCountryKey!.toLowerCase();
+            return list.where((m) {
+              final country = (m['country'] ?? m['region'] ?? '').toString().toLowerCase();
+              return country.contains(keyword);
+            }).toList();
+          }
+
+          final newMovies = filterByCountry(rawNewMovies);
+          final hotMovies = filterByCountry(rawHotMovies);
+          final animeList = filterByCountry(rawAnimeList);
+          final seriesList = filterByCountry(rawSeriesList);
+          final singleList = filterByCountry(rawSingleList);
+          final theaterList = filterByCountry(rawTheaterList);
+          final tvShowsList = filterByCountry(rawTvShowsList);
+
+          // Build Chinese Masterpieces
+          final allMovies = <dynamic>{
+            ...rawNewMovies, ...rawHotMovies, ...rawAnimeList, ...rawSeriesList, ...rawSingleList, ...rawTheaterList, ...rawTvShowsList
+          }.toList();
+          final chineseMovies = allMovies.where((m) {
+            final country = (m['country'] ?? m['region'] ?? '').toString().toLowerCase();
+            return country.contains('trung quốc') || country.contains('china');
+          }).toList();
+          final sortedChineseMovies = TxaMovieRanker.sortMovies(chineseMovies).take(15).toList();
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -365,6 +395,11 @@ class _HomeTabState extends State<HomeTab> {
                 child: _buildCategoryQuickFilters(),
               ),
 
+              // Country Filters
+              SliverToBoxAdapter(
+                child: _buildCountryFilters(),
+              ),
+
               // Hero spotlight banner
               if (sliderList.isNotEmpty && _selectedCategoryKey == 'ALL')
                 SliverToBoxAdapter(
@@ -386,6 +421,8 @@ class _HomeTabState extends State<HomeTab> {
                       _buildMovieShelf(TxaLanguage.t('TXA_PB1'), seriesList, 'TXA_PB1'),
                     if (singleList.isNotEmpty)
                       _buildMovieShelf(TxaLanguage.t('TXA_PL1'), singleList, 'TXA_PL1'),
+                    if (sortedChineseMovies.isNotEmpty)
+                      _buildMovieShelf(TxaLanguage.t('txa_category_chinese_masterpieces'), sortedChineseMovies, 'TXA_CN1'),
                     if (theaterList.isNotEmpty)
                       _buildMovieShelf(TxaLanguage.t('TXA_CR1'), theaterList, 'TXA_CR1'),
                     if (tvShowsList.isNotEmpty)
@@ -745,6 +782,64 @@ class _HomeTabState extends State<HomeTab> {
                   });
                 }
               },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCountryFilters() {
+    final countries = [
+      {'key': null, 'label': TxaLanguage.t('country_all')},
+      {'key': 'trung quốc', 'label': TxaLanguage.t('country_china')},
+      {'key': 'hàn quốc', 'label': TxaLanguage.t('country_korea')},
+      {'key': 'việt nam', 'label': TxaLanguage.t('country_vietnam')},
+      {'key': 'âu mỹ', 'label': TxaLanguage.t('country_us_uk')},
+      {'key': 'nhật bản', 'label': TxaLanguage.t('country_japan')},
+      {'key': 'thái lan', 'label': TxaLanguage.t('country_thailand')},
+    ];
+
+    return Container(
+      height: 38,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: countries.length,
+        itemBuilder: (context, index) {
+          final country = countries[index];
+          final isSelected = _selectedCountryKey == country['key'];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedCountryKey = country['key'];
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: isSelected ? Colors.white.withValues(alpha: 0.15) : Colors.transparent,
+                  border: Border.all(
+                    color: isSelected ? Colors.white.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    country['label']!,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.white60,
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
             ),
           );
         },

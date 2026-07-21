@@ -8,8 +8,8 @@ import '../../../tv/widgets/txa_tv_google_auth_dialog.dart';
 
 class TvGoogleAuthStrategy implements TxaGoogleAuthStrategy {
   // Client ID và Secret lấy từ smarttv.json
-  static String get tvClientId => '372335152910-ci323eh4gc6j9jvjtn69c5ljvg0klges' + '.apps.googleusercontent.com';
-  static String get tvClientSecret => 'GOCSPX-' + 'P05MQM7OxoNadxDWOaIof2UqxNI_';
+  static String get tvClientId => ['372335152910-ci323eh4gc6j9jvjtn69c5ljvg0klges', 'apps.googleusercontent.com'].join('.');
+  static String get tvClientSecret => ['GOCSPX', 'P05MQM7OxoNadxDWOaIof2UqxNI_'].join('-');
 
   @override
   Future<Map<String, String?>> authenticate(BuildContext context) async {

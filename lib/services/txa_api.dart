@@ -1167,6 +1167,78 @@ class TxaApi {
     return false;
   }
 
+  static Future<Map<String, dynamic>> submitIapPayment({
+    required String txid,
+    required String packageTitle,
+    required double price,
+    String cycle = 'custom_1',
+    String method = 'google_play',
+    String status = 'approved',
+    String? clientInfo,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/user/payments');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('txa_auth_token');
+      final username = prefs.getString('txa_user_name') ?? 'mobile_user';
+      final email = prefs.getString('txa_user_email') ?? '';
+
+      final Map<String, String> headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-TXC-Client': 'TPhimX-App',
+        'X-TXA-API-KEY': apiKey,
+        'User-Agent': 'TPhimX-App/$appVersion (Android)',
+      };
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final body = {
+        'txid': txid,
+        'username': username,
+        'email': email,
+        'packageTitle': packageTitle,
+        'price': price,
+        'cycle': cycle,
+        'method': method,
+        'status': status,
+        'clientInfo': clientInfo ?? 'Google Play Billing In-App Purchase',
+      };
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      TxaLogger.logApi(
+        method: 'POST',
+        path: url.toString(),
+        statusCode: response.statusCode,
+        responseBody: utf8.decode(response.bodyBytes),
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map<String, dynamic>) {
+          return {
+            'success': decoded['status'] == 'success' || decoded['success'] == true,
+            'message': decoded['message'] ?? 'Thành công',
+            'keyCode': decoded['data']?['keyCode'] ?? decoded['keyCode'],
+          };
+        }
+      }
+    } catch (e) {
+      TxaLogger.log('TxaApi submitIapPayment error: $e', type: 'api');
+    }
+    return {
+      'success': false,
+      'message': 'Không thể kết nối máy chủ xác thực hóa đơn.',
+    };
+  }
+
   // --- Scan Action ---
 
   Future<ScanResult> scanMovie(String slug) async {

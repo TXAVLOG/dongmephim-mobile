@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../auth/google/txa_google_auth_factory.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_language.dart';
@@ -22,7 +23,7 @@ class TxaGoogleAuthModal extends StatefulWidget {
 }
 
 class _TxaGoogleAuthModalState extends State<TxaGoogleAuthModal> {
-  String _statusMessage = 'Đang khởi tạo kết nối...';
+  String _statusMessage = TxaLanguage.t('initializing_connection');
 
   @override
   void initState() {
@@ -34,7 +35,7 @@ class _TxaGoogleAuthModalState extends State<TxaGoogleAuthModal> {
     try {
       if (!mounted) return;
       setState(() {
-        _statusMessage = 'Đang mở đăng nhập Google...';
+        _statusMessage = TxaLanguage.t('opening_google_login');
       });
 
       final strategy = TxaGoogleAuthFactory.create();
@@ -42,10 +43,10 @@ class _TxaGoogleAuthModalState extends State<TxaGoogleAuthModal> {
 
       if (!mounted) return;
       setState(() {
-        _statusMessage = 'Đang xác thực với hệ thống...';
+        _statusMessage = TxaLanguage.t('authenticating_system');
       });
 
-      final auth = TxaAuthService();
+      final auth = Provider.of<TxaAuthService>(context, listen: false);
       final result = await auth.loginWithGoogle(
         idToken: tokens['idToken'],
         accessToken: tokens['accessToken'],
@@ -58,16 +59,17 @@ class _TxaGoogleAuthModalState extends State<TxaGoogleAuthModal> {
         Navigator.of(context).pop(true);
       } else if (result['isNewGoogleUser'] == true) {
         // Có thể navigate qua trang đăng ký Google nếu cần, ở đây hiện thông báo
-        TxaToast.show(context, result['message'] ?? 'Tài khoản chưa được đăng ký.');
+        TxaToast.show(context, result['message'] ?? TxaLanguage.t('google_login_not_registered'));
         Navigator.of(context).pop(false);
       } else {
-        TxaToast.show(context, result['message'] ?? 'Đăng nhập thất bại.');
+        TxaToast.show(context, result['message'] ?? TxaLanguage.t('google_login_failed'));
         Navigator.of(context).pop(false);
       }
     } catch (e) {
       TxaLogger.log('Google Auth flow error: $e', type: 'auth');
       if (mounted) {
-        // TxaToast.show(context, 'Lỗi đăng nhập: ${e.toString().replaceAll('Exception: ', '')}');
+        final errorMsg = TxaLanguage.t('google_login_conn_error', replace: {'e': e.toString().replaceAll('Exception: ', '')});
+        TxaToast.show(context, errorMsg, isError: true);
         Navigator.of(context).pop(false);
       }
     }

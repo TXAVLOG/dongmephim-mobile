@@ -1,7 +1,6 @@
 import 'dart:convert';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'dart:ui';
+import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -17,7 +16,12 @@ import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
 import '../utils/txa_platform.dart';
 import '../widgets/txa_tv_pair_modal.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import '../widgets/txa_google_auth_modal.dart';
+import '../widgets/txa_zalo_bypass_modal.dart';
+import '../auth/google/txa_google_auth_factory.dart';
+import '../utils/txa_logger.dart';
 import 'txa_movie_detail_screen.dart';
 import 'txa_qr_scan_screen.dart';
 import 'txa_favorites_list_screen.dart';
@@ -189,9 +193,55 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   }
 
   Future<void> _handleGoogleLogin() async {
-    final success = await TxaGoogleAuthModal.show(context);
-    if (success == true && mounted) {
-      _loadCabinetData();
+    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS) && !TxaPlatform.isTV;
+
+    if (!isMobile) {
+      // Desktop / Web / TV: Dùng Modal
+      final success = await TxaGoogleAuthModal.show(context);
+      if (success == true && mounted) {
+        _loadCabinetData();
+      }
+      return;
+    }
+
+    // Mobile: Đăng nhập trực tiếp, khóa nút (hiện loading)
+    setState(() {
+      _loginLoading = true;
+    });
+
+    try {
+      final strategy = TxaGoogleAuthFactory.create();
+      final tokens = await strategy.authenticate(context);
+      
+      if (!mounted) return;
+      final auth = Provider.of<TxaAuthService>(context, listen: false);
+      final result = await auth.loginWithGoogle(
+        idToken: tokens['idToken'],
+        accessToken: tokens['accessToken'],
+      );
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        TxaToast.show(context, result['message'] ?? TxaLanguage.t('login_success'));
+        _loadCabinetData();
+      } else if (result['isNewGoogleUser'] == true) {
+        TxaToast.show(context, result['message'] ?? TxaLanguage.t('google_login_not_registered'), isError: true);
+      } else {
+        TxaToast.show(context, result['message'] ?? TxaLanguage.t('google_login_failed'), isError: true);
+      }
+    } catch (e) {
+      TxaLogger.log('Google Auth flow error: $e', type: 'auth');
+      if (mounted) {
+        final errorMsg = TxaLanguage.t('google_login_conn_error', replace: {'e': e.toString().replaceAll('Exception: ', '')});
+        TxaToast.show(context, errorMsg, isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loginLoading = false;
+        });
+      }
     }
   }
 
@@ -1941,8 +1991,21 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                             )
                           : Text(TxaLanguage.t('login'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
-                    const SizedBox(height: 12),
-
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider(color: Colors.white24, thickness: 1)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            TxaLanguage.t('or'),
+                            style: const TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const Expanded(child: Divider(color: Colors.white24, thickness: 1)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     // Google Login Button
                     OutlinedButton.icon(
                       onPressed: _loginLoading ? null : _handleGoogleLogin,
@@ -2553,6 +2616,16 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                       );
                     },
                   ),
+                const Divider(color: Colors.white10, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.vpn_key_rounded, color: Colors.purpleAccent),
+                  title: Text(TxaLanguage.t('iap_buy_zalo_key'), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: Text(TxaLanguage.t('iap_zalo_desc'), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 11)),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white24, size: 12),
+                  onTap: () {
+                    TxaZaloBypassModal.show(context);
+                  },
+                ),
               ],
             ),
           ),

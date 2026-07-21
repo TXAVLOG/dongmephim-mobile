@@ -2,7 +2,7 @@ name: tphimx_setup
 description: "DongMePhim Mobile App - Rebranded premium movie client."
 publish_to: 'none'
 
-version: 5.2.0+520
+version: 5.3.0+530
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -43,6 +43,7 @@ dependencies:
   in_app_update: ^4.2.3
   google_mobile_ads: ^5.2.0
   google_sign_in: ^6.2.1
+  in_app_purchase: ^3.2.0
 
 dev_dependencies:
   flutter_test:

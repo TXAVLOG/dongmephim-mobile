@@ -60,8 +60,12 @@ class _TxaDrawerState extends State<TxaDrawer> {
     if (Platform.isAndroid) {
       final bool isTV = TxaPlatform.isTV;
 
-      // Android Mobile: Ưu tiên mở CH Play trước, chỉ fallback về APK nếu thất bại
+      // Android Mobile: Ưu tiên gọi In-App Update của CH Play trước tiên
       if (!isTV) {
+        final inAppSuccess = await TxaPlayUpdateService.tryInAppUpdate();
+        if (inAppSuccess) return; // In-App Update thành công → dừng lại
+
+        // Fallback: Mở CH Play nếu In-App Update thất bại
         final opened = await TxaPlayUpdateService.openPlayStore();
         if (opened) return; // Đã mở CH Play thành công → dừng lại
         // Nếu không mở được CH Play → tiếp tục tải APK bên dưới
