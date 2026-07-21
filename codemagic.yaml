@@ -21,6 +21,7 @@ workflows:
     scripts:
       - name: 🛠 Clean & Get Dependencies
         script: |
+          flutter config --no-enable-swift-package-manager
           flutter clean
           flutter pub get
       - name: 🏷 Prepare Version & Git Tag
