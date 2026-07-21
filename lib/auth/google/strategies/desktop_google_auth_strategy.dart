@@ -93,32 +93,40 @@ class DesktopGoogleAuthStrategy implements TxaGoogleAuthStrategy {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Google Đăng nhập</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Google Đăng nhập | Đồng Mê Phim</title>
         <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0F111E; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-          .card { background: #1A1D2D; padding: 40px; border-radius: 16px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 400px; width: 90%; }
-          .icon { font-size: 64px; margin-bottom: 20px; }
-          .success { color: #4CAF50; }
-          .error { color: #F44336; }
-          h2 { margin: 0 0 10px; }
-          p { color: #aaa; line-height: 1.5; margin-bottom: 24px; }
-          a.btn { display: inline-block; background: #3b82f6; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; transition: 0.3s; }
-          a.btn:hover { background: #2563eb; }
+          * { box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0b0d19; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+          .card { background: linear-gradient(145deg, #151828, #1c2035); border: 1px solid rgba(255,255,255,0.08); padding: 48px 36px; border-radius: 24px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.6); max-width: 420px; width: 100%; animation: fadeIn 0.4s ease-out; }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+          .icon-box { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 36px; font-weight: bold; }
+          .success-box { background: rgba(76, 175, 80, 0.15); color: #4CAF50; border: 2px solid rgba(76, 175, 80, 0.3); }
+          .error-box { background: rgba(244, 67, 54, 0.15); color: #F44336; border: 2px solid rgba(244, 67, 54, 0.3); }
+          h2 { margin: 0 0 12px; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+          p { color: #9aa0a6; line-height: 1.6; font-size: 15px; margin: 0 0 28px; }
+          a.btn { display: inline-block; background: #3b82f6; color: white; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-weight: 600; font-size: 15px; transition: all 0.2s; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); }
+          a.btn:hover { background: #2563eb; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6); }
         </style>
       </head>
       <body>
         <div class="card">
-          <div class="icon ${isSuccess ? 'success' : 'error'}">
-            ${isSuccess ? '✓' : '✗'}
+          <div class="icon-box ${isSuccess ? 'success-box' : 'error-box'}">
+            ${isSuccess ? '✓' : '✕'}
           </div>
           <h2>${isSuccess ? 'Đăng nhập thành công!' : 'Đăng nhập thất bại'}</h2>
-          <p>${isSuccess ? 'Bạn có thể đóng tab này và quay lại ứng dụng.' : (errorMsg ?? 'Vui lòng thử lại.')}</p>
-          <a href="dongmephim://auth-callback" class="btn">Mở lại Ứng dụng</a>
+          <p>${isSuccess ? 'Bạn có thể đóng tab này và quay lại ứng dụng <b>Đồng Mê Phim</b>.' : (errorMsg ?? 'Vui lòng thử lại.')}</p>
+          <a href="dongmephim://auth-callback" class="btn">Quay lại Ứng dụng</a>
         </div>
         <script>
+          // Tự động làm sạch thanh địa chỉ URL (xóa bỏ toàn bộ parameters dài ngoằng)
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
           setTimeout(function() {
             window.location.href = "dongmephim://auth-callback";
-          }, 1000);
+            try { window.close(); } catch(e) {}
+          }, 800);
         </script>
       </body>
       </html>
