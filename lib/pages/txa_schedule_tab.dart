@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../theme/txa_theme.dart';
 import '../services/txa_language.dart';
 import '../services/txa_api.dart';
+import '../services/txa_notification_manager.dart';
+import '../utils/txa_toast.dart';
 import 'txa_movie_detail_screen.dart';
 
 class TxaScheduleTab extends StatefulWidget {
@@ -48,21 +50,21 @@ class _TxaScheduleTabState extends State<TxaScheduleTab> {
       final today = DateTime.now();
       
       if (date.year == today.year && date.month == today.month && date.day == today.day) {
-        return 'Hôm nay';
+        return TxaLanguage.t('today');
       }
       
       final weekday = DateFormat('EEEE').format(date);
       final dayStr = DateFormat('dd/MM').format(date);
       
-      // Map English weekdays to Vietnamese
+      final isEn = TxaLanguage.currentLang == 'en';
       final vnWeekdays = {
-        'Monday': 'Thứ Hai',
-        'Tuesday': 'Thứ Ba',
-        'Wednesday': 'Thứ Tư',
-        'Thursday': 'Thứ Năm',
-        'Friday': 'Thứ Sáu',
-        'Saturday': 'Thứ Bảy',
-        'Sunday': 'Chủ Nhật',
+        'Monday': isEn ? 'Mon' : 'Thứ Hai',
+        'Tuesday': isEn ? 'Tue' : 'Thứ Ba',
+        'Wednesday': isEn ? 'Wed' : 'Thứ Tư',
+        'Thursday': isEn ? 'Thu' : 'Thứ Năm',
+        'Friday': isEn ? 'Fri' : 'Thứ Sáu',
+        'Saturday': isEn ? 'Sat' : 'Thứ Bảy',
+        'Sunday': isEn ? 'Sun' : 'Chủ Nhật',
       };
       
       final vnDay = vnWeekdays[weekday] ?? weekday;
@@ -150,16 +152,16 @@ class _TxaScheduleTabState extends State<TxaScheduleTab> {
               ),
             )
           else if (_scheduleDays.isEmpty)
-            const Expanded(
+            Expanded(
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.event_busy_rounded, color: TxaTheme.textMuted, size: 54),
-                    SizedBox(height: 16),
+                    const Icon(Icons.event_busy_rounded, color: TxaTheme.textMuted, size: 54),
+                    const SizedBox(height: 16),
                     Text(
-                      'Chưa có lịch chiếu nào.',
-                      style: TextStyle(color: TxaTheme.textSecondary, fontSize: 14),
+                      TxaLanguage.t('no_schedule_found'),
+                      style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 14),
                     ),
                   ],
                 ),
@@ -229,10 +231,10 @@ class _TxaScheduleTabState extends State<TxaScheduleTab> {
   Widget _buildMoviesListForDay(dynamic dayData) {
     final movies = dayData['movies'] as List? ?? [];
     if (movies.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'Không có phim phát sóng ngày này.',
-          style: TextStyle(color: TxaTheme.textMuted, fontSize: 13),
+          TxaLanguage.t('no_movies_day'),
+          style: const TextStyle(color: TxaTheme.textMuted, fontSize: 13),
         ),
       );
     }
@@ -337,10 +339,38 @@ class _TxaScheduleTabState extends State<TxaScheduleTab> {
                     ),
                   ],
                 ),
-                trailing: const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.white24,
-                  size: 14,
+                trailing: StatefulBuilder(
+                  builder: (context, setReminderState) {
+                    final slug = movie['slug'] ?? '';
+                    return FutureBuilder<bool>(
+                      future: TxaNotificationManager.instance.isMovieReminderSet(slug),
+                      builder: (context, snapshot) {
+                        final isSet = snapshot.data ?? false;
+                        return IconButton(
+                          icon: Icon(
+                            isSet ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+                            color: isSet ? TxaTheme.accent : Colors.white54,
+                            size: 22,
+                          ),
+                          onPressed: () async {
+                            final result = await TxaNotificationManager.instance.toggleMovieReminder(
+                              movieSlug: slug,
+                              movieName: name,
+                              nextEpisode: nextEp,
+                              broadcastTime: time,
+                            );
+                            setReminderState(() {});
+                            if (context.mounted) {
+                              TxaToast.show(
+                                context,
+                                result ? TxaLanguage.t('reminder_set') : TxaLanguage.t('reminder_canceled'),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ),

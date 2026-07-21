@@ -109,6 +109,21 @@ class TxaPermission {
     await toRequest.request();
   }
 
+  static Future<void> requestNotificationAndAlarmPermissions() async {
+    try {
+      // 1. Quyền Thông Báo / Chuông Báo
+      if (await Permission.notification.isDenied || await Permission.notification.isPermanentlyDenied) {
+        await Permission.notification.request();
+      }
+      // 2. Quyền Lời Nhắc / Exact Alarm
+      if (Platform.isAndroid) {
+        if (await Permission.scheduleExactAlarm.isDenied) {
+          await Permission.scheduleExactAlarm.request();
+        }
+      }
+    } catch (_) {}
+  }
+
   static Future<bool> requestInstall() async {
     if (!Platform.isAndroid) return true;
     final status = await Permission.requestInstallPackages.request();

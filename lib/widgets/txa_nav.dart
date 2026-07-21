@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/txa_language.dart';
 import '../theme/txa_theme.dart';
+import 'txa_coachmark.dart';
 
 class TxaNav extends StatelessWidget {
   final int currentIndex;
@@ -16,7 +17,7 @@ class TxaNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     const horizontalMargin = 16.0;
-    final bottomMargin = bottomPadding > 0 ? bottomPadding + 10.0 : 20.0;
+    final bottomMargin = bottomPadding > 0 ? bottomPadding + 8.0 : 18.0;
 
     final List<Map<String, dynamic>> items = [
       {'index': 0, 'icon': Icons.home_rounded, 'label': TxaLanguage.t('home')},
@@ -36,17 +37,27 @@ class TxaNav extends StatelessWidget {
         bottom: bottomMargin,
       ),
       child: TxaTheme.liquidGlassPill(
-        radius: 32,
+        radius: 34,
         child: Container(
-          height: 68,
+          key: TxaCoachKeys.bottomNavKey,
+          height: 70,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(34),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.16),
+              width: 1.2,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 24,
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 28,
                 spreadRadius: -2,
-                offset: const Offset(0, 8),
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: TxaTheme.accent.withValues(alpha: 0.12),
+                blurRadius: 18,
+                spreadRadius: 1,
               ),
             ],
           ),
@@ -57,36 +68,38 @@ class TxaNav extends StatelessWidget {
               final itemWidth = totalWidth / itemCount;
 
               return Stack(
+                alignment: Alignment.centerLeft,
                 children: [
-                  // Sliding Liquid Pill Indicator
+                  // Sliding Liquid Blob Indicator
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 320),
+                    duration: const Duration(milliseconds: 350),
                     curve: Curves.easeOutBack,
-                    left: activeVisualIndex * itemWidth + 8,
-                    top: 10,
-                    bottom: 10,
-                    width: itemWidth - 16,
+                    left: activeVisualIndex * itemWidth + 6,
+                    top: 8,
+                    bottom: 8,
+                    width: itemWidth - 12,
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
+                            TxaTheme.accent.withValues(alpha: 0.35),
+                            TxaTheme.purple.withValues(alpha: 0.22),
                             TxaTheme.accent.withValues(alpha: 0.28),
-                            TxaTheme.purple.withValues(alpha: 0.18),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(22),
                         border: Border.all(
-                          color: TxaTheme.accent.withValues(alpha: 0.35),
-                          width: 1,
+                          color: TxaTheme.accent.withValues(alpha: 0.5),
+                          width: 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: TxaTheme.accent.withValues(alpha: 0.25),
-                            blurRadius: 12,
+                            color: TxaTheme.accent.withValues(alpha: 0.4),
+                            blurRadius: 16,
                             spreadRadius: 1,
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -101,34 +114,65 @@ class TxaNav extends StatelessWidget {
                       final label = item['label'] as String;
                       final isActive = index == currentIndex;
 
+                      Key? itemKey;
+                      if (index == 1) itemKey = TxaCoachKeys.searchTabKey;
+                      if (index == 2) itemKey = TxaCoachKeys.scheduleTabKey;
+
                       return Expanded(
                         child: GestureDetector(
+                          key: itemKey,
                           onTap: () => onTap(index),
                           behavior: HitTestBehavior.opaque,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                icon,
-                                color: isActive
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.45),
-                                size: 24,
+                              AnimatedScale(
+                                scale: isActive ? 1.2 : 1.0,
+                                duration: const Duration(milliseconds: 250),
+                                curve: Curves.easeOutBack,
+                                child: Icon(
+                                  icon,
+                                  color: isActive
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.45),
+                                  size: 23,
+                                ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               AnimatedDefaultTextStyle(
                                 duration: const Duration(milliseconds: 200),
                                 style: TextStyle(
                                   color: isActive
                                       ? Colors.white
                                       : Colors.white.withValues(alpha: 0.45),
-                                  fontSize: 9,
-                                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: isActive ? 9.5 : 9.0,
+                                  fontWeight: isActive ? FontWeight.w800 : FontWeight.normal,
+                                  letterSpacing: isActive ? 0.3 : 0.0,
                                 ),
                                 child: Text(
                                   label,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              // Glowing Liquid Drop Dot under active tab
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                height: 3,
+                                width: isActive ? 12 : 0,
+                                decoration: BoxDecoration(
+                                  color: isActive ? TxaTheme.accent : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(2),
+                                  boxShadow: isActive
+                                      ? [
+                                          BoxShadow(
+                                            color: TxaTheme.accent.withValues(alpha: 0.9),
+                                            blurRadius: 6,
+                                            spreadRadius: 1,
+                                          )
+                                        ]
+                                      : [],
                                 ),
                               ),
                             ],

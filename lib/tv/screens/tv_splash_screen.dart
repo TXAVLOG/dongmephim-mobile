@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/txa_language.dart';
 import '../../services/txa_api.dart';
+import '../../services/txa_notification_manager.dart';
 import '../../utils/txa_platform.dart';
 import '../widgets/tv_focusable_card.dart';
 import '../navigation/tv_focus_system.dart';
@@ -130,6 +131,10 @@ class _TvSplashScreenState extends State<TvSplashScreen>
       }
       return;
     }
+
+    try {
+      await TxaNotificationManager.instance.init();
+    } catch (_) {}
 
     setState(() {
       _status = TxaLanguage.t('tv_init_success');

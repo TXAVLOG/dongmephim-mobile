@@ -6,6 +6,7 @@ import 'package:local_notifier/local_notifier.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'txa_api.dart';
+import 'txa_language.dart';
 import 'txa_auth_service.dart';
 import 'txa_version.dart';
 import '../pages/txa_movie_detail_screen.dart';
@@ -290,6 +291,47 @@ class TxaNotificationManager {
               : MovieDetailScreen(slug: movieSlug),
         ),
       );
+    }
+  }
+
+  Future<bool> isMovieReminderSet(String movieSlug) async {
+    final prefs = await SharedPreferences.getInstance();
+    final reminders = prefs.getStringList('txa_movie_reminders') ?? [];
+    return reminders.contains(movieSlug);
+  }
+
+  Future<bool> toggleMovieReminder({
+    required String movieSlug,
+    required String movieName,
+    String? nextEpisode,
+    String? broadcastTime,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final reminders = prefs.getStringList('txa_movie_reminders') ?? [];
+    final bool isAlreadySet = reminders.contains(movieSlug);
+
+    if (isAlreadySet) {
+      reminders.remove(movieSlug);
+      await prefs.setStringList('txa_movie_reminders', reminders);
+      return false; // Removed
+    } else {
+      reminders.add(movieSlug);
+      await prefs.setStringList('txa_movie_reminders', reminders);
+
+      final title = TxaLanguage.t('broadcast_reminder_title').replaceAll('%name%', movieName);
+      final body = (broadcastTime != null && broadcastTime.isNotEmpty)
+          ? TxaLanguage.t('broadcast_reminder_body').replaceAll('%time%', broadcastTime)
+          : (nextEpisode != null && nextEpisode.isNotEmpty
+              ? TxaLanguage.t('reminder_new_episode_body').replaceAll('%nextEp%', nextEpisode)
+              : TxaLanguage.t('reminder_enabled_body'));
+
+      await _showNativeNotification(
+        id: 'reminder_$movieSlug',
+        title: title,
+        body: body,
+        payload: 'movie:$movieSlug',
+      );
+      return true; // Set
     }
   }
 }

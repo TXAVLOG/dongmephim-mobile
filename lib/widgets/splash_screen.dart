@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/txa_language.dart';
 import '../services/txa_api.dart';
+import '../services/txa_permission.dart';
+import '../services/txa_notification_manager.dart';
+import '../services/txa_play_update_service.dart';
 import '../theme/txa_theme.dart';
 import '../widgets/txa_error_widget.dart';
 import '../widgets/txa_maintenance_screen.dart';
@@ -89,6 +92,9 @@ class _SplashScreenState extends State<SplashScreen>
       if (checkUpdate == null) {
         throw Exception("Cannot load system configuration");
       }
+
+      // Check Google Play In-App Update immediately on Splash Screen
+      await TxaPlayUpdateService.checkInAppUpdateOnSplash();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -113,14 +119,15 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    // 4. Notification Permission Check & Request
+    // 4. Notification & Exact Alarm Permission Check & Request
     setState(() {
       _status = TxaLanguage.t('splash_check_permissions'); // "Kiểm tra quyền truy cập..."
       _progress = 0.6;
     });
     
     try {
-      await Permission.notification.request();
+      await TxaPermission.requestNotificationAndAlarmPermissions();
+      await TxaNotificationManager.instance.init();
     } catch (e) {
       // Fail silently if not supported or error occurs
     }

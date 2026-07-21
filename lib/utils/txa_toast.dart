@@ -92,8 +92,120 @@ class TxaToast {
     _entries.add(overlayEntry);
     overlay.insert(overlayEntry);
     Future.delayed(const Duration(milliseconds: 2800), () {
-      _entries.remove(overlayEntry);
-      overlayEntry.remove();
+      if (_entries.contains(overlayEntry)) {
+        _entries.remove(overlayEntry);
+        overlayEntry.remove();
+      }
+    });
+  }
+
+  static void showWithAction(
+    BuildContext context,
+    String message, {
+    required String actionLabel,
+    required VoidCallback onAction,
+    int durationSeconds = 6,
+  }) {
+    final overlay = Overlay.of(context);
+    final topInset = MediaQuery.of(context).padding.top;
+
+    late OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: topInset + 14,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(0, -16 * (1 - value)),
+                child: Opacity(opacity: value, child: child),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    TxaTheme.secondaryBg.withValues(alpha: 0.96),
+                    TxaTheme.cardBg.withValues(alpha: 0.96),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: TxaTheme.accent, width: 1.4),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black87,
+                    blurRadius: 20,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: TxaTheme.accent.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.system_update_rounded, color: TxaTheme.accent, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () {
+                      if (_entries.contains(overlayEntry)) {
+                        _entries.remove(overlayEntry);
+                        overlayEntry.remove();
+                      }
+                      onAction();
+                    },
+                    style: TextButton.styleFrom(
+                      backgroundColor: TxaTheme.accent,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(
+                      actionLabel,
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    _entries.add(overlayEntry);
+    overlay.insert(overlayEntry);
+    Future.delayed(Duration(seconds: durationSeconds), () {
+      if (_entries.contains(overlayEntry)) {
+        _entries.remove(overlayEntry);
+        overlayEntry.remove();
+      }
     });
   }
 }

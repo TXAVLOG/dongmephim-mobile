@@ -2276,15 +2276,24 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
     });
   }
 
-  void _resetHideControlsTimer() {
+  void _resetHideControlsTimer({int durationMs = 4000}) {
     _hideControlsTimer?.cancel();
-    setState(() {
-      _showControls = true;
-    });
-    
-    if (_isPlaying) {
-      _hideControlsTimer = Timer(const Duration(milliseconds: 2500), () {
-        if (mounted && _isPlaying) {
+    if (!mounted) return;
+
+    if (!_showControls) {
+      setState(() {
+        _showControls = true;
+      });
+    }
+
+    if (_isPlaying && !_showSettingsPanel && !_showPlaylistPanel && !_showTvSubtitlesMenu && !_isDraggingSlider) {
+      _hideControlsTimer = Timer(Duration(milliseconds: durationMs), () {
+        if (mounted &&
+            _isPlaying &&
+            !_showSettingsPanel &&
+            !_showPlaylistPanel &&
+            !_showTvSubtitlesMenu &&
+            !_isDraggingSlider) {
           setState(() {
             _showControls = false;
           });
@@ -2294,15 +2303,24 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   }
 
   void _toggleControls() {
-    if (_isLocked) return;
-    setState(() {
-      if (_showControls) {
-        _showControls = false;
-        _hideControlsTimer?.cancel();
-      } else {
+    if (_isLocked) {
+      _showLockButtonTemporarily();
+      return;
+    }
+    if (_showControls) {
+      if (_showSettingsPanel || _showPlaylistPanel || _showTvSubtitlesMenu) {
+        setState(() {
+          _showSettingsPanel = false;
+          _showPlaylistPanel = false;
+          _showTvSubtitlesMenu = false;
+        });
         _resetHideControlsTimer();
+        return;
       }
-    });
+      _resetHideControlsTimer();
+    } else {
+      _resetHideControlsTimer();
+    }
   }
 
   void _showLockButtonTemporarily() {
@@ -4414,24 +4432,11 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
             _adjustVolume(delta);
           }
         },
-        onTapCancel: () {
-          if (mounted) {
-            setState(() {
-              _showControls = true;
-              _isLocked = false;
-            });
-          }
-        },
+        onTapCancel: () {},
         onLongPressCancel: () {
           _stopSpeedUp2x();
         },
-        onVerticalDragCancel: () {
-          if (mounted) {
-            setState(() {
-              _showControls = true;
-            });
-          }
-        },
+        onVerticalDragCancel: () {},
         child: playerView,
       );
     }
