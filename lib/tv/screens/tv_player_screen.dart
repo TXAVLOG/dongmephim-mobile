@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/txa_api.dart';
+import '../../services/txa_auth_service.dart';
 import '../../utils/txa_toast.dart';
 import '../../widgets/txa_video_player.dart';
 import '../../services/txa_language.dart';
@@ -38,6 +39,8 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
   int _selectedServerIndex = 0;
   String _movieId = '';
   int _startTime = 0;
+  bool _packageSystemEnable = false;
+  String _userPlan = 'free';
 
   @override
   void initState() {
@@ -139,6 +142,9 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
             startTime = (double.tryParse(history['current_time']?.toString() ?? '0') ?? 0.0).toInt();
           }
 
+          final packageSystemEnable = res['package_system_enable'] == true;
+          final userPlan = TxaAuthService().user?['package']?.toString() ?? 'free';
+
           if (mounted) {
             setState(() {
               _videoUrl = resolvedUrl;
@@ -154,6 +160,8 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
               _selectedServerIndex = activeServerIdx;
               _movieId = movieId;
               _startTime = startTime;
+              _packageSystemEnable = packageSystemEnable;
+              _userPlan = userPlan;
               _isLoading = false;
             });
           }
@@ -248,6 +256,9 @@ class _TvPlayerScreenState extends State<TvPlayerScreen> {
       },
       movieId: _movieId,
       startTime: _startTime,
+      packageSystemEnable: _packageSystemEnable,
+      userPlan: _userPlan,
     );
   }
 }
+

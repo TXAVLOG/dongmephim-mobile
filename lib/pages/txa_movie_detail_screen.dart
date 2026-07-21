@@ -439,6 +439,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
     }
 
     if (mounted) {
+      final packageSystemEnable = _data?['package_system_enable'] == true;
+      final userPlan = auth.user?['package']?.toString() ?? 'free';
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -477,6 +480,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
             },
             movieId: movieId,
             startTime: startTime,
+            packageSystemEnable: packageSystemEnable,
+            userPlan: userPlan,
           ),
         ),
       ).then((_) {

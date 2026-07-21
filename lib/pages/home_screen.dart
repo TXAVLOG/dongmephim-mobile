@@ -542,7 +542,7 @@ class _HomeTabState extends State<HomeTab> {
         final lastMovie = snapshot.data!.first;
         final movieName = (lastMovie['movie_name'] ?? lastMovie['name'] ?? '').toString();
         final slug = (lastMovie['movie_slug'] ?? lastMovie['slug'] ?? '').toString();
-        final thumbUrl = (lastMovie['poster_url'] ?? lastMovie['thumb_url'] ?? '').toString();
+        final thumbUrl = (lastMovie['movie_thumb'] ?? lastMovie['poster_url'] ?? lastMovie['thumb_url'] ?? lastMovie['thumb'] ?? '').toString();
 
         if (movieName.isEmpty || slug.isEmpty) {
           return const SizedBox.shrink();
@@ -594,11 +594,20 @@ class _HomeTabState extends State<HomeTab> {
                     child: SizedBox(
                       width: 58,
                       height: 78,
-                      child: CachedNetworkImage(
-                        imageUrl: thumbUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) => Container(color: TxaTheme.cardBg),
-                      ),
+                      child: thumbUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: thumbUrl,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(color: TxaTheme.cardBg),
+                              errorWidget: (context, url, error) => Container(
+                                color: TxaTheme.cardBg,
+                                child: const Icon(Icons.movie_rounded, color: Colors.white24, size: 24),
+                              ),
+                            )
+                          : Container(
+                              color: TxaTheme.cardBg,
+                              child: const Icon(Icons.movie_rounded, color: Colors.white24, size: 24),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 12),

@@ -318,12 +318,34 @@ class TxaNotificationManager {
       reminders.add(movieSlug);
       await prefs.setStringList('txa_movie_reminders', reminders);
 
-      final title = TxaLanguage.t('broadcast_reminder_title').replaceAll('%name%', movieName);
-      final body = (broadcastTime != null && broadcastTime.isNotEmpty)
-          ? TxaLanguage.t('broadcast_reminder_body').replaceAll('%time%', broadcastTime)
-          : (nextEpisode != null && nextEpisode.isNotEmpty
-              ? TxaLanguage.t('reminder_new_episode_body').replaceAll('%nextEp%', nextEpisode)
-              : TxaLanguage.t('reminder_enabled_body'));
+      final title = TxaLanguage.t('broadcast_reminder_title')
+          .replaceAll('%name%', movieName)
+          .replaceAll('%movie%', movieName);
+
+      final epInfo = (nextEpisode != null && nextEpisode.isNotEmpty) ? nextEpisode : '';
+
+      String body;
+      if (broadcastTime != null && broadcastTime.isNotEmpty) {
+        body = TxaLanguage.t('broadcast_reminder_body')
+            .replaceAll('%movie%', movieName)
+            .replaceAll('%name%', movieName)
+            .replaceAll('%time%', broadcastTime)
+            .replaceAll('%minutes%', broadcastTime)
+            .replaceAll('%nextEp%', epInfo)
+            .replaceAll('%episode%', epInfo)
+            .replaceAll('%epsoide%', epInfo);
+      } else if (epInfo.isNotEmpty) {
+        body = TxaLanguage.t('reminder_new_episode_body')
+            .replaceAll('%movie%', movieName)
+            .replaceAll('%name%', movieName)
+            .replaceAll('%nextEp%', epInfo)
+            .replaceAll('%episode%', epInfo)
+            .replaceAll('%epsoide%', epInfo);
+      } else {
+        body = TxaLanguage.t('reminder_enabled_body')
+            .replaceAll('%movie%', movieName)
+            .replaceAll('%name%', movieName);
+      }
 
       await _showNativeNotification(
         id: 'reminder_$movieSlug',

@@ -17,6 +17,7 @@ import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
 import '../utils/txa_platform.dart';
 import '../widgets/txa_tv_pair_modal.dart';
+import '../widgets/txa_google_auth_modal.dart';
 import 'txa_movie_detail_screen.dart';
 import 'txa_qr_scan_screen.dart';
 import 'txa_favorites_list_screen.dart';
@@ -184,6 +185,13 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
           });
         }
       }
+    }
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    final success = await TxaGoogleAuthModal.show(context);
+    if (success == true && mounted) {
+      _loadCabinetData();
     }
   }
 
@@ -1932,6 +1940,23 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                               child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : Text(TxaLanguage.t('login'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Google Login Button
+                    OutlinedButton.icon(
+                      onPressed: _loginLoading ? null : _handleGoogleLogin,
+                      icon: Image.asset('assets/google.png', width: 20, height: 20),
+                      label: Text(
+                        TxaLanguage.t('login_google'),
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.15), width: 1.2),
+                        backgroundColor: Colors.white.withValues(alpha: 0.05),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
                     ),
                     const SizedBox(height: 16),
 

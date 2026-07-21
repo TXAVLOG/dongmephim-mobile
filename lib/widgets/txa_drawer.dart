@@ -59,6 +59,15 @@ class _TxaDrawerState extends State<TxaDrawer> {
   ) async {
     if (Platform.isAndroid) {
       final bool isTV = TxaPlatform.isTV;
+
+      // Android Mobile: Ưu tiên mở CH Play trước, chỉ fallback về APK nếu thất bại
+      if (!isTV) {
+        final opened = await TxaPlayUpdateService.openPlayStore();
+        if (opened) return; // Đã mở CH Play thành công → dừng lại
+        // Nếu không mở được CH Play → tiếp tục tải APK bên dưới
+        if (!mounted) return;
+      }
+
       final String rawUrl = isTV
           ? (info['smart_tv_url'] ?? info['download_url'] ?? '')
           : (info['apk_url'] ?? info['download_url'] ?? '');
@@ -231,11 +240,6 @@ class _TxaDrawerState extends State<TxaDrawer> {
 
   void _checkUpdate() async {
     setState(() => _checkingUpdate = true);
-    if (Platform.isAndroid) {
-      await TxaPlayUpdateService.checkAndPromptUpdate(context);
-      if (mounted) setState(() => _checkingUpdate = false);
-      return;
-    }
 
     TxaToast.show(context, TxaLanguage.t('checking_update'));
 
@@ -245,9 +249,9 @@ class _TxaDrawerState extends State<TxaDrawer> {
       setState(() => _checkingUpdate = false);
 
       if (info != null) {
-        final String serverVersion = info['app_version'] ?? TxaVersion.version;
+        final String serverVersion = (info['app_version'] ?? TxaVersion.version).toString();
         if (serverVersion != TxaVersion.version) {
-          // New update available
+          // Có bản cập nhật mới
           showDialog(
             context: context,
             builder: (ctx) => Dialog(
@@ -328,7 +332,7 @@ class _TxaDrawerState extends State<TxaDrawer> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Changelog content with markdown/HTML support
+                        // Changelog content
                         Flexible(
                           child: SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),
@@ -365,10 +369,9 @@ class _TxaDrawerState extends State<TxaDrawer> {
                               child: ElevatedButton(
                                 onPressed: () {
                                   Navigator.pop(ctx);
-                                  _handleUpdate(
-                                    info,
-                                    serverVersion,
-                                  );
+                                  // Android Mobile: thử CH Play trước → fallback APK
+                                  // Android TV / Windows / iOS: tải file trực tiếp
+                                  _handleUpdate(info, serverVersion);
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: TxaTheme.accent,

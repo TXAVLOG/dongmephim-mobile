@@ -15,6 +15,7 @@ import '../utils/txa_toast.dart';
 import '../utils/txa_logger.dart';
 import '../utils/txa_format.dart';
 import 'txa_player_coachmark.dart';
+import '../services/txa_stream_policy_service.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -43,6 +44,8 @@ class TxaVideoPlayer extends StatefulWidget {
   final Function(String episodeId, String episodeName, int serverIndex)? onEpisodeChanged;
   final String movieId;
   final int startTime;
+  final bool packageSystemEnable;
+  final String userPlan;
 
   const TxaVideoPlayer({
     super.key,
@@ -68,6 +71,8 @@ class TxaVideoPlayer extends StatefulWidget {
     this.onEpisodeChanged,
     this.movieId = '',
     this.startTime = 0,
+    this.packageSystemEnable = false,
+    this.userPlan = 'free',
   });
 
   @override
@@ -637,10 +642,20 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   // --- Main Player Flow ---
   void _initMainPlayer({Duration? startFrom}) async {
     TxaLogger.log('Bắt đầu khởi tạo Main Player. URL: $_currentUrl', type: 'app');
-    final bool bypassHeaders = _currentUrl.contains('google') ||
-        _currentUrl.contains('github') ||
-        _currentUrl.contains('mediafire') ||
-        _currentUrl.contains('dropbox');
+
+    // 1. Resolve policy URL
+    final String resolvedUrl = await TxaStreamPolicyService.resolveStreamUrl(
+      _currentUrl,
+      packageSystemEnable: widget.packageSystemEnable,
+      userPlan: widget.userPlan,
+    );
+
+    if (!mounted) return;
+
+    final bool bypassHeaders = resolvedUrl.contains('google') ||
+        resolvedUrl.contains('github') ||
+        resolvedUrl.contains('mediafire') ||
+        resolvedUrl.contains('dropbox');
 
     final headers = (TxaPlatform.isWeb || bypassHeaders)
         ? const <String, String>{}
@@ -650,9 +665,9 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
           };
     TxaLogger.log('Headers cấu hình: $headers', type: 'app');
     _controller = VideoPlayerController.networkUrl(
-      Uri.parse(_currentUrl),
+      Uri.parse(resolvedUrl),
       httpHeaders: headers,
-      formatHint: _currentUrl.contains('.m3u8') ? VideoFormat.hls : null,
+      formatHint: resolvedUrl.contains('.m3u8') ? VideoFormat.hls : null,
     );
     
     try {

@@ -59,6 +59,73 @@ class TxaApi {
     return null;
   }
 
+  Future<Map<String, dynamic>?> googleLogin({String? credential, String? accessToken}) async {
+    final url = Uri.parse('$baseUrl/api/auth/google-login');
+    try {
+      final response = await http.post(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          if (credential != null) 'credential': credential,
+          if (accessToken != null) 'accessToken': accessToken,
+        }),
+      );
+
+      TxaLogger.logApi(
+        method: 'POST',
+        path: url.toString(),
+        statusCode: response.statusCode,
+        responseBody: utf8.decode(response.bodyBytes),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 400) {
+        return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      TxaLogger.log('TxaApi googleLogin error: $e', type: 'api');
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> googleRegister({
+    String? credential,
+    String? accessToken,
+    required String gender,
+    required String province,
+    required String ward,
+    required String phone,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/auth/google-register');
+    try {
+      final response = await http.post(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          if (credential != null) 'credential': credential,
+          if (accessToken != null) 'accessToken': accessToken,
+          'gender': gender,
+          'province': province,
+          'ward': ward,
+          'phone': phone,
+        }),
+      );
+
+      TxaLogger.logApi(
+        method: 'POST',
+        path: url.toString(),
+        statusCode: response.statusCode,
+        responseBody: utf8.decode(response.bodyBytes),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 400) {
+        return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      TxaLogger.log('TxaApi googleRegister error: $e', type: 'api');
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>?> getProfile() async {
     final url = Uri.parse('$baseUrl/api/auth/me');
     try {

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'txa_api.dart';
+import 'txa_language.dart';
 import '../utils/txa_logger.dart';
 
 class TxaAuthService extends ChangeNotifier {
@@ -104,6 +105,47 @@ class TxaAuthService extends ChangeNotifier {
       TxaLogger.log('Login error: $e', type: 'auth');
       return {'success': false, 'message': 'Lỗi kết nối hoặc máy chủ: $e'};
     }
+  }
+
+  Future<Map<String, dynamic>> loginWithGoogle({String? idToken, String? accessToken}) async {
+    try {
+      final response = await TxaApi().googleLogin(credential: idToken, accessToken: accessToken);
+      if (response != null && (response['status'] == 'success' || response['success'] == true)) {
+        final data = response['data'] as Map<String, dynamic>? ?? response;
+        if (data['exists'] == true && data['user'] != null) {
+          final String? tokenVal = data['token'] ?? data['access_token'];
+          final userData = data['user'] as Map<String, dynamic>?;
+          if (tokenVal != null && userData != null) {
+            await setSessionAuthData(tokenVal, userData);
+            return {'success': true, 'message': TxaLanguage.t('login_success')};
+          }
+        } else if (data['exists'] == false) {
+          return {
+            'success': false,
+            'isNewGoogleUser': true,
+            'googleProfile': data['googleProfile'],
+            'message': TxaLanguage.t('google_login_not_registered')
+          };
+        }
+      }
+      return {'success': false, 'message': response?['message'] ?? TxaLanguage.t('google_login_failed')};
+    } catch (e) {
+      TxaLogger.log('Google login error: $e', type: 'auth');
+      return {'success': false, 'message': TxaLanguage.t('google_login_conn_error').replaceAll('%e%', '$e')};
+    }
+  }
+
+  Future<void> setSessionAuthData(String authToken, Map<String, dynamic> userData) async {
+    _token = authToken;
+    _setUser(userData);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('txa_auth_token', _token!);
+    if (_user != null) {
+      await prefs.setString('txa_auth_user', jsonEncode(_user));
+    }
+    TxaApi.clearCache();
+    TxaLogger.log('Auth session manually set for ${userData['username'] ?? userData['email']}', type: 'auth');
+    notifyListeners();
   }
 
   /// Update a single field in the user object and persist to SharedPreferences
