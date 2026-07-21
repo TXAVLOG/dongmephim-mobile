@@ -8,6 +8,7 @@ import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'theme/txa_theme.dart';
 import 'services/txa_language.dart';
 import 'services/txa_auth_service.dart';
+import 'services/txa_ads_service.dart';
 import 'widgets/splash_screen.dart';
 import 'pages/home_screen.dart';
 import 'utils/txa_logger.dart';
@@ -126,6 +127,9 @@ class _MainEntryState extends State<MainEntry> {
           setState(() {
             _showSplash = false;
           });
+          // Schedule 5s App Start Ad (checks VIP status & AdMob settings)
+          TxaAdsService().scheduleAppStartAd();
+
           // Hiện toast chặn file video sau khi splash xong
           if (launchFilePath != null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {

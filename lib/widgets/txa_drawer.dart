@@ -10,6 +10,7 @@ import '../utils/txa_toast.dart';
 import '../utils/txa_platform.dart';
 import '../utils/txa_rich_text.dart';
 import '../pages/txa_update_history_screen.dart';
+import '../services/txa_play_update_service.dart';
 
 import 'dart:io';
 import 'package:crypto/crypto.dart';
@@ -230,6 +231,12 @@ class _TxaDrawerState extends State<TxaDrawer> {
 
   void _checkUpdate() async {
     setState(() => _checkingUpdate = true);
+    if (Platform.isAndroid) {
+      await TxaPlayUpdateService.checkAndPromptUpdate(context);
+      if (mounted) setState(() => _checkingUpdate = false);
+      return;
+    }
+
     TxaToast.show(context, TxaLanguage.t('checking_update'));
 
     try {

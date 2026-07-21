@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../services/txa_language.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_api.dart';
+import '../services/txa_ads_service.dart';
 import '../utils/txa_platform.dart';
 import '../utils/txa_toast.dart';
 import '../utils/txa_logger.dart';
@@ -465,37 +466,31 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   }
 
   Future<void> _checkAndInitAdFlow() async {
+    // 1. Check VIP bypass_ads status
+    final bypass = await TxaAdsService().shouldBypassAds();
+    if (bypass) {
+      TxaLogger.log('VIP user detected: Bypassing all pre-roll ads.', type: 'app');
+      _initMainPlayer();
+      return;
+    }
+
     final adSettings = widget.adSettings;
+    final bool admobEnable = adSettings?['admob_enable'] == true;
+
+    // 2. Try Google AdMob Pre-Roll first if enabled
+    if (admobEnable && (TxaPlatform.isMobile || TxaPlatform.isTV)) {
+      bool admobFinished = false;
+      await TxaAdsService().showPreRollAd(
+        onComplete: () {
+          admobFinished = true;
+        },
+      );
+      if (admobFinished && !mounted) return;
+    }
+
+    // 3. Fallback to custom web video/embed pre-roll ad if configured
     bool adEnabled = adSettings?['pre_roll_enable'] == true;
     final String? rawAdUrl = adSettings?['pre_roll_url'];
-
-    // Check dynamic bypass_ads permission from user package
-    final auth = TxaAuthService();
-    final user = auth.user;
-    if (auth.isLoggedIn && user != null) {
-      final userPkgId = (user['package'] ?? 'free').toString().toLowerCase();
-      if (userPkgId != 'free') {
-        try {
-          final pkgsRes = await TxaApi().getPackages();
-          if (pkgsRes != null && pkgsRes['packages'] != null) {
-            final packages = pkgsRes['packages'] as List<dynamic>;
-            final userPkg = packages.firstWhere(
-              (p) => (p['id'] ?? '').toString().toLowerCase() == userPkgId ||
-                     (p['title'] ?? '').toString().toLowerCase() == userPkgId,
-              orElse: () => null,
-            );
-            if (userPkg != null && userPkg['permissions'] != null) {
-              final bypass = userPkg['permissions']['bypass_ads'] == true;
-              if (bypass) {
-                adEnabled = false;
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('Error checking bypass_ads permission: $e');
-        }
-      }
-    }
 
     if (adEnabled && rawAdUrl != null && rawAdUrl.isNotEmpty) {
       // Support multiple ad URLs separated by newlines (pick random, like web)
@@ -544,7 +539,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
         _startAdCountdown();
       }
     } else {
-      // No ads configured or VIP user (API returned disabled)
+      // No custom web ads or finished AdMob
       _initMainPlayer();
     }
   }
