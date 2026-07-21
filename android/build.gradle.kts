@@ -59,6 +59,22 @@ subprojects {
                     println("[Namespace-Fix] Failed to process AndroidManifest.xml for $name: ${manifestErr.message}")
                 }
 
+                // Patch google_mobile_ads configurations.all for Gradle 8 compatibility
+                if (name == "google_mobile_ads") {
+                    try {
+                        val buildFile = File(projectDir, "build.gradle")
+                        if (buildFile.exists()) {
+                            val text = buildFile.readText()
+                            if (text.contains("configurations.all")) {
+                                buildFile.writeText(text.replace("configurations.all", "configurations"))
+                                println("[Gradle-Fix] Patched google_mobile_ads build.gradle for Gradle 8 compatibility")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        println("[Gradle-Fix] Failed to patch google_mobile_ads build.gradle: ${e.message}")
+                    }
+                }
+
                 // Automatic namespace injector for older plugins to prevent AGP 8+ namespace failures
                 try {
                     val methods = android.javaClass.methods
