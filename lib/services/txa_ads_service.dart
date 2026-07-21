@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../services/txa_api.dart';
-import '../services/txa_auth.dart';
+import '../services/txa_auth_service.dart';
 import '../utils/txa_platform.dart';
 import '../utils/txa_logger.dart';
 
@@ -61,9 +61,9 @@ class TxaAdsService {
   Future<Map<String, dynamic>?> _getAdSettings() async {
     if (_adSettings != null) return _adSettings;
     try {
-      final settings = await TxaApi().getSettings();
-      if (settings != null && settings['ads'] != null) {
-        _adSettings = settings['ads'] as Map<String, dynamic>;
+      final info = await TxaApi().getCheckUpdate();
+      if (info != null && info['ads'] != null) {
+        _adSettings = info['ads'] as Map<String, dynamic>;
         return _adSettings;
       }
     } catch (e) {

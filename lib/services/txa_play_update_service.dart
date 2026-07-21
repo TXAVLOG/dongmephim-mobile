@@ -5,6 +5,7 @@ import '../services/txa_api.dart';
 import '../services/txa_version.dart';
 import '../utils/txa_logger.dart';
 import '../utils/txa_toast.dart';
+import '../utils/txa_platform.dart';
 import '../widgets/txa_download_dialog.dart';
 
 class TxaPlayUpdateService {
@@ -27,12 +28,15 @@ class TxaPlayUpdateService {
         playUpdateTriggered = true;
         TxaLogger.log('Google Play Update available! Triggering immediate update UI...', type: 'app');
         
-        // Trigger Google Play In-App Update UI directly inside the app
-        await InAppUpdate.performImmediateUpdate().catchError((e) async {
+        try {
+          await InAppUpdate.performImmediateUpdate();
+        } catch (e) {
           TxaLogger.log('Immediate update failed, trying flexible update: $e', type: 'app');
-          await InAppUpdate.startFlexibleUpdate();
-          await InAppUpdate.completeFlexibleUpdate();
-        });
+          try {
+            await InAppUpdate.startFlexibleUpdate();
+            await InAppUpdate.completeFlexibleUpdate();
+          } catch (_) {}
+        }
         return;
       } else {
         TxaLogger.log('Google Play reports app is up to date.', type: 'app');
@@ -44,21 +48,22 @@ class TxaPlayUpdateService {
     // Fallback: Check Supabase settings version for sideloaded APK downloads
     if (!playUpdateTriggered) {
       try {
-        final settings = await TxaApi().getSettings();
-        if (settings != null && settings['app'] != null) {
-          final appInfo = settings['app'];
-          final latestVersion = (appInfo['app_version'] ?? TxaVersion.version).toString().trim();
+        final info = await TxaApi().getCheckUpdate();
+        if (info != null) {
+          final latestVersion = (info['app_version'] ?? TxaVersion.version).toString().trim();
 
           if (_isVersionLower(TxaVersion.version, latestVersion)) {
             if (!context.mounted) return;
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (ctx) => TxaDownloadDialog(
-                downloadUrl: (appInfo['app_apk_url'] ?? 'https://pub-ffb3837c19c940af8cc1bc7f2682fd70.r2.dev/DongMePhim-Mobile.apk').toString(),
-                sha256: (appInfo['app_apk_sha256'] ?? '').toString(),
-                latestVersion: latestVersion,
-              ),
+            final isTV = TxaPlatform.isTV;
+            final downloadUrl = isTV
+                ? (info['smart_tv_url'] ?? info['download_url'] ?? 'https://pub-ffb3837c19c940af8cc1bc7f2682fd70.r2.dev/DongMePhim-TV.apk').toString()
+                : (info['apk_url'] ?? info['download_url'] ?? 'https://pub-ffb3837c19c940af8cc1bc7f2682fd70.r2.dev/DongMePhim-Mobile.apk').toString();
+            final filename = isTV ? 'DongMePhim_TV_$latestVersion.apk' : 'DongMePhim_$latestVersion.apk';
+
+            TxaDownloadDialog.show(
+              context,
+              downloadUrl,
+              filename,
             );
             return;
           }
