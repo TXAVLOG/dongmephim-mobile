@@ -1,13 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_logger.dart';
 import '../utils/txa_toast.dart';
 import '../services/txa_language.dart';
-import '../services/txa_version.dart';
 import '../utils/txa_device_info.dart';
 
 class LogEntry {
