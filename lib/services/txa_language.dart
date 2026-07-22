@@ -1000,6 +1000,18 @@ class TxaLanguage extends ChangeNotifier {
       'country_japan': 'Nhật Bản',
       // Special Categories
       'txa_category_chinese_masterpieces': 'Tinh Hoa Hoa Ngữ',
+      // IAP Keys
+      'iap_zalo_title': 'Mã Key Bypass Zalo (15 Thiết bị)',
+      'iap_admin_badge': 'Dành cho Admin Test',
+      'iap_zalo_desc': 'Mở khóa tự động duyệt thành viên nhóm Zalo 100% bằng Bot. Một gói cấp 15 mã Key cho 15 thiết bị.',
+      'iap_buy_zalo_key': 'Mua Ngay qua Google Play',
+      'iap_restore_purchases': 'Khôi phục đơn hàng',
+      'iap_restored_success': 'Khôi phục giao dịch thành công!',
+      'iap_copy_key': 'Sao chép',
+      'iap_export_txt': 'Xuất ra tệp TXT',
+      'iap_key_table_title': 'DANH SÁCH 15 MÃ KEY BYPASS ZALO:',
+      'iap_key_copied_toast': 'Đã sao chép mã Key #%n%!',
+      'iap_txt_exported_toast': 'Đã xuất danh sách 15 Key thành công!',
     },
     'en': {
       'preparing': 'Preparing...',
@@ -1978,6 +1990,18 @@ class TxaLanguage extends ChangeNotifier {
       'original_price_label': 'Original price',
       'discounted_price_label': 'Discounted price',
       'open_checkout_web': 'Open checkout page (Web)',
+      // IAP Keys (EN)
+      'iap_zalo_title': 'Zalo Bypass Key (15 Devices)',
+      'iap_admin_badge': 'Admin Test Mode',
+      'iap_zalo_desc': 'Unlock 100% automated Zalo group member approval via Bot. One package provides 15 Key codes for 15 devices.',
+      'iap_buy_zalo_key': 'Buy Now via Google Play',
+      'iap_restore_purchases': 'Restore Purchases',
+      'iap_restored_success': 'Purchases restored successfully!',
+      'iap_copy_key': 'Copy',
+      'iap_export_txt': 'Export to TXT file',
+      'iap_key_table_title': 'LIST OF 15 ZALO BYPASS KEYS:',
+      'iap_key_copied_toast': 'Copied Key Code #%n%!',
+      'iap_txt_exported_toast': 'Exported 15 Keys list successfully!',
     },
   };
 

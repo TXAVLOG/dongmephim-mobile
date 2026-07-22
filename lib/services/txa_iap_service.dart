@@ -179,6 +179,12 @@ class TxaIapService {
         if (prod.rawPrice > 0) {
           price = prod.rawPrice;
         }
+        // Extract numeric digits from localized price string (e.g., "1.000 ₫" -> 1000.0)
+        final cleanDigits = prod.price.replaceAll(RegExp(r'[^\d]'), '');
+        final parsedVal = double.tryParse(cleanDigits);
+        if (parsedVal != null && parsedVal >= 0) {
+          price = parsedVal;
+        }
       } catch (_) {}
 
       // Gọi API POST lên backend /api/user/payments

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_iap_service.dart';
 import '../services/txa_language.dart';
@@ -25,7 +26,9 @@ class TxaZaloBypassModal extends StatefulWidget {
 class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
   final TxaIapService _iapService = TxaIapService();
   bool _isLoading = false;
-  String? _purchasedKey;
+  String? _masterKey;
+  List<String> _generatedKeys = [];
+  int? _copiedIndex;
   String? _statusText;
 
   @override
@@ -39,12 +42,7 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
     await _iapService.initialize(
       onSuccess: (keyCode, message) {
         if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-          _purchasedKey = keyCode;
-          _statusText = message;
-        });
-        TxaToast.show(context, message);
+        _onKeyReceived(keyCode, message);
       },
       onError: (error) {
         if (!mounted) return;
@@ -65,6 +63,23 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
     if (mounted) {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _onKeyReceived(String? keyCode, String message) {
+    if (keyCode == null || keyCode.isEmpty) return;
+    final master = keyCode;
+    final keys = List.generate(
+      15,
+      (i) => '$master-${(i + 1).toString().padLeft(2, '0')}',
+    );
+
+    setState(() {
+      _isLoading = false;
+      _masterKey = master;
+      _generatedKeys = keys;
+      _statusText = message;
+    });
+    TxaToast.show(context, message);
   }
 
   Future<void> _handleBuy(bool isAdmin) async {
@@ -94,8 +109,48 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
       setState(() => _isLoading = false);
       if (restored) {
         TxaToast.show(context, TxaLanguage.t('iap_restored_success'));
+      } else {
+        TxaToast.show(
+          context,
+          'Không tìm thấy đơn hàng nào để khôi phục.',
+          isError: true,
+        );
       }
     }
+  }
+
+  void _copyKey(int index, String key) {
+    Clipboard.setData(ClipboardData(text: key));
+    setState(() {
+      _copiedIndex = index;
+    });
+    TxaToast.show(
+      context,
+      TxaLanguage.t('iap_key_copied_toast', replace: {'n': '${index + 1}'}),
+    );
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted && _copiedIndex == index) {
+        setState(() => _copiedIndex = null);
+      }
+    });
+  }
+
+  void _exportTxt() {
+    if (_generatedKeys.isEmpty) return;
+    final buffer = StringBuffer();
+    buffer.writeln('=== DONGMEPHIM - DANH SÁCH 15 MÃ KEY BYPASS ZALO ===');
+    buffer.writeln('Mã Master Key: $_masterKey');
+    buffer.writeln('Ngày cấp: ${DateTime.now().toString().split('.')[0]}');
+    buffer.writeln('--------------------------------------------------');
+    for (int i = 0; i < _generatedKeys.length; i++) {
+      buffer.writeln('Key #${(i + 1).toString().padLeft(2, '0')}: ${_generatedKeys[i]}');
+    }
+    buffer.writeln('--------------------------------------------------');
+    buffer.writeln('Hướng dẫn: Sử dụng mỗi mã Key trên 1 thiết bị để tự động duyệt Zalo qua Bot.');
+
+    final content = buffer.toString();
+    Share.share(content, subject: 'Zalo_Bypass_Keys_$_masterKey.txt');
+    TxaToast.show(context, TxaLanguage.t('iap_txt_exported_toast'));
   }
 
   @override
@@ -206,59 +261,160 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
             ),
             const SizedBox(height: 20),
 
-            // Result display (Mã Key thu được sau mua)
-            if (_purchasedKey != null) ...[
+            // Result display (Bảng 15 Mã Key thu được sau mua / restore)
+            if (_generatedKeys.isNotEmpty) ...[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                constraints: const BoxConstraints(maxHeight: 280),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.15),
+                  color: Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.35)),
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      'MÃ KEY ZALO CỦA BẠN:',
-                      style: TextStyle(
-                        color: Colors.greenAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            TxaLanguage.t('iap_key_table_title'),
+                            style: const TextStyle(
+                              color: Colors.greenAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '15 Keys',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    SelectableText(
-                      _purchasedKey!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _generatedKeys.length,
+                        separatorBuilder: (ctx, i) => const SizedBox(height: 6),
+                        itemBuilder: (context, index) {
+                          final keyStr = _generatedKeys[index];
+                          final isCopied = _copiedIndex == index;
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isCopied ? Colors.green.withValues(alpha: 0.25) : const Color(0xFF1E2235),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isCopied ? Colors.greenAccent : Colors.white.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 22,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '#${(index + 1).toString().padLeft(2, '0')}',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    keyStr,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: () => _copyKey(index, keyStr),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: isCopied ? Colors.green : TxaTheme.primaryColor.withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          isCopied ? Icons.check_circle_rounded : Icons.copy_rounded,
+                                          color: Colors.white,
+                                          size: 13,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          isCopied ? 'Đã chép!' : TxaLanguage.t('iap_copy_key'),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 10),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: _purchasedKey!));
-                        TxaToast.show(context, 'Đã sao chép mã Key!');
-                      },
-                      icon: const Icon(Icons.copy, size: 16),
-                      label: Text(TxaLanguage.t('iap_copy_key')),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _exportTxt,
+                        icon: const Icon(Icons.description_rounded, size: 16),
+                        label: Text(
+                          TxaLanguage.t('iap_export_txt'),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
             ],
 
-            if (_statusText != null && _purchasedKey == null) ...[
+            if (_statusText != null && _generatedKeys.isEmpty) ...[
               Text(
                 _statusText!,
                 textAlign: TextAlign.center,
