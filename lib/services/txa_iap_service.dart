@@ -26,8 +26,8 @@ class TxaIapService {
   OnPurchasePendingCallback? onPurchasePending;
   bool _hasRestoredAny = false;
 
-  static const String productIdNormal = 'zalo_key_normal';
-  static const String productIdAdmin = 'zalo_key_admin';
+  static const String productIdNormal = 'zalo-key-normal';
+  static const String productIdAdmin = 'zalo-key-admin';
 
   static const Set<String> _kProductIds = {
     productIdNormal,
