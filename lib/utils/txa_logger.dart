@@ -93,10 +93,7 @@ class TxaLogger {
     final statusStr = statusCode != null ? 'STATUS: $statusCode' : 'STATUS: ERROR';
     String message = '$method $path - $statusStr';
     if (responseBody != null && responseBody.trim().isNotEmpty) {
-      String cleanBody = responseBody.trim();
-      if (cleanBody.length > 500) {
-        cleanBody = '${cleanBody.substring(0, 500)}... [truncated]';
-      }
+      final cleanBody = responseBody.trim();
       message += '\n[response] $cleanBody';
     }
     await log(message, type: 'api');

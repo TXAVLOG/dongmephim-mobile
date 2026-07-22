@@ -8,6 +8,7 @@ import '../utils/txa_logger.dart';
 import '../utils/txa_toast.dart';
 import '../services/txa_language.dart';
 import '../services/txa_version.dart';
+import '../utils/txa_device_info.dart';
 
 class LogEntry {
   final String timestamp;
@@ -634,22 +635,14 @@ class _CopyButtonState extends State<_CopyButton> with SingleTickerProviderState
       _isCopied = true;
     });
 
-    final now = DateTime.now();
-    final systemTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
-    final osName = Platform.operatingSystem;
-    final osVersion = Platform.operatingSystemVersion;
+    final header = await TxaDeviceInfo.getFormattedHeader(
+      logType: widget.entry.type,
+      timestamp: widget.entry.timestamp,
+      status: 'SUCCESS',
+    );
 
     final clipboardText = '''
-=========================================
-      DONGMEPHIM SYSTEM DEBUG LOG
-=========================================
-• Thời Gian: $systemTime
-• Thiết Bị: $osName ($osVersion)
-• Phiên Bản App: ${TxaVersion.version}
-• Loại Nhật Ký: ${widget.entry.type}
-• Mốc Log: ${widget.entry.timestamp}
-• Trạng Thái: SUCCESS
-
+$header
 • Nội Dung Chi Tiết:
 ${widget.entry.message}
 

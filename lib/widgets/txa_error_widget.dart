@@ -4,6 +4,7 @@ import '../services/txa_language.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_logger.dart';
 import '../utils/txa_toast.dart';
+import '../utils/txa_device_info.dart';
 import '../main.dart';
 
 class TxaErrorWidget extends StatelessWidget {
@@ -148,9 +149,21 @@ class TxaErrorWidget extends StatelessWidget {
                       // Copy Error Details Button
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: _errorString));
-                            TxaToast.show(context, TxaLanguage.t('app_crash_copied'));
+                          onPressed: () async {
+                            final header = await TxaDeviceInfo.getFormattedHeader(
+                              logType: 'CRASH',
+                              timestamp: DateTime.now().toString().split('.').first,
+                              status: 'FAILED / APP CRASH',
+                            );
+                            final fullText = '''$header
+• Chi Tiết Lỗi / Traceback:
+$_errorString
+=========================================
+''';
+                            await Clipboard.setData(ClipboardData(text: fullText));
+                            if (context.mounted) {
+                              TxaToast.show(context, TxaLanguage.t('app_crash_copied'));
+                            }
                           },
                           icon: const Icon(Icons.copy_rounded, size: 16),
                           label: Text(

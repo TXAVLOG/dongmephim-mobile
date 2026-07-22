@@ -53,53 +53,44 @@ import UIKit
   }
 
   // --- Secure Mode (DRM) ---
-  // Uses the isSecureTextEntry trick to prevent screen capture/recording on iOS
+  // Safe secure text entry helper to prevent screen capture on iOS without CALayer cycles
   private func enableSecureMode() {
-    guard let window = self.window else { return }
-    
-    if secureTextField == nil {
-      let field = UITextField()
-      field.isSecureTextEntry = true
-      field.isUserInteractionEnabled = false
-      window.addSubview(field)
-      field.centerYAnchor.constraint(equalTo: window.centerYAnchor).isActive = true
-      field.centerXAnchor.constraint(equalTo: window.centerXAnchor).isActive = true
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, let window = self.window else { return }
       
-      // Safe layer hierarchy manipulation
-      if let windowLayer = window.layer.superlayer,
-         let sublayers = field.layer.sublayers,
-         let fieldSublayer = sublayers.first {
-        windowLayer.addSublayer(field.layer)
-        fieldSublayer.addSublayer(window.layer)
-        secureTextField = field
+      if self.secureTextField == nil {
+        let field = UITextField()
+        field.isSecureTextEntry = true
+        field.isUserInteractionEnabled = false
+        window.addSubview(field)
+        field.centerYAnchor.constraint(equalTo: window.centerYAnchor).isActive = true
+        field.centerXAnchor.constraint(equalTo: window.centerXAnchor).isActive = true
+        self.secureTextField = field
       }
+      
+      NotificationCenter.default.removeObserver(self, name: UIScreen.capturedDidChangeNotification, object: nil)
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(self.screenCaptureChanged),
+        name: UIScreen.capturedDidChangeNotification,
+        object: nil
+      )
     }
-    
-    // Also add observer for screen recording
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(screenCaptureChanged),
-      name: UIScreen.capturedDidChangeNotification,
-      object: nil
-    )
   }
   
   private func disableSecureMode() {
-    if let field = secureTextField {
-      // Safe restore of window layer
-      if let sublayers = field.layer.sublayers,
-         let superLayer = sublayers.first {
-        field.layer.superlayer?.addSublayer(superLayer)
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      if let field = self.secureTextField {
+        field.removeFromSuperview()
+        self.secureTextField = nil
       }
-      field.removeFromSuperview()
-      secureTextField = nil
+      NotificationCenter.default.removeObserver(
+        self,
+        name: UIScreen.capturedDidChangeNotification,
+        object: nil
+      )
     }
-    
-    NotificationCenter.default.removeObserver(
-      self,
-      name: UIScreen.capturedDidChangeNotification,
-      object: nil
-    )
   }
   
   @objc private func screenCaptureChanged() {
