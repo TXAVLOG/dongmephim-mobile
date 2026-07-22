@@ -1,3 +1,3 @@
 class TxaVersion {
-  static const String version = '5.3.0';
+  static const String version = '5.3.1';
 }
