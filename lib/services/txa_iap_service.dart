@@ -5,6 +5,7 @@ import 'txa_api.dart';
 
 typedef OnPurchaseSuccessCallback = void Function(String? keyCode, String message);
 typedef OnPurchaseErrorCallback = void Function(String error);
+typedef OnPurchasePendingCallback = void Function(String statusMessage);
 
 class TxaIapService {
   static final TxaIapService _instance = TxaIapService._internal();
@@ -22,6 +23,8 @@ class TxaIapService {
 
   OnPurchaseSuccessCallback? onPurchaseSuccess;
   OnPurchaseErrorCallback? onPurchaseError;
+  OnPurchasePendingCallback? onPurchasePending;
+  bool _hasRestoredAny = false;
 
   static const String productIdNormal = 'zalo_key_normal';
   static const String productIdAdmin = 'zalo_key_admin';
@@ -35,9 +38,11 @@ class TxaIapService {
   Future<void> initialize({
     OnPurchaseSuccessCallback? onSuccess,
     OnPurchaseErrorCallback? onError,
+    OnPurchasePendingCallback? onPending,
   }) async {
     onPurchaseSuccess = onSuccess;
     onPurchaseError = onError;
+    onPurchasePending = onPending;
 
     _isAvailable = await _iap.isAvailable();
     if (!_isAvailable) {
@@ -110,12 +115,21 @@ class TxaIapService {
   }
 
   /// 4. Khôi phục giao dịch cũ (Restore Purchases)
-  Future<void> restorePurchases() async {
+  Future<bool> restorePurchases() async {
     if (!_isAvailable) {
       onPurchaseError?.call('Cửa hàng thanh toán Google Play không sẵn sàng.');
-      return;
+      return false;
     }
+    _hasRestoredAny = false;
+    onPurchasePending?.call('Đang quét lịch sử đơn hàng từ Google Play...');
     await _iap.restorePurchases();
+
+    await Future.delayed(const Duration(milliseconds: 2500));
+    if (!_hasRestoredAny) {
+      onPurchaseError?.call('Không tìm thấy đơn hàng nào đã mua trên Google Play để khôi phục.');
+      return false;
+    }
+    return true;
   }
 
   /// 5. Xử lý sự kiện cập nhật trạng thái mua từ Store
@@ -124,10 +138,13 @@ class TxaIapService {
       switch (purchaseDetails.status) {
         case PurchaseStatus.pending:
           TxaLogger.log('Giao dịch đang được xử lý (Pending)... ID: ${purchaseDetails.productID}', type: 'iap');
+          onPurchasePending?.call('Đang quét và xử lý giao dịch trên Google Play...');
           break;
 
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
+          _hasRestoredAny = true;
+          onPurchasePending?.call('Phát hiện đơn hàng! Đang xác thực với máy chủ...');
           await verifyPurchase(purchaseDetails);
           break;
 

@@ -54,6 +54,13 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
         });
         TxaToast.show(context, error, isError: true);
       },
+      onPending: (statusMessage) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = true;
+          _statusText = statusMessage;
+        });
+      },
     );
     if (mounted) {
       setState(() => _isLoading = false);
@@ -79,13 +86,15 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
   Future<void> _handleRestore() async {
     setState(() {
       _isLoading = true;
-      _statusText = null;
+      _statusText = 'Đang quét lịch sử đơn hàng Google Play...';
     });
 
-    await _iapService.restorePurchases();
+    final restored = await _iapService.restorePurchases();
     if (mounted) {
       setState(() => _isLoading = false);
-      TxaToast.show(context, TxaLanguage.t('iap_restored_success'));
+      if (restored) {
+        TxaToast.show(context, TxaLanguage.t('iap_restored_success'));
+      }
     }
   }
 
