@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import '../services/txa_api.dart';
 
 class TxaLogger {
   static String? _cachedLogPath;
@@ -53,8 +54,9 @@ class TxaLogger {
       // Always print to debug console
       debugPrint('[$type] $message');
 
-      // Only write to file when enabled (app active or lifecycle transition)
-      if (!_fileWriteEnabled) return;
+      // Crash logs MUST ALWAYS be written to disk and sent to server even if in background/transition
+      final isCrash = type == 'crash';
+      if (!_fileWriteEnabled && !isCrash) return;
 
       final path = await _logPath;
       final now = DateTime.now();
@@ -71,6 +73,11 @@ class TxaLogger {
       if (type != 'all') {
         final allFile = File('$path/all_$date.log');
         await allFile.writeAsString(logLine, mode: FileMode.append, flush: true);
+      }
+
+      // 3. If crash event, send report to server asynchronously immediately
+      if (isCrash) {
+        TxaApi().sendCrashReport(message);
       }
     } catch (e) {
       debugPrint('Failed to write log: $e');

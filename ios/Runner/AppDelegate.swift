@@ -65,11 +65,14 @@ import UIKit
       field.centerYAnchor.constraint(equalTo: window.centerYAnchor).isActive = true
       field.centerXAnchor.constraint(equalTo: window.centerXAnchor).isActive = true
       
-      // Move the app's main layer into the secure text field's layer
-      window.layer.superlayer?.addSublayer(field.layer)
-      field.layer.sublayers?.first?.addSublayer(window.layer)
-      
-      secureTextField = field
+      // Safe layer hierarchy manipulation
+      if let windowLayer = window.layer.superlayer,
+         let sublayers = field.layer.sublayers,
+         let fieldSublayer = sublayers.first {
+        windowLayer.addSublayer(field.layer)
+        fieldSublayer.addSublayer(window.layer)
+        secureTextField = field
+      }
     }
     
     // Also add observer for screen recording
@@ -83,8 +86,9 @@ import UIKit
   
   private func disableSecureMode() {
     if let field = secureTextField {
-      // Restore the window layer
-      if let superLayer = field.layer.sublayers?.first {
+      // Safe restore of window layer
+      if let sublayers = field.layer.sublayers,
+         let superLayer = sublayers.first {
         field.layer.superlayer?.addSublayer(superLayer)
       }
       field.removeFromSuperview()

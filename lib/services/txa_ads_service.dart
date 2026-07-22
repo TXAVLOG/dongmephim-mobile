@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../services/txa_api.dart';
 import '../services/txa_auth_service.dart';
-import '../utils/txa_platform.dart';
 import '../utils/txa_logger.dart';
 
 class TxaAdsService {
@@ -15,15 +15,15 @@ class TxaAdsService {
   bool _appStartAdShown = false;
   Map<String, dynamic>? _adSettings;
 
-  /// Initialize MobileAds SDK once
+  /// Initialize MobileAds SDK once (Android only)
   Future<void> init() async {
     if (_initialized) return;
-    if (TxaPlatform.isWeb || TxaPlatform.isDesktop) return;
+    if (kIsWeb || !Platform.isAndroid) return;
 
     try {
       await MobileAds.instance.initialize();
       _initialized = true;
-      TxaLogger.log('Google MobileAds initialized successfully.', type: 'app');
+      TxaLogger.log('Google MobileAds initialized successfully (Android).', type: 'app');
     } catch (e) {
       TxaLogger.log('Google MobileAds initialization error: $e', type: 'app');
     }
@@ -72,10 +72,10 @@ class TxaAdsService {
     return null;
   }
 
-  /// Trigger App Start Ad after 5 seconds delay
+  /// Trigger App Start Ad after 5 seconds delay (Android only)
   void scheduleAppStartAd() {
     if (_appStartAdShown) return;
-    if (TxaPlatform.isWeb || TxaPlatform.isDesktop) return;
+    if (kIsWeb || !Platform.isAndroid) return;
 
     Timer(const Duration(seconds: 5), () async {
       if (_appStartAdShown) return;
@@ -122,9 +122,9 @@ class TxaAdsService {
     });
   }
 
-  /// Show Pre-Roll Ad before playing video
+  /// Show Pre-Roll Ad before playing video (Android only)
   Future<void> showPreRollAd({required Function onComplete}) async {
-    if (TxaPlatform.isWeb || TxaPlatform.isDesktop) {
+    if (kIsWeb || !Platform.isAndroid) {
       onComplete();
       return;
     }

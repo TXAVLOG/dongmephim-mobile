@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/txa_logger.dart';
@@ -1163,6 +1165,32 @@ class TxaApi {
       }
     } catch (e) {
       TxaLogger.log('TxaApi postPaymentLog error: $e', type: 'api');
+    }
+    return false;
+  }
+
+  Future<bool> sendCrashReport(String crashLog, {String? deviceInfo}) async {
+    final url = Uri.parse('$baseUrl/api/app/crash-report');
+    try {
+      final response = await http.post(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'crash_log': crashLog,
+          'device_info': deviceInfo ?? 'DongMePhim Mobile App',
+          'platform': Platform.operatingSystem,
+          'os_version': Platform.operatingSystemVersion,
+          'timestamp': DateTime.now().toIso8601String(),
+        }),
+      );
+      TxaLogger.logApi(
+        method: 'POST',
+        path: url.toString(),
+        statusCode: response.statusCode,
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error sending crash report to server: $e');
     }
     return false;
   }

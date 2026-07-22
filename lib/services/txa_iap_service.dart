@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../utils/txa_logger.dart';
 import 'txa_api.dart';
-
+import '../services/txa_language.dart';
 typedef OnPurchaseSuccessCallback = void Function(String? keyCode, String message);
 typedef OnPurchaseErrorCallback = void Function(String error);
 typedef OnPurchasePendingCallback = void Function(String statusMessage);
@@ -149,8 +149,22 @@ class TxaIapService {
           break;
 
         case PurchaseStatus.error:
-          TxaLogger.log('Lỗi giao dịch IAP: ${purchaseDetails.error?.message}', type: 'iap');
-          onPurchaseError?.call(purchaseDetails.error?.message ?? 'Giao dịch thất bại.');
+          final errCode = purchaseDetails.error?.code ?? '';
+          final errMessage = purchaseDetails.error?.message ?? '';
+          TxaLogger.log('Lỗi giao dịch IAP: Code=$errCode, Message=$errMessage', type: 'iap');
+
+          final isAlreadyOwned = errCode.contains('itemAlreadyOwned') ||
+              errCode.contains('ITEM_ALREADY_OWNED') ||
+              errCode == '7' ||
+              errMessage.contains('itemAlreadyOwned') ||
+              errMessage.contains('already owned') ||
+              errMessage.contains('ITEM_ALREADY_OWNED');
+
+          if (isAlreadyOwned) {
+            onPurchaseError?.call(TxaLanguage.t('iap_item_already_owned'));
+          } else {
+            onPurchaseError?.call(errMessage.isNotEmpty ? errMessage : 'Giao dịch thất bại.');
+          }
           break;
 
         case PurchaseStatus.canceled:

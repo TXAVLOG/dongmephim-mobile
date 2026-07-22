@@ -53,12 +53,13 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
             
-            <!-- Register custom URL scheme txa:// for QR pairing confirm deep link -->
-            <intent-filter android:label="TPhimX TV Connect">
+            <!-- Register custom URL scheme txa:// and dongmephim:// for QR pairing and payment deep links -->
+            <intent-filter android:label="TPhimX App DeepLinks">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="txa" />
+                <data android:scheme="dongmephim" />
             </intent-filter>
 
             <!-- App Links: Auto-verify domain dongmephim.online to open app directly -->

@@ -1128,7 +1128,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                       // Open SePay Payment gateway web page
                                       const siteUrl = TxaApi.baseUrl;
                                       final checkoutUri = Uri.parse(
-                                        '$siteUrl/checkout/sepay?txid=$txid&price=$finalPrice&cycle=$selectedCycle&packageTitle=${Uri.encodeComponent(pkgTitle)}&packageId=${Uri.encodeComponent(pkgId)}&email=${Uri.encodeComponent(user?['email']?.toString() ?? '')}'
+                                        '$siteUrl/checkout/sepay?txid=$txid&price=$finalPrice&cycle=$selectedCycle&packageTitle=${Uri.encodeComponent(pkgTitle)}&packageId=${Uri.encodeComponent(pkgId)}&email=${Uri.encodeComponent(user?['email']?.toString() ?? '')}&isApp=1'
                                       );
                                       if (await canLaunchUrl(checkoutUri)) {
                                         await launchUrl(checkoutUri, mode: LaunchMode.externalApplication);
@@ -1239,138 +1239,296 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
 
     final qrUrl = 'https://api.vietqr.io/image/$bankName-$accountNo-compact2.jpg?amount=$price&addInfo=$txid&accountName=$encodedAccountName';
 
+    XFile? proofImageFile;
+    String? proofBase64;
+    bool isSubmittingLog = false;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: const BoxDecoration(
-          color: TxaTheme.secondaryBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          border: Border(top: BorderSide(color: Colors.white12, width: 1)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 48,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                TxaLanguage.t('vietqr_scan_title'),
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                TxaLanguage.t('vietqr_scan_desc'),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
-              ),
-              const SizedBox(height: 24),
-              
-              // QR Code Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: CachedNetworkImage(
-                  imageUrl: qrUrl,
-                  width: 250,
-                  height: 250,
-                  fit: BoxFit.contain,
-                  placeholder: (c, u) => const SizedBox(
-                    width: 250,
-                    height: 250,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                  errorWidget: (c, u, e) => Container(
-                    width: 250,
-                    height: 250,
-                    color: Colors.white10,
-                    child: const Icon(
-                      Icons.qr_code_2_rounded,
-                      color: Colors.white54,
-                      size: 48,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.88,
+            decoration: const BoxDecoration(
+              color: TxaTheme.secondaryBg,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              border: Border(top: BorderSide(color: Colors.white12, width: 1)),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
+                  const SizedBox(height: 20),
+                  Text(
+                    TxaLanguage.t('vietqr_scan_title'),
+                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    TxaLanguage.t('vietqr_scan_desc'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // QR Code Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: CachedNetworkImage(
+                      imageUrl: qrUrl,
+                      width: 220,
+                      height: 220,
+                      fit: BoxFit.contain,
+                      placeholder: (c, u) => const SizedBox(
+                        width: 220,
+                        height: 220,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: (c, u, e) => Container(
+                        width: 220,
+                        height: 220,
+                        color: Colors.white10,
+                        child: const Icon(
+                          Icons.qr_code_2_rounded,
+                          color: Colors.white54,
+                          size: 48,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
-              // Bank details
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.03),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Column(
-                  children: [
-                    _buildPaymentDetailRow(TxaLanguage.t('bank_label'), bankName),
-                    _buildPaymentDetailRow(TxaLanguage.t('account_no_label'), accountNo, isSelectable: true),
-                    _buildPaymentDetailRow(TxaLanguage.t('account_name_label'), accountName),
-                    _buildPaymentDetailRow(TxaLanguage.t('amount_label'), NumberFormatCurrency.format(price), isHighlight: true),
-                    _buildPaymentDetailRow(TxaLanguage.t('transfer_note_label'), txid, isHighlight: true, isSelectable: true),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+                  // Bank details
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildPaymentDetailRow(TxaLanguage.t('bank_label'), bankName),
+                        _buildPaymentDetailRow(TxaLanguage.t('account_no_label'), accountNo, isSelectable: true),
+                        _buildPaymentDetailRow(TxaLanguage.t('account_name_label'), accountName),
+                        _buildPaymentDetailRow(TxaLanguage.t('amount_label'), NumberFormatCurrency.format(price), isHighlight: true),
+                        _buildPaymentDetailRow(TxaLanguage.t('transfer_note_label'), txid, isHighlight: true, isSelectable: true),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _loadCabinetData();
-                  TxaToast.show(context, TxaLanguage.t('payment_pending_msg'));
-                },
-                icon: const Icon(Icons.check_circle_outline_rounded),
-                label: Text(TxaLanguage.t('confirm_transferred'), style: const TextStyle(fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: TxaTheme.accent,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
+                  // Proof image picker card (REQUIRED)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: proofImageFile != null ? Colors.green.withValues(alpha: 0.1) : const Color(0xFF1B1E2E),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: proofImageFile != null ? Colors.green.withValues(alpha: 0.4) : Colors.amber.withValues(alpha: 0.4),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  proofImageFile != null ? Icons.check_circle_rounded : Icons.add_a_photo_rounded,
+                                  color: proofImageFile != null ? Colors.greenAccent : Colors.amber,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Tải ảnh bằng chứng chuyển khoản *',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Bắt buộc',
+                                style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (proofImageFile != null) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              File(proofImageFile!.path),
+                              height: 140,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final picker = ImagePicker();
+                            final image = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              imageQuality: 80,
+                              maxWidth: 1024,
+                            );
+                            if (image != null) {
+                              final bytes = await image.readAsBytes();
+                              final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                              setSheetState(() {
+                                proofImageFile = image;
+                                proofBase64 = base64Str;
+                              });
+                            }
+                          },
+                          icon: Icon(proofImageFile != null ? Icons.photo_library_rounded : Icons.upload_file_rounded, size: 16),
+                          label: Text(
+                            proofImageFile != null ? 'Chọn ảnh khác' : 'Chọn ảnh bằng chứng từ thư viện',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white24),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Confirm button
+                  ElevatedButton.icon(
+                    onPressed: isSubmittingLog
+                        ? null
+                        : () async {
+                            if (proofImageFile == null || proofBase64 == null) {
+                              TxaToast.show(
+                                context,
+                                'Vui lòng đính kèm ảnh bằng chứng chuyển khoản trước khi xác nhận!',
+                                isError: true,
+                              );
+                              return;
+                            }
+
+                            setSheetState(() {
+                              isSubmittingLog = true;
+                            });
+
+                            try {
+                              // Submit manual payment log with proof image
+                              await TxaApi().postPaymentLog({
+                                'txid': txid,
+                                'username': user['username'],
+                                'email': user['email'],
+                                'packageTitle': pkgTitle,
+                                'price': price,
+                                'cycle': effectiveCycle,
+                                'method': 'manual_vietqr',
+                                'status': 'pending',
+                                'actionType': actionType,
+                                'promoCode': promoCode,
+                                'proofImage': proofBase64,
+                                'proof_image': proofBase64,
+                                'note': actionType == 'renew'
+                                    ? TxaLanguage.t('payment_note_renew').replaceAll('%pkg%', pkgTitle)
+                                    : TxaLanguage.t('payment_note_upgrade'),
+                              });
+
+                              if (!context.mounted) return;
+                              Navigator.pop(ctx);
+                              _loadCabinetData();
+                              TxaToast.show(
+                                context,
+                                'Đã gửi yêu cầu thanh toán kèm ảnh bằng chứng chuyển khoản cho admin thành công! Đang chờ duyệt.',
+                                isError: false,
+                              );
+                            } catch (e) {
+                              if (context.mounted) {
+                                TxaToast.show(context, 'Lỗi gửi yêu cầu thanh toán: $e', isError: true);
+                              }
+                            } finally {
+                              if (context.mounted) {
+                                setSheetState(() {
+                                  isSubmittingLog = false;
+                                });
+                              }
+                            }
+                          },
+                    icon: isSubmittingLog
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.check_circle_outline_rounded),
+                    label: Text(
+                      isSubmittingLog ? 'Đang gửi yêu cầu...' : TxaLanguage.t('confirm_transferred'),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: TxaTheme.accent,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () async {
+                      // Open web checkout page for SePay fallback
+                      const siteUrl = TxaApi.baseUrl;
+                      final checkoutUri = Uri.parse(
+                        '$siteUrl/checkout/sepay?txid=$txid&price=$price&cycle=$effectiveCycle&packageTitle=${Uri.encodeComponent(pkgTitle)}&packageId=${Uri.encodeComponent(pkgId)}&email=${Uri.encodeComponent(user['email']?.toString() ?? '')}&isApp=1'
+                      );
+                      if (await canLaunchUrl(checkoutUri)) {
+                        await launchUrl(checkoutUri, mode: LaunchMode.externalApplication);
+                      } else {
+                        if (!mounted) return;
+                        TxaToast.show(this.context, TxaLanguage.t('payment_open_failed'));
+                      }
+                    },
+                    child: Text(TxaLanguage.t('open_checkout_web'), style: const TextStyle(color: TxaTheme.accent)),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () async {
-                  // Open web checkout page
-                  const siteUrl = TxaApi.baseUrl;
-                  final checkoutUri = Uri.parse(
-                    '$siteUrl/checkout/sepay?txid=$txid&price=$price&cycle=$effectiveCycle&packageTitle=${Uri.encodeComponent(pkgTitle)}&packageId=${Uri.encodeComponent(pkgId)}&email=${Uri.encodeComponent(user['email']?.toString() ?? '')}'
-                  );
-                  if (await canLaunchUrl(checkoutUri)) {
-                    if (!mounted) return;
-                    await launchUrl(checkoutUri, mode: LaunchMode.externalApplication);
-                  } else {
-                    if (!mounted) return;
-                    TxaToast.show(context, TxaLanguage.t('payment_open_failed'));
-                  }
-                },
-                child: Text(TxaLanguage.t('open_checkout_web'), style: const TextStyle(color: TxaTheme.accent)),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -2168,6 +2326,11 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
     final isVIP = (user['package'] ?? 'free').toString().toLowerCase() != 'free';
     final packageName = isVIP ? 'MEMBER VIP' : 'FREE ACCOUNT';
 
+    final bool enableBuyPackage = _packagesData == null ||
+        (_packagesData!['package_system_enable'] != false &&
+            _packagesData!['buy_package_enable'] != false &&
+            _packagesData!['enable'] != false);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: TxaTheme.liquidGlassPill(
@@ -2205,21 +2368,22 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                 ),
               ],
             ),
-            ElevatedButton(
-              onPressed: _showVIPUpgradeDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isVIP ? TxaTheme.secondaryBg : Colors.amber,
-                foregroundColor: isVIP ? Colors.amber : Colors.black,
-                elevation: 0,
-                side: isVIP ? const BorderSide(color: Colors.amber, width: 1) : null,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            if (enableBuyPackage)
+              ElevatedButton(
+                onPressed: _showVIPUpgradeDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isVIP ? TxaTheme.secondaryBg : Colors.amber,
+                  foregroundColor: isVIP ? Colors.amber : Colors.black,
+                  elevation: 0,
+                  side: isVIP ? const BorderSide(color: Colors.amber, width: 1) : null,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+                child: Text(
+                  isVIP ? TxaLanguage.t('renew_btn') : TxaLanguage.t('upgrade_btn'),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
               ),
-              child: Text(
-                isVIP ? TxaLanguage.t('renew_btn') : TxaLanguage.t('upgrade_btn'),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ),
           ],
         ),
       ),

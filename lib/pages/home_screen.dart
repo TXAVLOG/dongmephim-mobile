@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -251,13 +252,56 @@ class _HomeTabState extends State<HomeTab> {
           final rawTheaterList = getList(data['TXA_CR1']);
           final rawTvShowsList = getList(data['TXA_TV1']);
 
+          // Helper to extract country text from movie objects flexibly
+          String extractCountryString(dynamic m) {
+            final buffer = StringBuffer();
+            void add(dynamic val) {
+              if (val == null) return;
+              if (val is String) buffer.write(' $val');
+              if (val is Map) {
+                buffer.write(' ${val['name'] ?? ''} ${val['slug'] ?? ''}');
+              }
+              if (val is List) {
+                for (var item in val) {
+                  add(item);
+                }
+              }
+            }
+            add(m['country']);
+            add(m['countries']);
+            add(m['region']);
+            add(m['country_name']);
+            add(m['country_slug']);
+            return buffer.toString().toLowerCase();
+          }
+
           // Helper to filter by country
           List<dynamic> filterByCountry(List<dynamic> list) {
-            if (_selectedCountryKey == null) return list;
-            final keyword = _selectedCountryKey!.toLowerCase();
+            if (_selectedCountryKey == null || _selectedCountryKey!.isEmpty) return list;
+            final key = _selectedCountryKey!.toLowerCase();
+
             return list.where((m) {
-              final country = (m['country'] ?? m['region'] ?? '').toString().toLowerCase();
-              return country.contains(keyword);
+              final text = extractCountryString(m);
+
+              if (key.contains('trung') || key.contains('china')) {
+                return text.contains('trung') || text.contains('china') || text.contains('cn');
+              }
+              if (key.contains('hàn') || key.contains('han') || key.contains('korea')) {
+                return text.contains('hàn') || text.contains('han') || text.contains('korea') || text.contains('kr');
+              }
+              if (key.contains('việt') || key.contains('viet')) {
+                return text.contains('việt') || text.contains('viet') || text.contains('vn');
+              }
+              if (key.contains('âu') || key.contains('au') || key.contains('mỹ') || key.contains('us') || key.contains('uk')) {
+                return text.contains('âu') || text.contains('au') || text.contains('mỹ') || text.contains('us') || text.contains('uk') || text.contains('america');
+              }
+              if (key.contains('nhật') || key.contains('nhat') || key.contains('japan')) {
+                return text.contains('nhật') || text.contains('nhat') || text.contains('japan') || text.contains('jp');
+              }
+              if (key.contains('thái') || key.contains('thai')) {
+                return text.contains('thái') || text.contains('thai');
+              }
+              return text.contains(key);
             }).toList();
           }
 
@@ -274,8 +318,8 @@ class _HomeTabState extends State<HomeTab> {
             ...rawNewMovies, ...rawHotMovies, ...rawAnimeList, ...rawSeriesList, ...rawSingleList, ...rawTheaterList, ...rawTvShowsList
           }.toList();
           final chineseMovies = allMovies.where((m) {
-            final country = (m['country'] ?? m['region'] ?? '').toString().toLowerCase();
-            return country.contains('trung quốc') || country.contains('china');
+            final text = extractCountryString(m);
+            return text.contains('trung') || text.contains('china');
           }).toList();
           final sortedChineseMovies = TxaMovieRanker.sortMovies(chineseMovies).take(15).toList();
 
@@ -422,7 +466,7 @@ class _HomeTabState extends State<HomeTab> {
               // Hero spotlight banner (Only on ALL view)
               if (sliderList.isNotEmpty && _selectedCategoryKey == 'ALL')
                 SliverToBoxAdapter(
-                  child: _buildHeroSpotlight(sliderList.first),
+                  child: TxaHeroCarousel(movies: sliderList),
                 ),
 
               // Shelves List (Horizontal on ALL) OR Vertical Grid (Top-to-Bottom on specific Category)
@@ -484,137 +528,6 @@ class _HomeTabState extends State<HomeTab> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildHeroSpotlight(dynamic movie) {
-    final thumbUrl = movie['thumb_url'] ?? '';
-    final name = movie['name'] ?? '';
-    final originName = movie['origin_name'] ?? '';
-    final quality = movie['quality'] ?? 'FHD';
-    final lang = movie['lang'] ?? 'Vietsub';
-
-    return Container(
-      key: TxaCoachKeys.heroKey,
-      height: 230,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: TxaTheme.liquidGlassPill(
-        radius: 20,
-        child: Stack(
-          children: [
-            // Spotlight thumb background
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: CachedNetworkImage(
-                  imageUrl: thumbUrl,
-                  fit: BoxFit.cover,
-                  errorWidget: (context, url, error) => Container(color: TxaTheme.cardBg),
-                ),
-              ),
-            ),
-            // Bottom shadow overlay
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.black.withValues(alpha: 0.85),
-                      Colors.black.withValues(alpha: 0.2),
-                    ],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                  ),
-                ),
-              ),
-            ),
-            // Text info & button
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: TxaTheme.accent,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          quality,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        lang,
-                        style: const TextStyle(
-                          color: TxaTheme.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    originName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (ctx) => MovieDetailScreen(slug: movie['slug'] ?? ''),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    ),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: Text(
-                      TxaLanguage.t('watch_now'),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1502,6 +1415,305 @@ class _HomeTabState extends State<HomeTab> {
             style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 9.5),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class TxaHeroCarousel extends StatefulWidget {
+  final List<dynamic> movies;
+  const TxaHeroCarousel({super.key, required this.movies});
+
+  @override
+  State<TxaHeroCarousel> createState() => _TxaHeroCarouselState();
+}
+
+class _TxaHeroCarouselState extends State<TxaHeroCarousel> {
+  late PageController _pageController;
+  int _currentPage = 0;
+  Timer? _autoScrollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    if (widget.movies.length <= 1) return;
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted) return;
+      if (_pageController.hasClients) {
+        final nextPage = (_currentPage + 1) % widget.movies.length;
+        _pageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.movies.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      key: TxaCoachKeys.heroKey,
+      height: 230,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: TxaTheme.liquidGlassPill(
+        radius: 20,
+        child: Stack(
+          children: [
+            // PageView Carousel
+            PageView.builder(
+              controller: _pageController,
+              itemCount: widget.movies.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentPage = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                final movie = widget.movies[index];
+                final thumbUrl = movie['thumb_url'] ?? movie['poster_url'] ?? '';
+                final name = movie['name'] ?? '';
+                final originName = movie['origin_name'] ?? '';
+                final quality = movie['quality'] ?? 'FHD';
+                final lang = movie['lang'] ?? 'Vietsub';
+
+                return Stack(
+                  children: [
+                    // Spotlight thumb background
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: CachedNetworkImage(
+                          imageUrl: thumbUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, url, error) => Container(color: TxaTheme.cardBg),
+                        ),
+                      ),
+                    ),
+                    // Bottom gradient overlay
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withValues(alpha: 0.88),
+                              Colors.black.withValues(alpha: 0.15),
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Content Info
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: TxaTheme.accent,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  quality,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                lang,
+                                style: const TextStyle(
+                                  color: TxaTheme.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            originName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (ctx) => MovieDetailScreen(slug: movie['slug'] ?? ''),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                            label: Text(
+                              TxaLanguage.t('watch_now'),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            // Left Navigation Arrow Button
+            if (widget.movies.length > 1)
+              Positioned(
+                left: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      final prevPage = (_currentPage - 1 + widget.movies.length) % widget.movies.length;
+                      _pageController.animateToPage(
+                        prevPage,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                      ),
+                      child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Right Navigation Arrow Button
+            if (widget.movies.length > 1)
+              Positioned(
+                right: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      final nextPage = (_currentPage + 1) % widget.movies.length;
+                      _pageController.animateToPage(
+                        nextPage,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                      ),
+                      child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Top Right Indicator Counter Badge (e.g. 1/5)
+            if (widget.movies.length > 1)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                  ),
+                  child: Text(
+                    '${_currentPage + 1}/${widget.movies.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+
+            // Bottom Indicator Dots
+            if (widget.movies.length > 1)
+              Positioned(
+                bottom: 14,
+                right: 16,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(widget.movies.length, (index) {
+                    final isSelected = _currentPage == index;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: isSelected ? 18 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(3),
+                        color: isSelected ? TxaTheme.accent : Colors.white.withValues(alpha: 0.35),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

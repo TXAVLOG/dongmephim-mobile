@@ -68,10 +68,7 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
   void _onKeyReceived(String? keyCode, String message) {
     if (keyCode == null || keyCode.isEmpty) return;
     final master = keyCode;
-    final keys = List.generate(
-      15,
-      (i) => master,
-    );
+    final keys = [master]; // Trả về 1 key duy nhất
 
     setState(() {
       _isLoading = false;
@@ -126,7 +123,7 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
     });
     TxaToast.show(
       context,
-      TxaLanguage.t('iap_key_copied_toast', replace: {'n': '${index + 1}'}),
+      'Đã sao chép mã Key Bypass Zalo!',
     );
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted && _copiedIndex == index) {
@@ -138,20 +135,17 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
   void _exportTxt() {
     if (_generatedKeys.isEmpty) return;
     final buffer = StringBuffer();
-    buffer.writeln('=== DONGMEPHIM - DANH SÁCH 15 MÃ KEY BYPASS ZALO ===');
-    buffer.writeln('Mã Master Key: $_masterKey');
+    buffer.writeln('=== DONGMEPHIM - MÃ KEY BYPASS ZALO ===');
+    buffer.writeln('Mã Key Bypass: $_masterKey');
     buffer.writeln('Ngày cấp: ${DateTime.now().toString().split('.')[0]}');
     buffer.writeln('--------------------------------------------------');
-    for (int i = 0; i < _generatedKeys.length; i++) {
-      buffer.writeln('Key #${(i + 1).toString().padLeft(2, '0')}: ${_generatedKeys[i]}');
-    }
-    buffer.writeln('--------------------------------------------------');
-    buffer.writeln('Hướng dẫn: Sử dụng mỗi mã Key trên 1 thiết bị để tự động duyệt Zalo qua Bot.');
+    buffer.writeln('Hướng dẫn: Sử dụng mã Key này trên thiết bị của bạn để tự động duyệt Zalo qua Bot.');
+    buffer.writeln('Website: https://dongmephim.online');
 
     final content = buffer.toString();
     // ignore: deprecated_member_use
-    Share.share(content, subject: 'Zalo_Bypass_Keys_$_masterKey.txt');
-    TxaToast.show(context, TxaLanguage.t('iap_txt_exported_toast'));
+    Share.share(content, subject: 'Zalo_Bypass_Key_$_masterKey.txt');
+    TxaToast.show(context, 'Đã xuất mã Key thành công!');
   }
 
   @override
@@ -295,7 +289,7 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
-                            '15 Keys',
+                            'Key Bypass',
                             style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),

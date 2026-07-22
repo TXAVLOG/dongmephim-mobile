@@ -6,12 +6,15 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:video_player_media_kit/video_player_media_kit.dart';
+import 'package:app_links/app_links.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'theme/txa_theme.dart';
 import 'services/txa_language.dart';
 import 'services/txa_auth_service.dart';
 import 'services/txa_ads_service.dart';
 import 'widgets/splash_screen.dart';
 import 'widgets/txa_error_widget.dart';
+import 'widgets/txa_modal.dart';
 import 'pages/home_screen.dart';
 import 'utils/txa_logger.dart';
 import 'utils/txa_platform.dart';
@@ -125,7 +128,6 @@ class DongPhimApp extends StatelessWidget {
   }
 }
 
-
 class MainEntry extends StatefulWidget {
   const MainEntry({super.key});
 
@@ -135,6 +137,125 @@ class MainEntry extends StatefulWidget {
 
 class _MainEntryState extends State<MainEntry> {
   bool _showSplash = true;
+  StreamSubscription<Uri>? _linkSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeepLinks();
+  }
+
+  void _initDeepLinks() {
+    try {
+      final appLinks = AppLinks();
+      _linkSubscription = appLinks.uriLinkStream.listen((uri) {
+        _handleDeepLink(uri);
+      });
+    } catch (e) {
+      TxaLogger.log('Error initializing AppLinks: $e', type: 'app');
+    }
+  }
+
+  void _handleDeepLink(Uri uri) {
+    TxaLogger.log('Received deep link: $uri', type: 'app');
+    final path = uri.path;
+    final host = uri.host;
+
+    if (host == 'payment-status' || path.contains('payment-status') || path.contains('checkout/callback')) {
+      final status = uri.queryParameters['status'] ?? 'approved';
+      final txid = uri.queryParameters['txid'] ?? '';
+      
+      final isSuccess = status == 'approved' || status == 'success' || status == 'completed';
+      final msg = isSuccess
+          ? 'Thanh toán SePay thành công! Đơn hàng #$txid đã được kích hoạt.'
+          : 'Giao dịch SePay #$txid chưa hoàn tất hoặc đã bị hủy.';
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null) {
+          TxaToast.show(ctx, msg, isError: !isSuccess);
+        }
+      });
+    }
+  }
+
+  Future<void> _checkIOSVersionAndShowModal() async {
+    if (!Platform.isIOS) return;
+
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final iosInfo = await deviceInfo.iosInfo;
+      final systemVersion = iosInfo.systemVersion; // e.g. "17.4", "18.0", "27.0"
+      final majorVersion = int.tryParse(systemVersion.split('.').first) ?? 0;
+
+      // Check if running on iOS 17 or higher (or iOS 27 / new releases)
+      if (majorVersion >= 17) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          final ctx = navigatorKey.currentContext;
+          if (ctx == null || !ctx.mounted) return;
+
+          final msg = TxaLanguage.t('ios_version_warning_msg', replace: {'ver': systemVersion});
+
+          await TxaModal.show<void>(
+            ctx,
+            title: TxaLanguage.t('ios_version_warning_title'),
+            barrierDismissible: false,
+            showClose: false,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  ),
+                  child: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 42),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  msg,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13.5,
+                    height: 1.45,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  final navCtx = navigatorKey.currentContext ?? ctx;
+                  Navigator.of(navCtx).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  minimumSize: const Size(double.infinity, 46),
+                ),
+                child: Text(
+                  TxaLanguage.t('ios_version_warning_btn'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ],
+          );
+        });
+      }
+    } catch (e) {
+      TxaLogger.log('Error checking iOS version: $e', type: 'app');
+    }
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +267,9 @@ class _MainEntryState extends State<MainEntry> {
           });
           // Schedule 5s App Start Ad (checks VIP status & AdMob settings)
           TxaAdsService().scheduleAppStartAd();
+
+          // Check iOS version and show TxaModal warning right after splash
+          _checkIOSVersionAndShowModal();
 
           // Hiện toast chặn file video sau khi splash xong
           if (launchFilePath != null) {
