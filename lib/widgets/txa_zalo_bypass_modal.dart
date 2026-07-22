@@ -149,6 +149,7 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
     buffer.writeln('Hướng dẫn: Sử dụng mỗi mã Key trên 1 thiết bị để tự động duyệt Zalo qua Bot.');
 
     final content = buffer.toString();
+    // ignore: deprecated_member_use
     Share.share(content, subject: 'Zalo_Bypass_Keys_$_masterKey.txt');
     TxaToast.show(context, TxaLanguage.t('iap_txt_exported_toast'));
   }

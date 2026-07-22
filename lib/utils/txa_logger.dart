@@ -131,6 +131,7 @@ class TxaLogger {
         file = File('$path/all_$date.log');
       }
       if (await file.exists()) {
+        // ignore: deprecated_member_use
         await Share.shareXFiles(
           [XFile(file.path)],
           subject: 'DongMePhim Log Files - $type',
@@ -139,6 +140,7 @@ class TxaLogger {
         // Fallback: create temporary file if no log file exists yet
         final tempFile = File('$path/crash_$date.log');
         await tempFile.writeAsString('[CRASH LOG] Log initialized.\n');
+        // ignore: deprecated_member_use
         await Share.shareXFiles(
           [XFile(tempFile.path)],
           subject: 'DongMePhim Log Files - $type',
