@@ -70,7 +70,7 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
     final master = keyCode;
     final keys = List.generate(
       15,
-      (i) => '$master-${(i + 1).toString().padLeft(2, '0')}',
+      (i) => master,
     );
 
     setState(() {
