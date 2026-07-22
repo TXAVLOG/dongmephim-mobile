@@ -280,6 +280,17 @@ class _HomeTabState extends State<HomeTab> {
           }).toList();
           final sortedChineseMovies = TxaMovieRanker.sortMovies(chineseMovies).take(15).toList();
 
+          // Get selected list for specific category view (Vertical Grid top-to-bottom)
+          List<dynamic> selectedCategoryMovies = [];
+          if (_selectedCategoryKey == 'TXA_NEW1') selectedCategoryMovies = newMovies;
+          else if (_selectedCategoryKey == 'TXA_HOT1') selectedCategoryMovies = hotMovies;
+          else if (_selectedCategoryKey == 'TXA_PB1') selectedCategoryMovies = seriesList;
+          else if (_selectedCategoryKey == 'TXA_PL1') selectedCategoryMovies = singleList;
+          else if (_selectedCategoryKey == 'TXA_HH1') selectedCategoryMovies = animeList;
+          else if (_selectedCategoryKey == 'TXA_CR1') selectedCategoryMovies = theaterList;
+          else if (_selectedCategoryKey == 'TXA_TV1') selectedCategoryMovies = tvShowsList;
+          else if (_selectedCategoryKey == 'TXA_CN1') selectedCategoryMovies = sortedChineseMovies;
+
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
@@ -400,36 +411,68 @@ class _HomeTabState extends State<HomeTab> {
                 child: _buildCountryFilters(),
               ),
 
-              // Hero spotlight banner
+              // Hero spotlight banner (Only on ALL view)
               if (sliderList.isNotEmpty && _selectedCategoryKey == 'ALL')
                 SliverToBoxAdapter(
                   child: _buildHeroSpotlight(sliderList.first),
                 ),
 
-              // Shelves List
-              SliverPadding(
-                padding: const EdgeInsets.only(bottom: 100),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    if (newMovies.isNotEmpty)
-                      _buildMovieShelf(TxaLanguage.t('TXA_NEW1'), newMovies, 'TXA_NEW1'),
-                    if (hotMovies.isNotEmpty)
-                      _buildMovieShelf(TxaLanguage.t('TXA_HOT1'), hotMovies, 'TXA_HOT1'),
-                    if (animeList.isNotEmpty)
-                      _buildMovieShelf(TxaLanguage.t('TXA_HH1'), animeList, 'TXA_HH1'),
-                    if (seriesList.isNotEmpty)
-                      _buildMovieShelf(TxaLanguage.t('TXA_PB1'), seriesList, 'TXA_PB1'),
-                    if (singleList.isNotEmpty)
-                      _buildMovieShelf(TxaLanguage.t('TXA_PL1'), singleList, 'TXA_PL1'),
-                    if (sortedChineseMovies.isNotEmpty)
-                      _buildMovieShelf(TxaLanguage.t('txa_category_chinese_masterpieces'), sortedChineseMovies, 'TXA_CN1'),
-                    if (theaterList.isNotEmpty)
-                      _buildMovieShelf(TxaLanguage.t('TXA_CR1'), theaterList, 'TXA_CR1'),
-                    if (tvShowsList.isNotEmpty)
-                      _buildMovieShelf(TxaLanguage.t('TXA_TV1'), tvShowsList, 'TXA_TV1'),
-                  ]),
+              // Shelves List (Horizontal on ALL) OR Vertical Grid (Top-to-Bottom on specific Category)
+              if (_selectedCategoryKey == 'ALL')
+                SliverPadding(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      if (newMovies.isNotEmpty)
+                        _buildMovieShelf(TxaLanguage.t('TXA_NEW1'), newMovies, 'TXA_NEW1'),
+                      if (hotMovies.isNotEmpty)
+                        _buildMovieShelf(TxaLanguage.t('TXA_HOT1'), hotMovies, 'TXA_HOT1'),
+                      if (animeList.isNotEmpty)
+                        _buildMovieShelf(TxaLanguage.t('TXA_HH1'), animeList, 'TXA_HH1'),
+                      if (seriesList.isNotEmpty)
+                        _buildMovieShelf(TxaLanguage.t('TXA_PB1'), seriesList, 'TXA_PB1'),
+                      if (singleList.isNotEmpty)
+                        _buildMovieShelf(TxaLanguage.t('TXA_PL1'), singleList, 'TXA_PL1'),
+                      if (sortedChineseMovies.isNotEmpty)
+                        _buildMovieShelf(TxaLanguage.t('txa_category_chinese_masterpieces'), sortedChineseMovies, 'TXA_CN1'),
+                      if (theaterList.isNotEmpty)
+                        _buildMovieShelf(TxaLanguage.t('TXA_CR1'), theaterList, 'TXA_CR1'),
+                      if (tvShowsList.isNotEmpty)
+                        _buildMovieShelf(TxaLanguage.t('TXA_TV1'), tvShowsList, 'TXA_TV1'),
+                    ]),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.only(left: 14, right: 14, top: 12, bottom: 100),
+                  sliver: selectedCategoryMovies.isEmpty
+                      ? SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: Center(
+                              child: Text(
+                                TxaLanguage.t('no_movies_found'),
+                                style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 14),
+                              ),
+                            ),
+                          ),
+                        )
+                      : SliverGrid(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 0.55,
+                            mainAxisSpacing: 14,
+                            crossAxisSpacing: 10,
+                          ),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final movie = selectedCategoryMovies[index];
+                              return _buildGridMovieCard(movie);
+                            },
+                            childCount: selectedCategoryMovies.length,
+                          ),
+                        ),
                 ),
-              ),
             ],
           );
         },
@@ -872,15 +915,9 @@ class _HomeTabState extends State<HomeTab> {
               ),
               GestureDetector(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) => CategoryListScreen(
-                        title: title,
-                        type: typeKey,
-                      ),
-                    ),
-                  );
+                  setState(() {
+                    _selectedCategoryKey = typeKey;
+                  });
                 },
                 child: Row(
                   children: [
@@ -1215,6 +1252,248 @@ class _HomeTabState extends State<HomeTab> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGridMovieCard(dynamic movie) {
+    final name = movie['name'] ?? '';
+    final poster = movie['poster_url'] ?? movie['thumb_url'] ?? '';
+    final slug = movie['slug'] ?? '';
+    final quality = movie['quality'] ?? 'FHD';
+    final episode = movie['episode_current'] ?? 'Full';
+    final year = movie['year']?.toString() ?? '2026';
+    final lang = movie['lang'] ?? 'Vietsub';
+    
+    dynamic tmdbVote = movie['tmdb']?['vote_average'];
+    dynamic imdbVote = movie['imdb']?['vote_average'];
+    String imdbScore = (tmdbVote ?? imdbVote ?? '').toString();
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (ctx) => MovieDetailScreen(slug: slug)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: TxaTheme.liquidGlassPill(
+              radius: 16,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CachedNetworkImage(
+                    imageUrl: poster,
+                    fit: BoxFit.cover,
+                    placeholder: (ctx, url) => Container(color: TxaTheme.cardBg),
+                    errorWidget: (ctx, url, err) => Container(color: TxaTheme.cardBg),
+                  ),
+                  // Episode Tag
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        episode,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Quality Tag
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: TxaTheme.accent.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        quality,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Bottom bar gradient overlay
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: 36,
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.95),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Year Tag (Bottom Left)
+                  Positioned(
+                    bottom: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        year,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Language Tag (Bottom Right)
+                  Positioned(
+                    bottom: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        lang,
+                        style: const TextStyle(
+                          color: TxaTheme.textSecondary,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // IMDb rating
+                  if (imdbScore.isNotEmpty && imdbScore != '0')
+                    Positioned(
+                      bottom: 6,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.95),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.star, color: Colors.black, size: 7),
+                              const SizedBox(width: 1.5),
+                              Text(
+                                imdbScore,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Favorite button
+                  Positioned(
+                    top: 30,
+                    right: 4,
+                    child: ValueListenableBuilder<Set<String>>(
+                      valueListenable: TxaFavoriteManager().favorites,
+                      builder: (context, favSet, _) {
+                        final isFav = favSet.contains(slug);
+                        return GestureDetector(
+                          onTap: () async {
+                            final auth = Provider.of<TxaAuthService>(context, listen: false);
+                            if (!auth.isLoggedIn) {
+                              TxaToast.show(context, TxaLanguage.t('login_required_favorites'));
+                              return;
+                            }
+                            TxaFavoriteManager().setFavorite(slug, !isFav);
+                            final res = await TxaApi().toggleFavorite(slug);
+                            if (res != null) {
+                              final confirmed = res['is_favorite'] == true;
+                              TxaFavoriteManager().setFavorite(slug, confirmed);
+                              if (context.mounted) {
+                                TxaToast.show(
+                                  context,
+                                  confirmed
+                                      ? TxaLanguage.t('favorite_added')
+                                      : TxaLanguage.t('favorite_removed'),
+                                );
+                              }
+                            } else {
+                              TxaFavoriteManager().setFavorite(slug, isFav);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              color: isFav ? Colors.redAccent : Colors.white70,
+                              size: 14,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            movie['origin_name'] ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 9.5),
+          ),
+        ],
       ),
     );
   }

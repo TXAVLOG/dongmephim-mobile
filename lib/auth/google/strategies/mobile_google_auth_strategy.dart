@@ -11,6 +11,8 @@ class MobileGoogleAuthStrategy implements TxaGoogleAuthStrategy {
     serverClientId: _webClientId,
   );
 
+  final GoogleSignIn _fallbackGoogleSignIn = GoogleSignIn();
+
   @override
   Future<Map<String, String?>> authenticate(BuildContext context) async {
     try {
@@ -19,9 +21,17 @@ class MobileGoogleAuthStrategy implements TxaGoogleAuthStrategy {
         await _googleSignIn.signOut();
       }
 
-      final GoogleSignInAccount? account = await _googleSignIn.signIn();
+      GoogleSignInAccount? account;
+      try {
+        account = await _googleSignIn.signIn();
+      } catch (e) {
+        TxaLogger.log('Primary GoogleSignIn failed ($e), trying fallback...', type: 'auth');
+        // Fallback sign in without serverClientId if code 10 occurred
+        account = await _fallbackGoogleSignIn.signIn();
+      }
+
       if (account == null) {
-        throw Exception('User canceled the login flow.');
+        throw Exception('Đã hủy đăng nhập Google.');
       }
 
       final GoogleSignInAuthentication auth = await account.authentication;
@@ -31,6 +41,10 @@ class MobileGoogleAuthStrategy implements TxaGoogleAuthStrategy {
       };
     } catch (e) {
       TxaLogger.log('MobileGoogleAuthStrategy error: $e', type: 'auth');
+      final errorStr = e.toString();
+      if (errorStr.contains('10:') || errorStr.contains('DEVELOPER_ERROR')) {
+        throw Exception('Chưa cấu hình SHA-1 App Signing trên Google Play Console với Firebase (Mã 10).');
+      }
       rethrow;
     }
   }
