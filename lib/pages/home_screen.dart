@@ -15,7 +15,6 @@ import '../utils/txa_toast.dart';
 import 'txa_log_viewer_screen.dart';
 import 'txa_notification_screen.dart';
 import 'txa_movie_detail_screen.dart';
-import 'txa_category_list_screen.dart';
 import 'txa_search_tab.dart';
 import 'txa_profile_screen.dart';
 import 'txa_schedule_tab.dart';
@@ -282,14 +281,23 @@ class _HomeTabState extends State<HomeTab> {
 
           // Get selected list for specific category view (Vertical Grid top-to-bottom)
           List<dynamic> selectedCategoryMovies = [];
-          if (_selectedCategoryKey == 'TXA_NEW1') selectedCategoryMovies = newMovies;
-          else if (_selectedCategoryKey == 'TXA_HOT1') selectedCategoryMovies = hotMovies;
-          else if (_selectedCategoryKey == 'TXA_PB1') selectedCategoryMovies = seriesList;
-          else if (_selectedCategoryKey == 'TXA_PL1') selectedCategoryMovies = singleList;
-          else if (_selectedCategoryKey == 'TXA_HH1') selectedCategoryMovies = animeList;
-          else if (_selectedCategoryKey == 'TXA_CR1') selectedCategoryMovies = theaterList;
-          else if (_selectedCategoryKey == 'TXA_TV1') selectedCategoryMovies = tvShowsList;
-          else if (_selectedCategoryKey == 'TXA_CN1') selectedCategoryMovies = sortedChineseMovies;
+          if (_selectedCategoryKey == 'TXA_NEW1') {
+            selectedCategoryMovies = newMovies;
+          } else if (_selectedCategoryKey == 'TXA_HOT1') {
+            selectedCategoryMovies = hotMovies;
+          } else if (_selectedCategoryKey == 'TXA_PB1') {
+            selectedCategoryMovies = seriesList;
+          } else if (_selectedCategoryKey == 'TXA_PL1') {
+            selectedCategoryMovies = singleList;
+          } else if (_selectedCategoryKey == 'TXA_HH1') {
+            selectedCategoryMovies = animeList;
+          } else if (_selectedCategoryKey == 'TXA_CR1') {
+            selectedCategoryMovies = theaterList;
+          } else if (_selectedCategoryKey == 'TXA_TV1') {
+            selectedCategoryMovies = tvShowsList;
+          } else if (_selectedCategoryKey == 'TXA_CN1') {
+            selectedCategoryMovies = sortedChineseMovies;
+          }
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
