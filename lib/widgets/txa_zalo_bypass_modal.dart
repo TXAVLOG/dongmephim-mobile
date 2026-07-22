@@ -293,9 +293,9 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
                             color: Colors.green.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Text(
+                          child: const Text(
                             '15 Keys',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
