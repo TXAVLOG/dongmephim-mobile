@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import 'services/txa_language.dart';
 import 'services/txa_auth_service.dart';
 import 'services/txa_ads_service.dart';
 import 'widgets/splash_screen.dart';
+import 'widgets/txa_error_widget.dart';
 import 'pages/home_screen.dart';
 import 'utils/txa_logger.dart';
 import 'utils/txa_platform.dart';
@@ -20,62 +22,77 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 String? launchFilePath;
 
 void main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded<Future<void>>(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize MediaKit for Windows only
-  if (TxaPlatform.isDesktop && Platform.isWindows) {
-    try {
-      VideoPlayerMediaKit.ensureInitialized(
-        windows: true,
+    // Start logger immediately on line 1 to capture startup logs before any crash
+    TxaLogger.init();
+
+    // Custom ErrorWidget builder to catch Flutter UI crashes globally
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      TxaLogger.log(
+        'FLUTTER UI CRASH: ${details.exceptionAsString()}\n${details.stack}',
+        type: 'crash',
       );
-    } catch (e) {
-      debugPrint('Failed to initialize VideoPlayerMediaKit: $e');
+      return TxaErrorWidget(errorDetails: details);
+    };
+
+    // Initialize MediaKit for Windows only
+    if (TxaPlatform.isDesktop && Platform.isWindows) {
+      try {
+        VideoPlayerMediaKit.ensureInitialized(
+          windows: true,
+        );
+      } catch (e) {
+        debugPrint('Failed to initialize VideoPlayerMediaKit: $e');
+      }
     }
-  }
 
-  if (args.isNotEmpty) {
-    launchFilePath = args[0];
-  }
-
-  // Set system UI to edge-to-edge for premium liquid transparent bars
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.light,
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ),
-  );
-
-  TxaLogger.init();
-  await TxaPlatform.init(); // Detect if running on TV
-  await TxaLanguage.init();
-  
-  // Initialize local notification manager (desktop only)
-  if (TxaPlatform.isDesktop) {
-    try {
-      await localNotifier.setup(
-        appName: 'DongMePhim',
-      );
-    } catch (e) {
-      TxaLogger.log('LocalNotifier setup error: $e');
+    if (args.isNotEmpty) {
+      launchFilePath = args[0];
     }
-  }
 
-  final authService = TxaAuthService();
-  await authService.initialize();
+    // Set system UI to edge-to-edge for premium liquid transparent bars
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<TxaLanguage>.value(value: TxaLanguage()),
-        ChangeNotifierProvider<TxaAuthService>.value(value: authService),
-      ],
-      child: const DongPhimApp(),
-    ),
-  );
+    await TxaPlatform.init(); // Detect if running on TV
+    await TxaLanguage.init();
+    
+    // Initialize local notification manager (desktop only)
+    if (TxaPlatform.isDesktop) {
+      try {
+        await localNotifier.setup(
+          appName: 'DongMePhim',
+        );
+      } catch (e) {
+        TxaLogger.log('LocalNotifier setup error: $e');
+      }
+    }
+
+    final authService = TxaAuthService();
+    await authService.initialize();
+
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<TxaLanguage>.value(value: TxaLanguage()),
+          ChangeNotifierProvider<TxaAuthService>.value(value: authService),
+        ],
+        child: const DongPhimApp(),
+      ),
+    );
+  }, (Object error, StackTrace stack) {
+    TxaLogger.log('UNCAUGHT ASYNC CRASH: $error\n$stack', type: 'crash');
+  });
 }
 
 class DongPhimApp extends StatelessWidget {

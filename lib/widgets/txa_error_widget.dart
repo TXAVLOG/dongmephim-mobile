@@ -1,231 +1,206 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/txa_language.dart';
-import '../utils/txa_platform.dart';
-import '../tv/widgets/tv_focusable_card.dart';
-import '../tv/navigation/tv_focus_system.dart';
+import '../theme/txa_theme.dart';
+import '../utils/txa_logger.dart';
+import '../utils/txa_toast.dart';
+import '../main.dart';
 
 class TxaErrorWidget extends StatelessWidget {
-  final String? message;
-  final VoidCallback? onRetry;
+  final FlutterErrorDetails? errorDetails;
+  final Object? error;
+  final StackTrace? stackTrace;
 
   const TxaErrorWidget({
     super.key,
-    this.message,
-    this.onRetry,
+    this.errorDetails,
+    this.error,
+    this.stackTrace,
   });
+
+  String get _errorString {
+    if (errorDetails != null) {
+      return '${errorDetails!.exceptionAsString()}\n\n${errorDetails!.stack}';
+    }
+    if (error != null) {
+      return '$error\n\n${stackTrace ?? ''}';
+    }
+    return 'Lỗi không xác định / Unknown Exception';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final String errorTitle = TxaLanguage.t('error_connection');
-    final String errorDesc = message ?? TxaLanguage.t('error_connection_desc');
-
-    return Center(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 480),
-        padding: const EdgeInsets.all(28.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // CustomPaint Disconnected Cables Icon
-            SizedBox(
-              width: 180,
-              height: 100,
-              child: CustomPaint(
-                painter: _DisconnectedCablesPainter(),
+    return Material(
+      color: TxaTheme.primaryBg,
+      child: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            children: [
+              // Warning Glass Header
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.redAccent.withValues(alpha: 0.15),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.redAccent.withValues(alpha: 0.3),
+                      blurRadius: 25,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.report_problem_rounded,
+                  color: Colors.redAccent,
+                  size: 38,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-            // Error Title
-            Text(
-              errorTitle,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+              // Title
+              Text(
+                TxaLanguage.t('app_crash_title'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.3,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-            // Error Description
-            Text(
-              errorDesc,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 13.5,
-                height: 1.45,
+              // Subtitle Description
+              Text(
+                TxaLanguage.t('app_crash_desc'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 28),
+              const SizedBox(height: 16),
 
-            // Retry Button (D-pad focusable for TV, elevated for mobile/desktop)
-            if (onRetry != null) _buildRetryButton(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRetryButton(BuildContext context) {
-    final btnText = TxaLanguage.t('retry');
-
-    if (TxaPlatform.isTV) {
-      final focusNode = TvFocusSystem.getNode('error_retry_btn');
-      return SizedBox(
-        width: 160,
-        height: 46,
-        child: TvFocusableCard(
-          focusNode: focusNode,
-          onTap: onRetry!,
-          scaleOnFocus: 1.06,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            color: const Color(0xFF737DFD),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.refresh_rounded, color: Colors.black, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  btnText,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+              // Scrollable Error Details Container
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141724),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3), width: 1),
+                  ),
+                  child: Scrollbar(
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: SelectableText(
+                        _errorString,
+                        style: const TextStyle(
+                          color: Color(0xFFFF8A8A),
+                          fontSize: 11.5,
+                          fontFamily: 'monospace',
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+
+              // Buttons Action Bar
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      // Share Log Button
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            await TxaLogger.shareLogs('crash');
+                          },
+                          icon: const Icon(Icons.share_rounded, size: 16),
+                          label: Text(
+                            TxaLanguage.t('app_crash_share_log'),
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: TxaTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+
+                      // Copy Error Details Button
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: _errorString));
+                            TxaToast.show(context, TxaLanguage.t('app_crash_copied'));
+                          },
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          label: Text(
+                            TxaLanguage.t('app_crash_copy_details'),
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(alpha: 0.12),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Restart App Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        navigatorKey.currentState?.pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (ctx) => const MainEntry()),
+                          (route) => false,
+                        );
+                      },
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: Text(
+                        TxaLanguage.t('app_crash_restart_app'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-      );
-    }
-
-    return ElevatedButton.icon(
-      onPressed: onRetry,
-      icon: const Icon(Icons.refresh_rounded, size: 18),
-      label: Text(btnText),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF737DFD),
-        foregroundColor: Colors.black,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        textStyle: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13.5,
-        ),
-        elevation: 4,
       ),
     );
   }
-}
-
-class _DisconnectedCablesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double midY = size.height / 2;
-    
-    // Draw cable lines
-    final cablePaint = Paint()
-      ..color = const Color(0xFF475569) // Dark Slate Gray
-      ..strokeWidth = 5.0
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final plugPaint = Paint()
-      ..color = const Color(0xFF94A3B8) // Light Slate Gray
-      ..style = PaintingStyle.fill;
-
-    final accentPaint = Paint()
-      ..color = const Color(0xFF737DFD) // Accent Blue
-      ..style = PaintingStyle.fill;
-
-    final prongPaint = Paint()
-      ..color = const Color(0xFFCBD5E1) // Silver
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.square;
-
-    final sparkPaint = Paint()
-      ..color = const Color(0xFFF59E0B) // Amber
-      ..style = PaintingStyle.fill;
-
-    // LEFT CABLE & PLUG
-    // 1. Line
-    final leftPath = Path()
-      ..moveTo(0, midY)
-      ..cubicTo(size.width * 0.1, midY + 12, size.width * 0.2, midY - 6, size.width * 0.3, midY);
-    canvas.drawPath(leftPath, cablePaint);
-
-    // 2. Plug Body
-    final leftPlugRect = Rect.fromLTWH(size.width * 0.3, midY - 10, 24, 20);
-    canvas.drawRRect(RRect.fromRectAndRadius(leftPlugRect, const Radius.circular(5)), plugPaint);
-    
-    // 3. Colored Band on Plug
-    final leftBandRect = Rect.fromLTWH(size.width * 0.3, midY - 10, 6, 20);
-    canvas.drawRRect(RRect.fromRectAndCorners(
-      leftBandRect,
-      topLeft: const Radius.circular(5),
-      bottomLeft: const Radius.circular(5),
-    ), accentPaint);
-
-    // 4. Prongs (Disconnected - sticking out to the right)
-    canvas.drawLine(Offset(size.width * 0.3 + 24, midY - 4), Offset(size.width * 0.3 + 32, midY - 4), prongPaint);
-    canvas.drawLine(Offset(size.width * 0.3 + 24, midY + 4), Offset(size.width * 0.3 + 32, midY + 4), prongPaint);
-
-    // RIGHT CABLE & PLUG
-    // 1. Line
-    final rightPath = Path()
-      ..moveTo(size.width, midY)
-      ..cubicTo(size.width * 0.9, midY - 12, size.width * 0.8, midY + 6, size.width * 0.7, midY);
-    canvas.drawPath(rightPath, cablePaint);
-
-    // 2. Plug Body
-    final rightPlugRect = Rect.fromLTWH(size.width * 0.58, midY - 10, 24, 20);
-    canvas.drawRRect(RRect.fromRectAndRadius(rightPlugRect, const Radius.circular(5)), plugPaint);
-
-    // 3. Colored Band on Plug
-    final rightBandRect = Rect.fromLTWH(size.width * 0.68, midY - 10, 6, 20);
-    canvas.drawRRect(RRect.fromRectAndCorners(
-      rightBandRect,
-      topRight: const Radius.circular(5),
-      bottomRight: const Radius.circular(5),
-    ), accentPaint);
-
-    // 4. Sockets (recessed holes on the left side of the right plug)
-    final socketPaint = Paint()
-      ..color = const Color(0xFF1E293B)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(size.width * 0.58 + 4, midY - 4), 2.2, socketPaint);
-    canvas.drawCircle(Offset(size.width * 0.58 + 4, midY + 4), 2.2, socketPaint);
-
-    // SPARKS / EXPLOSION INDICATION IN THE GAP
-    final double gapCenterX = size.width * 0.49;
-    
-    // Draw lightning spark
-    final sparkPath = Path()
-      ..moveTo(gapCenterX - 3, midY - 24)
-      ..lineTo(gapCenterX + 6, midY - 4)
-      ..lineTo(gapCenterX - 4, midY + 2)
-      ..lineTo(gapCenterX + 4, midY + 24)
-      ..lineTo(gapCenterX - 6, midY + 4)
-      ..lineTo(gapCenterX + 3, midY - 2)
-      ..close();
-    canvas.drawPath(sparkPath, sparkPaint);
-
-    // Minor spark particles
-    canvas.drawCircle(Offset(gapCenterX - 14, midY - 14), 2.5, sparkPaint);
-    canvas.drawCircle(Offset(gapCenterX + 16, midY + 12), 2.0, sparkPaint);
-    canvas.drawCircle(Offset(gapCenterX - 18, midY + 8), 1.5, sparkPaint);
-    canvas.drawCircle(Offset(gapCenterX + 12, midY - 16), 1.8, sparkPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

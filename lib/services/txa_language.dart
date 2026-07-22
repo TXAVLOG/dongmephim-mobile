@@ -72,6 +72,13 @@ class TxaLanguage extends ChangeNotifier {
       'iap_key_table_title': 'DANH SÁCH 15 MÃ KEY BYPASS ZALO:',
       'iap_key_copied_toast': 'Đã sao chép mã Key #%n%!',
       'iap_txt_exported_toast': 'Đã xuất danh sách 15 Key thành công!',
+      // Crash Error Screen Keys
+      'app_crash_title': 'Ứng dụng gặp sự cố ngoài ý muốn',
+      'app_crash_desc': 'Rất tiếc vì sự gián đoạn này. Chi tiết lỗi hệ thống đã được tự động ghi nhận dưới đây:',
+      'app_crash_share_log': 'Chia sẻ file log lỗi',
+      'app_crash_copy_details': 'Sao chép chi tiết lỗi',
+      'app_crash_restart_app': 'Khởi động lại ứng dụng',
+      'app_crash_copied': 'Đã sao chép chi tiết lỗi vào Khay nhớ tạm!',
       'error_loading_data': 'Không thể tải dữ liệu',
       'loading_data': 'Đang tải dữ liệu...',
       'error_search': 'Lỗi tìm kiếm',
@@ -1995,6 +2002,13 @@ class TxaLanguage extends ChangeNotifier {
       'iap_key_table_title': 'LIST OF 15 ZALO BYPASS KEYS:',
       'iap_key_copied_toast': 'Copied Key Code #%n%!',
       'iap_txt_exported_toast': 'Exported 15 Keys list successfully!',
+      // Crash Error Screen Keys (EN)
+      'app_crash_title': 'Application Encountered an Error',
+      'app_crash_desc': 'We apologize for the inconvenience. System crash details have been recorded below:',
+      'app_crash_share_log': 'Share Crash Log File',
+      'app_crash_copy_details': 'Copy Error Details',
+      'app_crash_restart_app': 'Restart Application',
+      'app_crash_copied': 'Copied crash error details to Clipboard!',
     },
   };
 

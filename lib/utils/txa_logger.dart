@@ -126,15 +126,23 @@ class TxaLogger {
     try {
       final path = await _logPath;
       final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final file = File('$path/${type}_$date.log');
+      File file = File('$path/${type}_$date.log');
+      if (!await file.exists()) {
+        file = File('$path/all_$date.log');
+      }
       if (await file.exists()) {
-        // ignore: deprecated_member_use
         await Share.shareXFiles(
           [XFile(file.path)],
           subject: 'DongMePhim Log Files - $type',
         );
       } else {
-        debugPrint('Log file not found to share');
+        // Fallback: create temporary file if no log file exists yet
+        final tempFile = File('$path/crash_$date.log');
+        await tempFile.writeAsString('[CRASH LOG] Log initialized.\n');
+        await Share.shareXFiles(
+          [XFile(tempFile.path)],
+          subject: 'DongMePhim Log Files - $type',
+        );
       }
     } catch (e) {
       debugPrint('Failed to share logs: $e');
