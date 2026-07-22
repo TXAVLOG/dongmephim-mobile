@@ -1169,9 +1169,36 @@ class TxaApi {
     return false;
   }
 
+  static bool _isSendingCrashReport = false;
+  static DateTime? _lastCrashReportTime;
+  static final Set<int> _recentCrashHashes = {};
+
   Future<bool> sendCrashReport(String crashLog, {String? deviceInfo}) async {
-    final url = Uri.parse('$baseUrl/api/app/crash-report');
+    // 1. Prevent recursion loop
+    if (_isSendingCrashReport) return false;
+
+    // 2. Rate-limit: maximum 1 crash report per 3 seconds
+    final now = DateTime.now();
+    if (_lastCrashReportTime != null && now.difference(_lastCrashReportTime!).inSeconds < 3) {
+      return false;
+    }
+
+    // 3. Deduplicate exact same error message within short window
+    final msgHash = crashLog.trim().hashCode;
+    if (_recentCrashHashes.contains(msgHash)) {
+      return false; // Skip duplicate crash report
+    }
+
+    _isSendingCrashReport = true;
+    _lastCrashReportTime = now;
+    _recentCrashHashes.add(msgHash);
+
+    if (_recentCrashHashes.length > 50) {
+      _recentCrashHashes.clear();
+    }
+
     try {
+      final url = Uri.parse('$baseUrl/api/app/crash-report');
       final response = await http.post(
         url,
         headers: await _getHeaders(),
@@ -1180,17 +1207,16 @@ class TxaApi {
           'device_info': deviceInfo ?? 'DongMePhim Mobile App',
           'platform': Platform.operatingSystem,
           'os_version': Platform.operatingSystemVersion,
-          'timestamp': DateTime.now().toIso8601String(),
+          'timestamp': now.toIso8601String(),
         }),
-      );
-      TxaLogger.logApi(
-        method: 'POST',
-        path: url.toString(),
-        statusCode: response.statusCode,
-      );
+      ).timeout(const Duration(seconds: 10));
+
+      debugPrint('Crash report status: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Error sending crash report to server: $e');
+    } finally {
+      _isSendingCrashReport = false;
     }
     return false;
   }
