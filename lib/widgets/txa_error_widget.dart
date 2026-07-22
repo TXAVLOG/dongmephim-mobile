@@ -10,12 +10,14 @@ class TxaErrorWidget extends StatelessWidget {
   final FlutterErrorDetails? errorDetails;
   final Object? error;
   final StackTrace? stackTrace;
+  final VoidCallback? onRetry;
 
   const TxaErrorWidget({
     super.key,
     this.errorDetails,
     this.error,
     this.stackTrace,
+    this.onRetry,
   });
 
   String get _errorString {
@@ -170,15 +172,19 @@ class TxaErrorWidget extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
 
-                  // Restart App Button
+                  // Restart App / Retry Button
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        navigatorKey.currentState?.pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (ctx) => const MainEntry()),
-                          (route) => false,
-                        );
+                        if (onRetry != null) {
+                          onRetry!.call();
+                        } else {
+                          navigatorKey.currentState?.pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (ctx) => const MainEntry()),
+                            (route) => false,
+                          );
+                        }
                       },
                       icon: const Icon(Icons.refresh_rounded, size: 18),
                       label: Text(
