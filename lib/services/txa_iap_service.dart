@@ -173,7 +173,7 @@ class TxaIapService {
       
       final bool isAdmin = productId == productIdAdmin;
       const String packageTitle = 'Gói Key Bypass Zalo (15 Thiết bị)';
-      double price = isAdmin ? 3000.0 : 30000.0;
+      double price = isAdmin ? 7000.0 : 40000.0;
       try {
         final prod = _products.firstWhere((p) => p.id == productId);
         if (prod.rawPrice > 0) {
