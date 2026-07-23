@@ -88,6 +88,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   Duration _duration = Duration.zero;
   bool _showControls = true;
   Timer? _hideControlsTimer;
+  Timer? _positionSyncTimer;
   DateTime? _lastSavedTime;
 
   // Desktop Focus & Fullscreen
@@ -323,6 +324,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
     _controller?.dispose();
     _adController?.dispose();
     _adTimer?.cancel();
+    _positionSyncTimer?.cancel();
     _hideControlsTimer?.cancel();
     _clockTimer?.cancel();
     _batteryTimer?.cancel();
@@ -773,6 +775,33 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
         if (_lastSavedTime == null || now.difference(_lastSavedTime!).inSeconds >= 10) {
           _lastSavedTime = now;
           _saveWatchProgress();
+        }
+      });
+
+      // Start periodic position & duration sync timer (crucial for Desktop/Windows MediaKit sync)
+      _positionSyncTimer?.cancel();
+      _positionSyncTimer = Timer.periodic(const Duration(milliseconds: 250), (timer) {
+        if (!mounted || _controller == null || !_isPlayerInitialized) return;
+
+        final val = _controller!.value;
+        final dur = val.duration;
+        final pos = val.position;
+
+        bool needStateUpdate = false;
+
+        if (dur > Duration.zero && dur != _duration) {
+          _duration = dur;
+          needStateUpdate = true;
+        }
+
+        if (!_isDraggingSlider && pos != _position) {
+          _position = pos;
+          _updateActiveCues(pos);
+          needStateUpdate = true;
+        }
+
+        if (needStateUpdate && mounted) {
+          setState(() {});
         }
       });
 
@@ -2267,11 +2296,23 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
     if (_isLocked) return;
     if (_controller == null || !_isPlayerInitialized) return;
 
-    final newPos = _position + Duration(seconds: seconds);
-    final clamped = newPos < Duration.zero
-        ? Duration.zero
-        : (newPos > _duration ? _duration : newPos);
+    final currentPos = _controller!.value.position > Duration.zero ? _controller!.value.position : _position;
+    final currentDur = _controller!.value.duration > Duration.zero ? _controller!.value.duration : _duration;
+
+    final newPos = currentPos + Duration(seconds: seconds);
+    Duration clamped = newPos < Duration.zero ? Duration.zero : newPos;
+
+    if (currentDur > Duration.zero && clamped > currentDur) {
+      clamped = currentDur;
+    }
+
     _controller!.seekTo(clamped);
+    setState(() {
+      _position = clamped;
+      if (currentDur > Duration.zero) {
+        _duration = currentDur;
+      }
+    });
     _resetHideControlsTimer();
     _triggerTvStoryboardPreview();
   }
