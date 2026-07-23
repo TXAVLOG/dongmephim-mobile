@@ -20,6 +20,7 @@ import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class TxaVideoPlayer extends StatefulWidget {
   final String url;
@@ -122,6 +123,36 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   List<TxaSubtitleCue> _secondaryCues = [];
   TxaSubtitleCue? _activePrimaryCue;
   TxaSubtitleCue? _activeSecondaryCue;
+
+  // Voiceover AI States
+  bool _isVoiceover = false;
+  bool _hasSpokenIntro = false;
+  String? _lastSpokenCueId;
+  FlutterTts? _flutterTts;
+
+  void _initTts() async {
+    if (_flutterTts == null) {
+      _flutterTts = FlutterTts();
+      try {
+        await _flutterTts!.setLanguage("vi-VN");
+        await _flutterTts!.setSpeechRate(0.55);
+        await _flutterTts!.setPitch(1.0);
+      } catch (e) {
+        TxaLogger.log("TTS init error: $e", type: 'app');
+      }
+    }
+  }
+
+  void _speakText(String text) async {
+    if (!_isVoiceover || text.isEmpty) return;
+    _initTts();
+    try {
+      await _flutterTts!.stop();
+      await _flutterTts!.speak(text);
+    } catch (e) {
+      TxaLogger.log("TTS speak error: $e", type: 'app');
+    }
+  }
 
   // Storyboard States
   List<TxaStoryboardItem> _storyboardItems = [];
@@ -332,6 +363,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
     _nextEpisodeTimer?.cancel();
     _lockButtonTimer?.cancel();
     _tvStoryboardTimer?.cancel();
+    _flutterTts?.stop();
     _tvFocusNode.dispose();
 
     // Reset brightness on mobile
@@ -841,6 +873,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       setState(() {
         _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
         _autoNextEpisode = prefs.getBool('auto_next_episode') ?? false;
+        _isVoiceover = prefs.getBool('ai_voiceover_enabled') ?? false;
         _preferredSubLang = prefs.getString('preferred_sub_lang') ?? 'vi';
         _subtitleFontSize = prefs.getDouble('subtitle_font_size') ?? 16.0;
         _subtitleColor = prefs.getString('subtitle_color') ?? '#FFFFFF';
@@ -1223,6 +1256,43 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
         _activePrimaryCue = activePrimary;
         _activeSecondaryCue = activeSecondary;
       });
+
+      if (_isVoiceover) {
+        TxaSubtitleCue? targetCue;
+        final viRegExp = RegExp(r'[àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false);
+
+        if (activePrimary != null && activePrimary.text.isNotEmpty && viRegExp.hasMatch(activePrimary.text)) {
+          targetCue = activePrimary;
+        } else if (activeSecondary != null && activeSecondary.text.isNotEmpty && viRegExp.hasMatch(activeSecondary.text)) {
+          targetCue = activeSecondary;
+        } else if (activePrimary != null && activePrimary.text.isNotEmpty) {
+          final subs = widget.subtitles ?? [];
+          if (_primarySubIdx >= 0 && _primarySubIdx < subs.length) {
+            final sub = subs[_primarySubIdx];
+            final label = (sub['label'] ?? '').toString().toLowerCase();
+            if (label.contains('vi') || label.contains('tiếng việt') || label.contains('viet') || subs.length == 1) {
+              targetCue = activePrimary;
+            }
+          } else if (subs.length <= 1) {
+            targetCue = activePrimary;
+          }
+        }
+
+        if (targetCue != null && targetCue.text.isNotEmpty) {
+          final cueId = targetCue.id.isNotEmpty ? targetCue.id : '${targetCue.startTime}_${targetCue.text}';
+          if (_lastSpokenCueId != cueId) {
+            _lastSpokenCueId = cueId;
+            String textToSpeak = targetCue.text.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+            if (textToSpeak.isNotEmpty) {
+              if (!_hasSpokenIntro) {
+                _hasSpokenIntro = true;
+                textToSpeak = "${TxaLanguage.t('voiceover_copyright_intro')} $textToSpeak";
+              }
+              _speakText(textToSpeak);
+            }
+          }
+        }
+      }
     }
   }
 
@@ -4063,7 +4133,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                           _buildSettingsToggleItem(
                             index: 0,
                             icon: Icons.fast_forward_rounded,
-                            title: 'Tự động bỏ qua Intro',
+                            title: TxaLanguage.t('auto_skip_intro_title'),
                             value: _autoSkipIntro,
                             onChanged: (val) {
                               _setPlayerSetting('auto_skip_intro', val);
@@ -4073,16 +4143,32 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                           _buildSettingsToggleItem(
                             index: 1,
                             icon: Icons.skip_next_rounded,
-                            title: 'Tự động chuyển tập',
+                            title: TxaLanguage.t('auto_next_episode_title'),
                             value: _autoNextEpisode,
                             onChanged: (val) {
                               _setPlayerSetting('auto_next_episode', val);
                             },
                           ),
+                          const SizedBox(height: 12),
+                          _buildSettingsToggleItem(
+                            index: 12,
+                            icon: Icons.record_voice_over_rounded,
+                            title: TxaLanguage.t('ai_voiceover_title'),
+                            value: _isVoiceover,
+                            onChanged: (val) {
+                              _setPlayerSetting('ai_voiceover_enabled', val);
+                              if (val) {
+                                _hasSpokenIntro = false;
+                                _speakText(TxaLanguage.t('voiceover_copyright_intro'));
+                              } else {
+                                _flutterTts?.stop();
+                              }
+                            },
+                          ),
                           const SizedBox(height: 20),
-                          const Text(
-                            'NGÔN NGỮ PHỤ ĐỀ ƯU TIÊN',
-                            style: TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          Text(
+                            TxaLanguage.t('pref_sub_lang_title'),
+                            style: const TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                           ),
                           const SizedBox(height: 8),
                           _buildSettingsRadioItem(
@@ -4186,9 +4272,9 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                             }).toList(),
                           ),
                           const SizedBox(height: 20),
-                          const Text(
-                            'CẤU HÌNH ÂM THANH NÂNG CAO',
-                            style: TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          Text(
+                            TxaLanguage.t('adv_audio_config_title'),
+                            style: const TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                           ),
                           const SizedBox(height: 12),
                           _buildSettingsToggleItem(
