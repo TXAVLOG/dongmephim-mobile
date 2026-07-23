@@ -50,7 +50,6 @@ class TxaNotificationManager {
       try {
         await Workmanager().initialize(
           callbackDispatcher,
-          isInDebugMode: false,
         );
         await Workmanager().registerPeriodicTask(
           'txa_background_notification_task',
