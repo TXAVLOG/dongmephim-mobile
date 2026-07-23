@@ -56,7 +56,7 @@ class TxaNotificationManager {
           'txa_background_notification_task',
           'fetchNotificationsTask',
           frequency: const Duration(minutes: 10),
-          existingWorkPolicy: ExistingWorkPolicy.keep,
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
           constraints: Constraints(
             networkType: NetworkType.connected,
           ),
