@@ -2291,7 +2291,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
     });
   }
 
-  void _resetHideControlsTimer({int durationMs = 4000}) {
+  void _resetHideControlsTimer({int durationMs = 2500}) {
     _hideControlsTimer?.cancel();
     if (!mounted) return;
 
@@ -2322,19 +2322,17 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       _showLockButtonTemporarily();
       return;
     }
+
     if (_showControls) {
-      if (_showSettingsPanel || _showPlaylistPanel || _showTvSubtitlesMenu) {
-        setState(() {
-          _showSettingsPanel = false;
-          _showPlaylistPanel = false;
-          _showTvSubtitlesMenu = false;
-        });
-        _resetHideControlsTimer();
-        return;
-      }
-      _resetHideControlsTimer();
+      _hideControlsTimer?.cancel();
+      setState(() {
+        _showSettingsPanel = false;
+        _showPlaylistPanel = false;
+        _showTvSubtitlesMenu = false;
+        _showControls = false;
+      });
     } else {
-      _resetHideControlsTimer();
+      _resetHideControlsTimer(durationMs: 2500);
     }
   }
 
@@ -2941,7 +2939,13 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
           // 1. VIDEO PLAYER
           if (_isPlayerInitialized) ...[
             Positioned.fill(
-              child: _buildVideoWidget(),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _toggleControls,
+                onLongPressStart: (_) => _startSpeedUp2x(),
+                onLongPressEnd: (_) => _stopSpeedUp2x(),
+                child: _buildVideoWidget(),
+              ),
             ),
             if (_controller!.value.isBuffering)
               Positioned.fill(
@@ -3027,12 +3031,16 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                   // 2. BACKDROP SHADOW COVER (For Controls)
                   if (_showControls && !_isLocked)
                     Positioned.fill(
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.black87, Colors.transparent, Colors.black87],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _toggleControls,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.black87, Colors.transparent, Colors.black87],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
                           ),
                         ),
                       ),

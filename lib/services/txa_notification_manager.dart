@@ -15,6 +15,19 @@ import '../utils/txa_platform.dart';
 import '../utils/txa_logger.dart';
 import '../main.dart';
 
+import 'package:workmanager/workmanager.dart';
+
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      await TxaNotificationManager.instance.fetchBackgroundNotifications();
+    } catch (_) {}
+    return Future.value(true);
+  });
+}
+
 class TxaNotificationManager {
   static final TxaNotificationManager instance = TxaNotificationManager._internal();
 
@@ -32,8 +45,29 @@ class TxaNotificationManager {
     // Initialize cross-platform local notifications (Android, Smart TV, iOS, Desktop)
     await _initLocalNotifications();
 
-    // Start periodic polling every 30 seconds
-    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Register Workmanager for OS Background Polling (Android & iOS when app is closed)
+    if (Platform.isAndroid || Platform.isIOS) {
+      try {
+        await Workmanager().initialize(
+          callbackDispatcher,
+          isInDebugMode: false,
+        );
+        await Workmanager().registerPeriodicTask(
+          'txa_background_notification_task',
+          'fetchNotificationsTask',
+          frequency: const Duration(minutes: 10),
+          existingWorkPolicy: ExistingWorkPolicy.keep,
+          constraints: Constraints(
+            networkType: NetworkType.connected,
+          ),
+        );
+      } catch (e) {
+        TxaLogger.log('Workmanager init error: $e');
+      }
+    }
+
+    // Start periodic polling every 2 minutes while app is in foreground
+    _timer = Timer.periodic(const Duration(minutes: 2), (timer) {
       _pollNotifications();
       _checkBackgroundUpdates();
     });
@@ -69,13 +103,14 @@ class TxaNotificationManager {
 
       // Create Android & Smart TV notification channel
       if (Platform.isAndroid) {
-        const channel = AndroidNotificationChannel(
+        final channel = AndroidNotificationChannel(
           'txa_notifications',
-          'Thông báo DongMePhim',
-          description: 'Thông báo phim mới, cập nhật ứng dụng và hệ thống',
+          TxaLanguage.t('notification_channel_name'),
+          description: TxaLanguage.t('notification_channel_desc'),
           importance: Importance.max,
           playSound: true,
           enableVibration: true,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
         );
 
         final androidImpl = _localNotif
@@ -112,8 +147,8 @@ class TxaNotificationManager {
 
             await _showNativeNotification(
               id: notifId,
-              title: '🚀 Cập nhật DongMePhim v$latestVersion',
-              body: 'Đã có phiên bản mới với nhiều cải tiến. Nhấp để tải xuống và cài đặt ngay!',
+              title: TxaLanguage.t('app_update_notif_title', replace: {'version': latestVersion}),
+              body: TxaLanguage.t('app_update_notif_body'),
               payload: 'update:$downloadUrl',
             );
           }
@@ -122,6 +157,38 @@ class TxaNotificationManager {
     } catch (e) {
       TxaLogger.log('Background update check error: $e');
     }
+  }
+
+  Future<void> fetchBackgroundNotifications() async {
+    try {
+      final response = await TxaApi().getNotifications();
+      if (response == null || response['success'] != true) return;
+
+      final list = response['data'] as List? ?? [];
+      final prefs = await SharedPreferences.getInstance();
+      final shownIds = prefs.getStringList('txa_bg_shown_ids') ?? [];
+
+      for (var item in list) {
+        final id = item['id']?.toString() ?? '';
+        final isRead = item['is_read'] == true;
+        if (id.isEmpty || isRead) continue;
+
+        if (!shownIds.contains(id)) {
+          shownIds.add(id);
+          final movieSlug = item['movie_slug'] ?? '';
+          final payload = movieSlug.isNotEmpty ? 'movie:$movieSlug:$id' : 'notif:$id';
+
+          await _showNativeNotification(
+            id: id,
+            title: item['title'] ?? TxaLanguage.t('new_notification'),
+            body: item['body'] ?? '',
+            payload: payload,
+          );
+        }
+      }
+      // Save shown IDs back to prefs
+      await prefs.setStringList('txa_bg_shown_ids', shownIds.take(50).toList());
+    } catch (_) {}
   }
 
   Future<void> _pollNotifications() async {
@@ -170,7 +237,7 @@ class TxaNotificationManager {
           
           await _showNativeNotification(
             id: id,
-            title: item['title'] ?? 'Thông báo mới',
+            title: item['title'] ?? TxaLanguage.t('new_notification'),
             body: item['body'] ?? '',
             payload: payload,
           );
@@ -198,7 +265,7 @@ class TxaNotificationManager {
           title: title,
           body: body,
           actions: [
-            LocalNotificationAction(text: 'Mở ngay'),
+            LocalNotificationAction(text: TxaLanguage.t('open_now')),
           ],
         );
         notification.onClick = () {
@@ -216,22 +283,26 @@ class TxaNotificationManager {
       }
     }
 
-    // Android, Smart TV, iOS, and fallback Desktop
-    const androidDetails = AndroidNotificationDetails(
+    // Android, Smart TV, iOS, and fallback Desktop with DND (Do Not Disturb) Bypass
+    final androidDetails = AndroidNotificationDetails(
       'txa_notifications',
-      'Thông báo DongMePhim',
-      channelDescription: 'Thông báo phim mới, cập nhật ứng dụng và hệ thống',
+      TxaLanguage.t('notification_channel_name'),
+      channelDescription: TxaLanguage.t('notification_channel_desc'),
       importance: Importance.max,
-      priority: Priority.high,
+      priority: Priority.max,
       icon: '@mipmap/launcher_icon',
       playSound: true,
       enableVibration: true,
+      visibility: NotificationVisibility.public,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      category: AndroidNotificationCategory.reminder,
     );
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
     const details = NotificationDetails(

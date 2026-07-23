@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/txa_theme.dart';
@@ -72,16 +73,18 @@ class _TxaLogViewerScreenState extends State<TxaLogViewerScreen> with SingleTick
     final activeType = _logTypes[_tabController.index];
     final content = await TxaLogger.readLogs(activeType);
     
-    // Parse string content into structured list of LogEntry
-    final entries = _parseLogs(content);
+    // Parse string content asynchronously to prevent UI freeze on large log files
+    final entries = await compute(_parseLogsIsolate, content);
 
-    setState(() {
-      _parsedEntries = entries;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _parsedEntries = entries;
+        _isLoading = false;
+      });
+    }
   }
 
-  List<LogEntry> _parseLogs(String content) {
+  static List<LogEntry> _parseLogsIsolate(String content) {
     if (content.trim().isEmpty || content.trim() == 'Chưa có nhật ký nào cho loại này.') {
       return [];
     }
@@ -108,8 +111,13 @@ class _TxaLogViewerScreenState extends State<TxaLogViewerScreen> with SingleTick
       } else {
         if (list.isNotEmpty) {
           final lastEntry = list.last;
-          final updatedMessage = '${lastEntry.message}\n$trimmed';
-          final updatedRaw = '${lastEntry.rawLine}\n$trimmed';
+          // Truncate extremely long single messages (e.g., massive base64 or huge JSON dump) to prevent main-thread lag
+          final updatedMessage = lastEntry.message.length > 20000 
+              ? lastEntry.message 
+              : '${lastEntry.message}\n$trimmed';
+          final updatedRaw = lastEntry.rawLine.length > 20000 
+              ? lastEntry.rawLine 
+              : '${lastEntry.rawLine}\n$trimmed';
           
           list[list.length - 1] = LogEntry(
             timestamp: lastEntry.timestamp,
@@ -321,9 +329,17 @@ class _TxaLogViewerScreenState extends State<TxaLogViewerScreen> with SingleTick
   TextSpan _highlightJson(String json) {
     final spans = <TextSpan>[];
     final lines = json.split('\n');
-    for (var i = 0; i < lines.length; i++) {
+    // Guard against massive JSON strings locking the UI render thread
+    final maxLines = lines.length > 500 ? 500 : lines.length;
+    for (var i = 0; i < maxLines; i++) {
       _highlightJsonLine(lines[i], spans);
-      if (i < lines.length - 1) spans.add(const TextSpan(text: '\n'));
+      if (i < maxLines - 1) spans.add(const TextSpan(text: '\n'));
+    }
+    if (lines.length > 500) {
+      spans.add(const TextSpan(
+        text: '\n... [Đã rút gọn bớt JSON response quá dài để tránh đơ giao diện]',
+        style: TextStyle(color: Colors.orangeAccent, fontStyle: FontStyle.italic),
+      ));
     }
     return TextSpan(children: spans);
   }

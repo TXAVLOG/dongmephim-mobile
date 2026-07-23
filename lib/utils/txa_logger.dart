@@ -43,7 +43,28 @@ class TxaLogger {
     // App lifecycle observer for file logging control
     _AppLifecycleObserver.init();
 
+    // Clean up old log files (>3 days) asynchronously on startup to avoid clogging storage
+    _cleanOldLogFiles();
+
     log('TxaLogger initialized. Global tracker active.', type: 'app');
+  }
+
+  static Future<void> _cleanOldLogFiles() async {
+    try {
+      final path = await _logPath;
+      final dir = Directory(path);
+      if (await dir.exists()) {
+        final now = DateTime.now();
+        await for (var entity in dir.list()) {
+          if (entity is File && entity.path.endsWith('.log')) {
+            final stat = await entity.stat();
+            if (now.difference(stat.modified).inDays > 3) {
+              await entity.delete();
+            }
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   static Future<void> log(
@@ -62,20 +83,28 @@ class TxaLogger {
       final now = DateTime.now();
       final timestamp = DateFormat('HH:mm:ss.SSS').format(now);
       final logLine = '[$timestamp] [${type.toUpperCase()}] $message\n';
-
       final date = DateFormat('yyyy-MM-dd').format(now);
 
-      // 1. Write to specific log type file
+      // Write to specific log type file with max size check (1MB limit per file)
       final typeFile = File('$path/${type}_$date.log');
-      await typeFile.writeAsString(logLine, mode: FileMode.append, flush: true);
-
-      // 2. ALSO write to "all" log file
-      if (type != 'all') {
-        final allFile = File('$path/all_$date.log');
-        await allFile.writeAsString(logLine, mode: FileMode.append, flush: true);
+      if (await typeFile.exists() && (await typeFile.length()) > 1024 * 1024) {
+        // Truncate file if over 1MB to prevent excessive memory & storage usage
+        await typeFile.writeAsString('--- LOG ROTATED (MAX 1MB REACHED) ---\n$logLine');
+      } else {
+        await typeFile.writeAsString(logLine, mode: FileMode.append, flush: isCrash);
       }
 
-      // 3. If crash event, send report to server asynchronously immediately
+      // ALSO write to "all" log file (if not crash or api success to reduce double writes)
+      if (type != 'all' && (isCrash || type == 'app' || type == 'downloader')) {
+        final allFile = File('$path/all_$date.log');
+        if (await allFile.exists() && (await allFile.length()) > 1024 * 1024) {
+          await allFile.writeAsString('--- LOG ROTATED (MAX 1MB REACHED) ---\n$logLine');
+        } else {
+          await allFile.writeAsString(logLine, mode: FileMode.append, flush: false);
+        }
+      }
+
+      // If crash event, send report to server asynchronously immediately
       if (isCrash) {
         TxaApi().sendCrashReport(message);
       }
