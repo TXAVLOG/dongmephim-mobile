@@ -436,7 +436,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
     }
   }
 
-  void _showVIPUpgradeDialog() async {
+  void _showVIPUpgradeDialog({String? preSelectPackageId, String? preSelectPaymentMethod}) async {
     if (_packagesData == null) {
       TxaToast.show(context, TxaLanguage.t('loading_vip_info'), isError: false);
       return;
@@ -458,14 +458,23 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       return;
     }
 
-    // Default to VIP package if exists
-    int selectedPackageIndex = paidPackages.indexWhere((p) =>
-        (p['title'] ?? '').toString().toUpperCase().contains('VIP') ||
-        (p['id'] ?? '').toString().toUpperCase().contains('VIP'));
+    // Pre-select specific package if requested, else default to VIP
+    int selectedPackageIndex = -1;
+    if (preSelectPackageId != null) {
+      selectedPackageIndex = paidPackages.indexWhere((p) {
+        final id = (p['id'] ?? '').toString().toLowerCase();
+        return id == preSelectPackageId.toLowerCase() || id.contains(preSelectPackageId.toLowerCase());
+      });
+    }
+    if (selectedPackageIndex == -1) {
+      selectedPackageIndex = paidPackages.indexWhere((p) =>
+          (p['title'] ?? '').toString().toUpperCase().contains('VIP') ||
+          (p['id'] ?? '').toString().toUpperCase().contains('VIP'));
+    }
     if (selectedPackageIndex == -1) selectedPackageIndex = 0;
 
     String selectedCycle = 'monthly';
-    String selectedPaymentMethod = 'sepay';
+    String selectedPaymentMethod = preSelectPaymentMethod ?? 'sepay';
     String? appliedPromoCode;
     int? appliedDiscountAmount;
     final promoController = TextEditingController();
@@ -2759,40 +2768,35 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
 
     final iconsList = [
       {
-        'name': 'Mặc Định Neon',
-        'subtitle': 'Đỏ Neon Nguyên Bản',
+        'nameKey': 'icon_name_default',
         'color1': const Color(0xFFE50914),
         'color2': const Color(0xFF800000),
         'asset': 'assets/app_icons/icon_default.png',
         'free': true,
       },
       {
-        'name': 'Vũ Trụ Cyber',
-        'subtitle': 'Tím Hồng Tinh Vân',
+        'nameKey': 'icon_name_cyber',
         'color1': const Color(0xFFA855F7),
         'color2': const Color(0xFFEC4899),
         'asset': 'assets/app_icons/icon_cyber.png',
         'free': false,
       },
       {
-        'name': 'Hoàng Gia Gold',
-        'subtitle': 'Vàng VIP Sang Trọng',
+        'nameKey': 'icon_name_gold',
         'color1': const Color(0xFFFFD700),
         'color2': const Color(0xFFB8860B),
         'asset': 'assets/app_icons/icon_gold.png',
         'free': false,
       },
       {
-        'name': 'Kim Cương Cyan',
-        'subtitle': 'Xanh Băng Tuyết',
+        'nameKey': 'icon_name_cyan',
         'color1': const Color(0xFF00F2FE),
         'color2': const Color(0xFF4FACFE),
         'asset': 'assets/app_icons/icon_cyan.png',
         'free': false,
       },
       {
-        'name': 'Lục Bảo Emerald',
-        'subtitle': 'Xanh Ngọc Bảo',
+        'nameKey': 'icon_name_emerald',
         'color1': const Color(0xFF10B981),
         'color2': const Color(0xFF047857),
         'asset': 'assets/app_icons/icon_emerald.png',
@@ -2800,8 +2804,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         'free': false,
       },
       {
-        'name': 'Hồng Ngọc Ruby',
-        'subtitle': 'Hồng Ruby Vũ Trụ',
+        'nameKey': 'icon_name_ruby',
         'color1': const Color(0xFFEC4899),
         'color2': const Color(0xFFBE185D),
         'asset': 'assets/app_icons/icon_ruby.png',
@@ -2810,14 +2813,54 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       },
     ];
 
+    // Resolve icon package price dynamically from database
+    String iconPkgPriceLabel = '';
+    if (!hasIconPerm) {
+      final packages = (_packagesData?['packages'] as List<dynamic>?) ?? [];
+      final iconPkg = packages.firstWhere(
+        (p) {
+          final id = (p['id'] ?? '').toString().toLowerCase();
+          return id == 'custom_icon' || id == 'custom_icon_monthly' || id.contains('icon');
+        },
+        orElse: () => null,
+      );
+      if (iconPkg != null) {
+        final rawPrice = iconPkg['price'];
+        final price = (rawPrice is int)
+            ? rawPrice
+            : (rawPrice is num)
+                ? rawPrice.round()
+                : int.tryParse(rawPrice?.toString() ?? '0') ?? 0;
+        iconPkgPriceLabel = TxaLanguage.t('price_per_month', replace: {
+          'price': NumberFormatCurrency.format(price),
+        });
+      }
+    }
+
+    // Determine smart payment method for the current platform
+    String resolveDefaultPaymentMethod() {
+      if (!kIsWeb && Platform.isAndroid && !TxaPlatform.isTV) return 'google_play';
+      if (!kIsWeb && Platform.isIOS) return 'app_store';
+      if (TxaPlatform.isTV) return 'vietqr';
+      if (TxaPlatform.isDesktop) return 'sepay';
+      return 'sepay';
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: GestureDetector(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (ctx) => const TxaCustomIconScreen()),
-          );
+          if (hasIconPerm) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (ctx) => const TxaCustomIconScreen()),
+            );
+          } else {
+            _showVIPUpgradeDialog(
+              preSelectPackageId: 'custom_icon',
+              preSelectPaymentMethod: resolveDefaultPaymentMethod(),
+            );
+          }
         },
         child: TxaTheme.liquidGlassPill(
           radius: 20,
@@ -2898,7 +2941,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (!hasIconPerm) ...[
+                        if (!hasIconPerm && iconPkgPriceLabel.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -2907,14 +2950,14 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.lock_rounded, color: Color(0xFFEC4899), size: 11),
-                                SizedBox(width: 3),
+                                const Icon(Icons.lock_rounded, color: Color(0xFFEC4899), size: 11),
+                                const SizedBox(width: 3),
                                 Text(
-                                  '9k/tháng',
-                                  style: TextStyle(
+                                  iconPkgPriceLabel,
+                                  style: const TextStyle(
                                     color: Color(0xFFEC4899),
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.bold,
@@ -2944,30 +2987,69 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
               ),
               const SizedBox(width: 10),
 
-              // Right Action Pill
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      TxaLanguage.t('view_all_icons', replace: {'count': '${iconsList.length}'}),
-                      style: const TextStyle(
-                        color: Colors.amber,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
+              // Right Action Pill: "Xem tất cả icon" when unlocked, "Mua + price" when locked
+              if (hasIconPerm)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        TxaLanguage.t('view_all_icons', replace: {'count': '${iconsList.length}'}),
+                        style: const TextStyle(
+                          color: Colors.amber,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.amber, size: 11),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFEC4899), Color(0xFFA855F7)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const SizedBox(width: 2),
-                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.amber, size: 11),
-                  ],
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFEC4899).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.shopping_cart_rounded, color: Colors.white, size: 13),
+                      const SizedBox(width: 4),
+                      Text(
+                        iconPkgPriceLabel.isNotEmpty
+                            ? TxaLanguage.t('buy_icon_btn', replace: {'price': iconPkgPriceLabel})
+                            : TxaLanguage.t('buy_icon_btn', replace: {'price': ''}),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 11),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
