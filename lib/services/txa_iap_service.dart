@@ -28,10 +28,12 @@ class TxaIapService {
 
   static const String productIdNormal = 'zalo_key_normal';
   static const String productIdAdmin = 'zalo_key_admin';
+  static const String productIdCustomIcon = 'custom_icon_monthly';
 
   static const Set<String> _kProductIds = {
     productIdNormal,
     productIdAdmin,
+    productIdCustomIcon,
   };
 
   /// 1. Khởi tạo Google Play Billing Service
@@ -185,15 +187,20 @@ class TxaIapService {
       final String orderId = purchaseDetails.purchaseID ?? 'IAP_${DateTime.now().millisecondsSinceEpoch}';
       final String productId = purchaseDetails.productID;
       
+      final bool isCustomIcon = productId == productIdCustomIcon || productId.contains('icon');
       final bool isAdmin = productId == productIdAdmin;
-      const String packageTitle = 'Gói Key Bypass Zalo (15 Thiết bị)';
-      double price = isAdmin ? 7000.0 : 40000.0;
+
+      final String packageTitle = isCustomIcon
+          ? 'Gói Đổi Icon App (Monthly)'
+          : (isAdmin ? 'Gói Key Bypass Zalo (15 Thiết bị - Ưu đãi Admin)' : 'Gói Key Bypass Zalo (15 Thiết bị)');
+
+      double price = isCustomIcon ? 9000.0 : (isAdmin ? 7000.0 : 40000.0);
       try {
         final prod = _products.firstWhere((p) => p.id == productId);
         if (prod.rawPrice > 0) {
           price = prod.rawPrice;
         }
-        // Extract numeric digits from localized price string (e.g., "1.000 ₫" -> 1000.0)
+        // Extract numeric digits from localized price string (e.g., "9.000 ₫" -> 9000.0)
         final cleanDigits = prod.price.replaceAll(RegExp(r'[^\d]'), '');
         final parsedVal = double.tryParse(cleanDigits);
         if (parsedVal != null && parsedVal >= 0) {
@@ -206,6 +213,7 @@ class TxaIapService {
         txid: orderId,
         packageTitle: packageTitle,
         price: price,
+        cycle: isCustomIcon ? 'monthly' : 'custom_1',
         method: 'google_play',
         status: 'approved',
         clientInfo: 'Google Play Billing - Product: $productId',
