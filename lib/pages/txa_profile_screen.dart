@@ -1228,7 +1228,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                   Navigator.pop(ctx);
                                   TxaToast.show(context, TxaLanguage.t('syncing_account'));
                                   await _loadCabinetData();
-                                  if (!mounted) return;
+                                  if (!context.mounted) return;
                                   TxaToast.show(context, TxaLanguage.t('sync_sub_success'));
                                 },
                                 icon: const Icon(Icons.sync_rounded, color: Colors.amber, size: 16),

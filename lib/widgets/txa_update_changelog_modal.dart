@@ -40,7 +40,7 @@ class TxaUpdateChangelogModal extends StatelessWidget {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastSeen = prefs.getString('txa_last_seen_version') ?? '';
-      final currentVer = TxaVersion.version;
+      const currentVer = TxaVersion.version;
 
       if (lastSeen != currentVer) {
         String ver = currentVer;
@@ -116,7 +116,7 @@ class TxaUpdateChangelogModal extends StatelessWidget {
     if (bodyContent.isEmpty) bodyContent = cleanLine;
 
     // Categorize by keywords to determine custom card color & icon
-    final upperTag = (extractedTag + ' ' + cleanLine).toUpperCase();
+    final upperTag = '$extractedTag $cleanLine'.toUpperCase();
 
     Color cardColor;
     IconData cardIcon;
