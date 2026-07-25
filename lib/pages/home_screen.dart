@@ -272,6 +272,10 @@ class _HomeTabState extends State<HomeTab> {
             add(m['region']);
             add(m['country_name']);
             add(m['country_slug']);
+            add(m['genres']);
+            add(m['name']);
+            add(m['origin_name']);
+            add(m['slug']);
             return buffer.toString().toLowerCase();
           }
 
@@ -317,11 +321,21 @@ class _HomeTabState extends State<HomeTab> {
           final allMovies = <dynamic>{
             ...rawNewMovies, ...rawHotMovies, ...rawAnimeList, ...rawSeriesList, ...rawSingleList, ...rawTheaterList, ...rawTvShowsList
           }.toList();
+          final allCountryFilteredMovies = filterByCountry(allMovies);
           final chineseMovies = allMovies.where((m) {
             final text = extractCountryString(m);
             return text.contains('trung') || text.contains('china');
           }).toList();
           final sortedChineseMovies = TxaMovieRanker.sortMovies(chineseMovies).take(15).toList();
+
+          final bool isAnyShelfNotEmpty = newMovies.isNotEmpty ||
+              hotMovies.isNotEmpty ||
+              animeList.isNotEmpty ||
+              seriesList.isNotEmpty ||
+              singleList.isNotEmpty ||
+              sortedChineseMovies.isNotEmpty ||
+              theaterList.isNotEmpty ||
+              tvShowsList.isNotEmpty;
 
           // Get selected list for specific category view (Vertical Grid top-to-bottom)
           List<dynamic> selectedCategoryMovies = [];
@@ -471,29 +485,68 @@ class _HomeTabState extends State<HomeTab> {
 
               // Shelves List (Horizontal on ALL) OR Vertical Grid (Top-to-Bottom on specific Category)
               if (_selectedCategoryKey == 'ALL')
-                SliverPadding(
-                  padding: const EdgeInsets.only(bottom: 100),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      if (newMovies.isNotEmpty)
-                        _buildMovieShelf(TxaLanguage.t('TXA_NEW1'), newMovies, 'TXA_NEW1'),
-                      if (hotMovies.isNotEmpty)
-                        _buildMovieShelf(TxaLanguage.t('TXA_HOT1'), hotMovies, 'TXA_HOT1'),
-                      if (animeList.isNotEmpty)
-                        _buildMovieShelf(TxaLanguage.t('TXA_HH1'), animeList, 'TXA_HH1'),
-                      if (seriesList.isNotEmpty)
-                        _buildMovieShelf(TxaLanguage.t('TXA_PB1'), seriesList, 'TXA_PB1'),
-                      if (singleList.isNotEmpty)
-                        _buildMovieShelf(TxaLanguage.t('TXA_PL1'), singleList, 'TXA_PL1'),
-                      if (sortedChineseMovies.isNotEmpty)
-                        _buildMovieShelf(TxaLanguage.t('txa_category_chinese_masterpieces'), sortedChineseMovies, 'TXA_CN1'),
-                      if (theaterList.isNotEmpty)
-                        _buildMovieShelf(TxaLanguage.t('TXA_CR1'), theaterList, 'TXA_CR1'),
-                      if (tvShowsList.isNotEmpty)
-                        _buildMovieShelf(TxaLanguage.t('TXA_TV1'), tvShowsList, 'TXA_TV1'),
-                    ]),
-                  ),
-                )
+                if (isAnyShelfNotEmpty)
+                  SliverPadding(
+                    padding: const EdgeInsets.only(bottom: 100),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        if (newMovies.isNotEmpty)
+                          _buildMovieShelf(TxaLanguage.t('TXA_NEW1'), newMovies, 'TXA_NEW1'),
+                        if (hotMovies.isNotEmpty)
+                          _buildMovieShelf(TxaLanguage.t('TXA_HOT1'), hotMovies, 'TXA_HOT1'),
+                        if (animeList.isNotEmpty)
+                          _buildMovieShelf(TxaLanguage.t('TXA_HH1'), animeList, 'TXA_HH1'),
+                        if (seriesList.isNotEmpty)
+                          _buildMovieShelf(TxaLanguage.t('TXA_PB1'), seriesList, 'TXA_PB1'),
+                        if (singleList.isNotEmpty)
+                          _buildMovieShelf(TxaLanguage.t('TXA_PL1'), singleList, 'TXA_PL1'),
+                        if (sortedChineseMovies.isNotEmpty)
+                          _buildMovieShelf(TxaLanguage.t('txa_category_chinese_masterpieces'), sortedChineseMovies, 'TXA_CN1'),
+                        if (theaterList.isNotEmpty)
+                          _buildMovieShelf(TxaLanguage.t('TXA_CR1'), theaterList, 'TXA_CR1'),
+                        if (tvShowsList.isNotEmpty)
+                          _buildMovieShelf(TxaLanguage.t('TXA_TV1'), tvShowsList, 'TXA_TV1'),
+                      ]),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.only(left: 14, right: 14, top: 12, bottom: 100),
+                    sliver: allCountryFilteredMovies.isNotEmpty
+                        ? SliverGrid(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 0.55,
+                              mainAxisSpacing: 14,
+                              crossAxisSpacing: 10,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final movie = allCountryFilteredMovies[index];
+                                return _buildGridMovieCard(movie);
+                              },
+                              childCount: allCountryFilteredMovies.length,
+                            ),
+                          )
+                        : SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 50),
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.movie_filter_rounded, color: TxaTheme.textMuted, size: 44),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      TxaLanguage.t('no_movies_found'),
+                                      style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                  )
               else
                 SliverPadding(
                   padding: const EdgeInsets.only(left: 14, right: 14, top: 12, bottom: 100),
@@ -1432,6 +1485,7 @@ class _TxaHeroCarouselState extends State<TxaHeroCarousel> {
   late PageController _pageController;
   int _currentPage = 0;
   Timer? _autoScrollTimer;
+  bool _isPaused = false;
 
   @override
   void initState() {
@@ -1442,9 +1496,9 @@ class _TxaHeroCarouselState extends State<TxaHeroCarousel> {
 
   void _startAutoScroll() {
     _autoScrollTimer?.cancel();
-    if (widget.movies.length <= 1) return;
+    if (widget.movies.length <= 1 || _isPaused) return;
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (!mounted) return;
+      if (!mounted || _isPaused) return;
       if (_pageController.hasClients) {
         final nextPage = (_currentPage + 1) % widget.movies.length;
         _pageController.animateToPage(
@@ -1452,6 +1506,17 @@ class _TxaHeroCarouselState extends State<TxaHeroCarousel> {
           duration: const Duration(milliseconds: 600),
           curve: Curves.easeInOut,
         );
+      }
+    });
+  }
+
+  void _togglePause() {
+    setState(() {
+      _isPaused = !_isPaused;
+      if (_isPaused) {
+        _autoScrollTimer?.cancel();
+      } else {
+        _startAutoScroll();
       }
     });
   }
@@ -1467,252 +1532,308 @@ class _TxaHeroCarouselState extends State<TxaHeroCarousel> {
   Widget build(BuildContext context) {
     if (widget.movies.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      key: TxaCoachKeys.heroKey,
-      height: 230,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: TxaTheme.liquidGlassPill(
-        radius: 20,
-        child: Stack(
-          children: [
-            // PageView Carousel
-            PageView.builder(
-              controller: _pageController,
-              itemCount: widget.movies.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentPage = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                final movie = widget.movies[index];
-                final thumbUrl = movie['thumb_url'] ?? movie['poster_url'] ?? '';
-                final name = movie['name'] ?? '';
-                final originName = movie['origin_name'] ?? '';
-                final quality = movie['quality'] ?? 'FHD';
-                final lang = movie['lang'] ?? 'Vietsub';
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: 'Featured Movies Carousel',
+      child: Container(
+        key: TxaCoachKeys.heroKey,
+        height: 230,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: TxaTheme.liquidGlassPill(
+          radius: 20,
+          child: Stack(
+            children: [
+              // Horizontal track PageView Carousel
+              PageView.builder(
+                controller: _pageController,
+                itemCount: widget.movies.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final movie = widget.movies[index];
+                  final thumbUrl = movie['thumb_url'] ?? movie['poster_url'] ?? '';
+                  final name = movie['name'] ?? '';
+                  final originName = movie['origin_name'] ?? '';
+                  final quality = movie['quality'] ?? 'FHD';
+                  final lang = movie['lang'] ?? 'Vietsub';
 
-                return Stack(
-                  children: [
-                    // Spotlight thumb background
-                    Positioned.fill(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: CachedNetworkImage(
-                          imageUrl: thumbUrl,
-                          fit: BoxFit.cover,
-                          errorWidget: (context, url, error) => Container(color: TxaTheme.cardBg),
-                        ),
-                      ),
-                    ),
-                    // Bottom gradient overlay
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.black.withValues(alpha: 0.88),
-                              Colors.black.withValues(alpha: 0.15),
-                            ],
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
+                  return Semantics(
+                    container: true,
+                    label: '${index + 1} of ${widget.movies.length}: $name',
+                    child: Stack(
+                      children: [
+                        // Spotlight thumb background
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: CachedNetworkImage(
+                              imageUrl: thumbUrl,
+                              fit: BoxFit.cover,
+                              errorWidget: (context, url, error) => Container(color: TxaTheme.cardBg),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    // Content Info
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Row(
+                        // Bottom gradient overlay
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.88),
+                                  Colors.black.withValues(alpha: 0.15),
+                                ],
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Content Info
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: TxaTheme.accent,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  quality,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: TxaTheme.accent,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      quality,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    lang,
+                                    style: const TextStyle(
+                                      color: TxaTheme.textSecondary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(height: 2),
                               Text(
-                                lang,
-                                style: const TextStyle(
-                                  color: TxaTheme.textSecondary,
+                                originName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.6),
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (ctx) => MovieDetailScreen(slug: movie['slug'] ?? ''),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                ),
+                                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                                label: Text(
+                                  TxaLanguage.t('watch_now'),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              // Visible Pause / Play Auto-rotation Control Button (Top Left)
+              if (widget.movies.length > 1)
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: GestureDetector(
+                    onTap: _togglePause,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                            color: _isPaused ? TxaTheme.accent : Colors.white70,
+                            size: 14,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(width: 4),
                           Text(
-                            originName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            _isPaused ? 'PLAY' : 'PAUSE',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (ctx) => MovieDetailScreen(slug: movie['slug'] ?? ''),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            ),
-                            icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                            label: Text(
-                              TxaLanguage.t('watch_now'),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              color: _isPaused ? TxaTheme.accent : Colors.white70,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                );
-              },
-            ),
+                  ),
+                ),
 
-            // Left Navigation Arrow Button
-            if (widget.movies.length > 1)
-              Positioned(
-                left: 8,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      final prevPage = (_currentPage - 1 + widget.movies.length) % widget.movies.length;
-                      _pageController.animateToPage(
-                        prevPage,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
+              // Left Navigation Arrow Button (Paged one at a time)
+              if (widget.movies.length > 1)
+                Positioned(
+                  left: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        final prevPage = (_currentPage - 1 + widget.movies.length) % widget.movies.length;
+                        _pageController.animateToPage(
+                          prevPage,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        ),
+                        child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 22),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Right Navigation Arrow Button (Paged one at a time)
+              if (widget.movies.length > 1)
+                Positioned(
+                  right: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        final nextPage = (_currentPage + 1) % widget.movies.length;
+                        _pageController.animateToPage(
+                          nextPage,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        ),
+                        child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 22),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Top Right Indicator Counter Badge ("2 of 3" style position label)
+              if (widget.movies.length > 1)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    child: Text(
+                      '${_currentPage + 1} of ${widget.movies.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Bottom Interactive Slide Picker Dots
+              if (widget.movies.length > 1)
+                Positioned(
+                  bottom: 14,
+                  right: 16,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(widget.movies.length, (index) {
+                      final isSelected = _currentPage == index;
+                      return GestureDetector(
+                        onTap: () {
+                          _pageController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 350),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: isSelected ? 18 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(3),
+                            color: isSelected ? TxaTheme.accent : Colors.white.withValues(alpha: 0.35),
+                          ),
+                        ),
                       );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                      ),
-                      child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 22),
-                    ),
+                    }),
                   ),
                 ),
-              ),
-
-            // Right Navigation Arrow Button
-            if (widget.movies.length > 1)
-              Positioned(
-                right: 8,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      final nextPage = (_currentPage + 1) % widget.movies.length;
-                      _pageController.animateToPage(
-                        nextPage,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                      ),
-                      child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 22),
-                    ),
-                  ),
-                ),
-              ),
-
-            // Top Right Indicator Counter Badge (e.g. 1/5)
-            if (widget.movies.length > 1)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                  ),
-                  child: Text(
-                    '${_currentPage + 1}/${widget.movies.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-
-            // Bottom Indicator Dots
-            if (widget.movies.length > 1)
-              Positioned(
-                bottom: 14,
-                right: 16,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(widget.movies.length, (index) {
-                    final isSelected = _currentPage == index;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: isSelected ? 18 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(3),
-                        color: isSelected ? TxaTheme.accent : Colors.white.withValues(alpha: 0.35),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
