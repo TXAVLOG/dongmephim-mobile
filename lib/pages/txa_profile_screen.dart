@@ -509,20 +509,26 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                     ? rawSaleMonthly.round()
                     : int.tryParse(rawSaleMonthly?.toString() ?? '') ?? monthlyPrice;
 
-            final effectiveMonthly = isSaleActive ? saleMonthlyPrice : monthlyPrice;
+            final rawEffectiveMonthly = selectedPkg['effective_price'] ?? (isSaleActive ? saleMonthlyPrice : monthlyPrice);
+            final effectiveMonthly = (rawEffectiveMonthly is int)
+                ? rawEffectiveMonthly
+                : (rawEffectiveMonthly is num)
+                    ? rawEffectiveMonthly.round()
+                    : int.tryParse(rawEffectiveMonthly?.toString() ?? '0') ?? monthlyPrice;
 
-            final rawAnnualPrice = isSaleActive && selectedPkg['sale_annual_price'] != null
-                ? selectedPkg['sale_annual_price']
-                : (selectedPkg['annual_price'] ?? selectedPkg['effective_annual_price']);
+            final rawEffectiveAnnual = selectedPkg['effective_annual_price'] ??
+                (isSaleActive && selectedPkg['sale_annual_price'] != null
+                    ? selectedPkg['sale_annual_price']
+                    : selectedPkg['annual_price']);
 
-            final hasAnnual = rawAnnualPrice != null && rawAnnualPrice != 0;
+            final hasAnnual = rawEffectiveAnnual != null && rawEffectiveAnnual != 0;
 
             final annualPrice = hasAnnual
-                ? ((rawAnnualPrice is int)
-                    ? rawAnnualPrice
-                    : (rawAnnualPrice is num)
-                        ? rawAnnualPrice.round()
-                        : int.tryParse(rawAnnualPrice.toString()) ?? (effectiveMonthly * 12))
+                ? ((rawEffectiveAnnual is int)
+                    ? rawEffectiveAnnual
+                    : (rawEffectiveAnnual is num)
+                        ? rawEffectiveAnnual.round()
+                        : int.tryParse(rawEffectiveAnnual.toString()) ?? (effectiveMonthly * 12))
                 : (effectiveMonthly * 12);
 
             final baseAnnualForDiscount = (monthlyPrice * 12);
