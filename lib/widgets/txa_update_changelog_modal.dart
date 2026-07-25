@@ -58,8 +58,13 @@ class TxaUpdateChangelogModal extends StatelessWidget {
               orElse: () => apiChangelogs.first,
             ) as Map<String, dynamic>;
 
-            ver = (matching['version'] ?? currentVer).toString();
-            date = (matching['date'] ?? '').toString();
+            final rawDate = (matching['date'] ?? '').toString();
+            if (rawDate.contains('-')) {
+              final parts = rawDate.split('-');
+              date = parts.length == 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : rawDate;
+            } else {
+              date = rawDate;
+            }
             title = (matching['title'] ?? '').toString();
             final contentStr = (matching['content'] ?? '').toString();
             if (contentStr.isNotEmpty) {
