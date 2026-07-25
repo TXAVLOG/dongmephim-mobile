@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_api.dart';
 import '../services/txa_language.dart';
+import '../services/txa_iap_service.dart';
 import '../services/txa_favorite_manager.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
@@ -1224,10 +1225,10 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                               child: TextButton.icon(
                                 onPressed: () async {
                                   Navigator.pop(ctx);
-                                  TxaToast.show(context, 'Đang đồng bộ giao dịch & kiểm tra gói...');
+                                  TxaToast.show(context, TxaLanguage.t('syncing_account'));
                                   await _loadCabinetData();
                                   if (!mounted) return;
-                                  TxaToast.show(context, 'Đã cập nhật trạng thái tài khoản mới nhất! 🎉');
+                                  TxaToast.show(context, TxaLanguage.t('sync_sub_success'));
                                 },
                                 icon: const Icon(Icons.sync_rounded, color: Colors.amber, size: 16),
                                 label: const Text(
