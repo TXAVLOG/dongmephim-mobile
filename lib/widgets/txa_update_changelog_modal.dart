@@ -44,11 +44,11 @@ class TxaUpdateChangelogModal extends StatelessWidget {
 
       if (lastSeen != currentVer) {
         String ver = currentVer;
-        String date = TxaVersion.updateDate;
-        String title = TxaVersion.currentTitle;
-        List<String> lines = List.from(TxaVersion.currentChangelog);
+        String date = '';
+        String title = '';
+        List<String> lines = [];
 
-        // Attempt to fetch fresh changelogs from backend API
+        // Fetch changelogs dynamically from web backend API
         try {
           final apiChangelogs = await TxaApi().getChangelog();
           if (apiChangelogs.isNotEmpty) {
@@ -59,8 +59,8 @@ class TxaUpdateChangelogModal extends StatelessWidget {
             ) as Map<String, dynamic>;
 
             ver = (matching['version'] ?? currentVer).toString();
-            date = (matching['date'] ?? TxaVersion.updateDate).toString();
-            title = (matching['title'] ?? TxaVersion.currentTitle).toString();
+            date = (matching['date'] ?? '').toString();
+            title = (matching['title'] ?? '').toString();
             final contentStr = (matching['content'] ?? '').toString();
             if (contentStr.isNotEmpty) {
               lines = contentStr
@@ -252,22 +252,24 @@ class TxaUpdateChangelogModal extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today_rounded,
-                                  color: TxaTheme.textMuted, size: 12),
-                              const SizedBox(width: 5),
-                              Text(
-                                TxaLanguage.t('update_modal_date', replace: {'date': date}),
-                                style: const TextStyle(
-                                  color: TxaTheme.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                          if (date.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today_rounded,
+                                    color: TxaTheme.textMuted, size: 12),
+                                const SizedBox(width: 5),
+                                Text(
+                                  TxaLanguage.t('update_modal_date', replace: {'date': date}),
+                                  style: const TextStyle(
+                                    color: TxaTheme.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
