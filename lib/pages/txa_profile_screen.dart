@@ -25,7 +25,6 @@ import '../auth/google/txa_google_auth_factory.dart';
 import '../utils/txa_logger.dart';
 import 'txa_movie_detail_screen.dart';
 import 'txa_custom_icon_screen.dart';
-import '../services/txa_dynamic_icon_service.dart';
 import 'txa_qr_scan_screen.dart';
 import 'txa_favorites_list_screen.dart';
 import 'txa_watch_history_screen.dart';

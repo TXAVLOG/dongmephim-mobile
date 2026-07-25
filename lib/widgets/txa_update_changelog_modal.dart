@@ -419,6 +419,7 @@ class TxaUpdateChangelogModal extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

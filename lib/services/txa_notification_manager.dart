@@ -69,12 +69,12 @@ class TxaNotificationManager {
     // Start periodic polling every 2 minutes while app is in foreground
     _timer = Timer.periodic(const Duration(minutes: 2), (timer) {
       _pollNotifications();
-      _checkBackgroundUpdates();
+      checkBackgroundUpdates();
     });
 
     // Run checks immediately on start
     _pollNotifications();
-    _checkBackgroundUpdates();
+    checkBackgroundUpdates();
   }
 
   Future<void> _initLocalNotifications() async {
