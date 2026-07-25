@@ -52,11 +52,16 @@ class TxaUpdateChangelogModal extends StatelessWidget {
         try {
           final apiChangelogs = await TxaApi().getChangelog();
           if (apiChangelogs.isNotEmpty) {
-            final first = apiChangelogs.first as Map<String, dynamic>;
-            ver = (first['version'] ?? currentVer).toString();
-            date = (first['date'] ?? TxaVersion.updateDate).toString();
-            title = (first['title'] ?? TxaVersion.currentTitle).toString();
-            final contentStr = (first['content'] ?? '').toString();
+            // Match the specific changelog item for this release version
+            final matching = apiChangelogs.firstWhere(
+              (item) => (item['version'] ?? '').toString() == currentVer,
+              orElse: () => apiChangelogs.first,
+            ) as Map<String, dynamic>;
+
+            ver = (matching['version'] ?? currentVer).toString();
+            date = (matching['date'] ?? TxaVersion.updateDate).toString();
+            title = (matching['title'] ?? TxaVersion.currentTitle).toString();
+            final contentStr = (matching['content'] ?? '').toString();
             if (contentStr.isNotEmpty) {
               lines = contentStr
                   .split('\n')
