@@ -2394,7 +2394,6 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
 
   Widget _buildVIPCard(Map<String, dynamic> user) {
     final isVIP = (user['package'] ?? 'free').toString().toLowerCase() != 'free';
-    final pkgId = (user['package'] ?? 'free').toString();
     final packageName = isVIP ? (user['package_title'] ?? 'MEMBER VIP').toString().toUpperCase() : 'FREE ACCOUNT';
     final expiryStr = user['expiry_date'] ?? user['expiryDate'];
     
