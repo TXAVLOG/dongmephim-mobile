@@ -795,12 +795,16 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '${NumberFormatCurrency.format(annualMonthlyEquivalent)}/tháng',
+                                              TxaLanguage.t('price_per_month', replace: {
+                                                'price': NumberFormatCurrency.format(annualMonthlyEquivalent),
+                                              }),
                                               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
-                                              'Thanh toán ${NumberFormatCurrency.format(annualPrice)}/năm',
+                                              TxaLanguage.t('annual_billed_note', replace: {
+                                                'price': NumberFormatCurrency.format(annualPrice),
+                                              }),
                                               style: TextStyle(
                                                 color: selectedCycle == 'annual' ? Colors.amberAccent : Colors.white54,
                                                 fontSize: 10,
