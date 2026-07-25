@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../txa_google_auth_strategy.dart';
+import '../../../services/txa_language.dart';
 import '../../../utils/txa_logger.dart';
 
 class MobileGoogleAuthStrategy implements TxaGoogleAuthStrategy {
@@ -9,9 +10,8 @@ class MobileGoogleAuthStrategy implements TxaGoogleAuthStrategy {
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     serverClientId: _webClientId,
+    scopes: ['email', 'profile'],
   );
-
-  final GoogleSignIn _fallbackGoogleSignIn = GoogleSignIn();
 
   @override
   Future<Map<String, String?>> authenticate(BuildContext context) async {
@@ -21,29 +21,30 @@ class MobileGoogleAuthStrategy implements TxaGoogleAuthStrategy {
         await _googleSignIn.signOut();
       }
 
-      GoogleSignInAccount? account;
-      try {
-        account = await _googleSignIn.signIn();
-      } catch (e) {
-        TxaLogger.log('Primary GoogleSignIn failed ($e), trying fallback...', type: 'auth');
-        // Fallback sign in without serverClientId if code 10 occurred
-        account = await _fallbackGoogleSignIn.signIn();
-      }
+      final GoogleSignInAccount? account = await _googleSignIn.signIn();
 
       if (account == null) {
-        throw Exception('Đã hủy đăng nhập Google.');
+        throw Exception(TxaLanguage.t('google_login_canceled'));
       }
 
       final GoogleSignInAuthentication auth = await account.authentication;
+      final idToken = auth.idToken;
+      final accessToken = auth.accessToken;
+
+      TxaLogger.log('Mobile Google Auth: email=${account.email}, hasIdToken=${idToken != null && idToken.isNotEmpty}', type: 'auth');
+
       return {
-        'idToken': auth.idToken,
-        'accessToken': auth.accessToken,
+        'idToken': idToken,
+        'accessToken': accessToken,
+        'email': account.email,
+        'displayName': account.displayName,
+        'photoUrl': account.photoUrl,
       };
     } catch (e) {
       TxaLogger.log('MobileGoogleAuthStrategy error: $e', type: 'auth');
       final errorStr = e.toString();
       if (errorStr.contains('10:') || errorStr.contains('DEVELOPER_ERROR')) {
-        throw Exception('Chưa cấu hình SHA-1 App Signing trên Google Play Console với Firebase (Mã 10).');
+        throw Exception(TxaLanguage.t('google_sha1_missing_err'));
       }
       rethrow;
     }

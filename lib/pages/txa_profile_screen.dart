@@ -221,6 +221,8 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       final result = await auth.loginWithGoogle(
         idToken: tokens['idToken'],
         accessToken: tokens['accessToken'],
+        email: tokens['email'],
+        displayName: tokens['displayName'],
       );
 
       if (!mounted) return;
@@ -840,23 +842,32 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                               ),
                               child: Builder(
                                 builder: (context) {
-                                  final showGooglePlay = Platform.isAndroid && !TxaPlatform.isTV;
+                                  final pkgIdStr = (selectedPkg['id'] ?? '').toString().toLowerCase();
+                                  final isIconPackage = pkgIdStr == 'custom_icon' ||
+                                                        pkgIdStr == 'custom_icon_monthly' ||
+                                                        pkgIdStr.contains('icon');
+
+                                  final showGooglePlay = isIconPackage && !kIsWeb && Platform.isAndroid && !TxaPlatform.isTV;
+                                  final showAppStore = isIconPackage && !kIsWeb && Platform.isIOS && !TxaPlatform.isTV;
                                   final showSepay = paymentInfo['sepay_enable'] == true;
                                   final showManual = paymentInfo['manual_enable'] == true;
-                                  
-                                  if (selectedPaymentMethod == 'google_play' && !showGooglePlay) {
+
+                                  final iapMethodKey = showAppStore ? 'app_store' : 'google_play';
+                                  final showIap = showGooglePlay || showAppStore;
+
+                                  if ((selectedPaymentMethod == 'google_play' || selectedPaymentMethod == 'app_store') && !showIap) {
                                     selectedPaymentMethod = showSepay ? 'sepay' : 'vietqr';
                                   } else if (selectedPaymentMethod == 'sepay' && !showSepay) {
-                                    selectedPaymentMethod = showGooglePlay ? 'google_play' : 'vietqr';
+                                    selectedPaymentMethod = showIap ? iapMethodKey : 'vietqr';
                                   } else if (selectedPaymentMethod == 'vietqr' && !showManual) {
-                                    selectedPaymentMethod = showGooglePlay ? 'google_play' : (showSepay ? 'sepay' : 'vietqr');
+                                    selectedPaymentMethod = showIap ? iapMethodKey : (showSepay ? 'sepay' : 'vietqr');
                                   }
 
                                   return Column(
                                     children: [
-                                      if (showGooglePlay) ...[
+                                      if (showIap) ...[
                                         GestureDetector(
-                                          onTap: () => setModalState(() => selectedPaymentMethod = 'google_play'),
+                                          onTap: () => setModalState(() => selectedPaymentMethod = iapMethodKey),
                                           child: Container(
                                             padding: const EdgeInsets.all(16),
                                             color: Colors.transparent,
@@ -870,11 +881,11 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                                   decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
                                                     border: Border.all(
-                                                      color: selectedPaymentMethod == 'google_play' ? Colors.amber : Colors.white30,
+                                                      color: (selectedPaymentMethod == 'google_play' || selectedPaymentMethod == 'app_store') ? Colors.amber : Colors.white30,
                                                       width: 2,
                                                     ),
                                                   ),
-                                                  child: selectedPaymentMethod == 'google_play'
+                                                  child: (selectedPaymentMethod == 'google_play' || selectedPaymentMethod == 'app_store')
                                                       ? Center(
                                                           child: Container(
                                                             width: 10,
@@ -893,12 +904,12 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                                     crossAxisAlignment: CrossAxisAlignment.start,
                                                     children: [
                                                       Text(
-                                                        TxaLanguage.t('google_play_title'),
+                                                        TxaLanguage.t(showAppStore ? 'app_store_title' : 'google_play_title'),
                                                         style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                                                       ),
                                                       const SizedBox(height: 4),
                                                       Text(
-                                                        TxaLanguage.t('google_play_desc'),
+                                                        TxaLanguage.t(showAppStore ? 'app_store_desc' : 'google_play_desc'),
                                                         style: const TextStyle(color: Colors.white54, fontSize: 11),
                                                       ),
                                                     ],
@@ -1293,10 +1304,11 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                     if (!context.mounted) return;
                                     Navigator.pop(ctx); // Close dialog
 
-                                     if (selectedPaymentMethod == 'google_play') {
-                                       Navigator.pop(ctx);
+                                     if (selectedPaymentMethod == 'google_play' || selectedPaymentMethod == 'app_store') {
+                                       final isAppStore = selectedPaymentMethod == 'app_store';
+                                       final storeName = isAppStore ? 'App Store' : 'Google Play';
                                        if (context.mounted) {
-                                         TxaToast.show(context, 'Đang mở cửa hàng thanh toán Google Play...');
+                                         TxaToast.show(context, 'Đang mở cửa hàng thanh toán $storeName...');
                                        }
                                        String iapProductId = TxaIapService.productIdCustomIcon;
                                        if (pkgId.contains('p2') || pkgId == 'TXA_P2_28062026_0005' || pkgTitle.toLowerCase().contains('vip')) {
@@ -1306,7 +1318,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                        }
                                        final success = await TxaIapService().buyProduct(iapProductId);
                                        if (!success && context.mounted) {
-                                         TxaToast.show(context, 'Giao dịch Google Play chưa hoàn tất.', isError: true);
+                                         TxaToast.show(context, 'Giao dịch $storeName chưa hoàn tất.', isError: true);
                                        }
                                      } else if (selectedPaymentMethod == 'sepay') {
                                       // Open SePay Payment gateway web page

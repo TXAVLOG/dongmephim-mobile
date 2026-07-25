@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -435,14 +437,19 @@ class _TxaZaloBypassModalState extends State<TxaZaloBypassModal> {
                     ),
                     elevation: 4,
                   ),
-                  child: Text(
-                    isAdmin
-                        ? 'Mua Ngay qua Google Play (Ưu đãi Admin)'
-                        : 'Mua Ngay qua Google Play',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Builder(
+                    builder: (context) {
+                      final storeName = (!kIsWeb && Platform.isIOS) ? 'App Store' : 'Google Play';
+                      return Text(
+                        isAdmin
+                            ? 'Mua Ngay qua $storeName (Ưu đãi Admin)'
+                            : 'Mua Ngay qua $storeName',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

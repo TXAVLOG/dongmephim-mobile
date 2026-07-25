@@ -50,6 +50,8 @@ class _TxaGoogleAuthModalState extends State<TxaGoogleAuthModal> {
       final result = await auth.loginWithGoogle(
         idToken: tokens['idToken'],
         accessToken: tokens['accessToken'],
+        email: tokens['email'],
+        displayName: tokens['displayName'],
       );
 
       if (!mounted) return;

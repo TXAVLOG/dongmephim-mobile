@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../services/txa_auth_service.dart';
 import '../services/txa_language.dart';
 import '../services/txa_api.dart';
 import '../services/txa_permission.dart';
@@ -11,6 +12,7 @@ import '../services/txa_play_update_service.dart';
 import '../theme/txa_theme.dart';
 import '../widgets/txa_error_widget.dart';
 import '../widgets/txa_maintenance_screen.dart';
+import '../utils/txa_toast.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onFinish;
@@ -144,12 +146,21 @@ class _SplashScreenState extends State<SplashScreen>
       // Fail silently
     }
 
-    // 5. Language Init
+    // 5. Language & Auth Session Init
     setState(() {
       _status = TxaLanguage.t('splash_init_language'); // "Khởi tạo ngôn ngữ..."
       _progress = 0.8;
     });
     await TxaLanguage.init();
+    if (mounted) {
+      await TxaAuthService().initialize(
+        onShowToast: (msg, {bool isError = false}) {
+          if (mounted) {
+            TxaToast.show(context, msg, isError: isError);
+          }
+        },
+      );
+    }
 
     setState(() {
       _status = TxaLanguage.t('success');

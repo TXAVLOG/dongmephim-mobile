@@ -61,15 +61,22 @@ class TxaApi {
     return null;
   }
 
-  Future<Map<String, dynamic>?> googleLogin({String? credential, String? accessToken}) async {
+  Future<Map<String, dynamic>?> googleLogin({
+    String? credential,
+    String? accessToken,
+    String? email,
+    String? displayName,
+  }) async {
     final url = Uri.parse('$baseUrl/api/auth/google-login');
     try {
       final response = await http.post(
         url,
         headers: await _getHeaders(),
         body: jsonEncode({
-          if (credential != null) 'credential': credential,
-          if (accessToken != null) 'accessToken': accessToken,
+          if (credential != null && credential.isNotEmpty) 'credential': credential,
+          if (accessToken != null && accessToken.isNotEmpty) 'accessToken': accessToken,
+          if (email != null && email.isNotEmpty) 'email': email,
+          if (displayName != null && displayName.isNotEmpty) 'displayName': displayName,
         }),
       );
 
@@ -92,6 +99,8 @@ class TxaApi {
   Future<Map<String, dynamic>?> googleRegister({
     String? credential,
     String? accessToken,
+    String? email,
+    String? displayName,
     required String gender,
     required String province,
     required String ward,
@@ -103,8 +112,10 @@ class TxaApi {
         url,
         headers: await _getHeaders(),
         body: jsonEncode({
-          if (credential != null) 'credential': credential,
-          if (accessToken != null) 'accessToken': accessToken,
+          if (credential != null && credential.isNotEmpty) 'credential': credential,
+          if (accessToken != null && accessToken.isNotEmpty) 'accessToken': accessToken,
+          if (email != null && email.isNotEmpty) 'email': email,
+          if (displayName != null && displayName.isNotEmpty) 'displayName': displayName,
           'gender': gender,
           'province': province,
           'ward': ward,
@@ -129,6 +140,14 @@ class TxaApi {
   }
 
   Future<Map<String, dynamic>?> getProfile() async {
+    final statusRes = await getProfileStatus();
+    if (statusRes['status'] == 'success') {
+      return statusRes['data'] as Map<String, dynamic>?;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> getProfileStatus() async {
     final url = Uri.parse('$baseUrl/api/auth/me');
     try {
       final response = await http.get(
@@ -141,16 +160,40 @@ class TxaApi {
         statusCode: response.statusCode,
         responseBody: utf8.decode(response.bodyBytes),
       );
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decoded is Map<String, dynamic> && decoded['success'] == true) {
-          return decoded['data'] as Map<String, dynamic>?;
+
+      final statusCode = response.statusCode;
+      final bodyStr = utf8.decode(response.bodyBytes);
+      Map<String, dynamic>? decoded;
+      try {
+        decoded = jsonDecode(bodyStr) as Map<String, dynamic>?;
+      } catch (_) {}
+
+      if (statusCode == 200) {
+        if (decoded != null && decoded['success'] == true) {
+          return {
+            'status': 'success',
+            'statusCode': 200,
+            'data': decoded['data'],
+          };
         }
       }
+
+      if (statusCode == 401 || statusCode == 403 || statusCode == 404 || (decoded != null && decoded['success'] == false)) {
+        final msg = decoded?['message']?.toString().toLowerCase() ?? '';
+        final isBanned = msg.contains('banned') || msg.contains('khoá') || msg.contains('tạm dừng') || msg.contains('lock');
+        final isDeleted = msg.contains('deleted') || msg.contains('xóa') || msg.contains('không tồn tại') || statusCode == 404;
+
+        return {
+          'status': isBanned ? 'banned' : (isDeleted ? 'deleted' : 'unauthorized'),
+          'statusCode': statusCode,
+          'message': decoded?['message'] ?? 'Phiên đăng nhập không còn hợp lệ',
+        };
+      }
     } catch (e) {
-      TxaLogger.log('TxaApi getProfile error: $e', type: 'api');
+      TxaLogger.log('TxaApi getProfileStatus error: $e', type: 'api');
+      return {'status': 'network_error', 'message': e.toString()};
     }
-    return null;
+    return {'status': 'unknown_error'};
   }
 
   Future<Map<String, dynamic>?> updateAvatar(String base64Image, {String? userId}) async {
