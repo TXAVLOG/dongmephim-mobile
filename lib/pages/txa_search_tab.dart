@@ -746,7 +746,9 @@ class _SearchTabState extends State<SearchTab>
                 }
 
                 final movie = _movies[index];
-                return _buildMovieGridCard(movie);
+                return RepaintBoundary(
+                  child: _buildMovieGridCard(movie),
+                );
               },
             ),
           );
@@ -789,9 +791,16 @@ class _SearchTabState extends State<SearchTab>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Movie Poster inside Liquid Glass card
-            TxaTheme.liquidGlassPill(
-              radius: 16,
+            // Lightweight Container card instead of heavy BackdropFilter
+            Container(
+              decoration: BoxDecoration(
+                color: TxaTheme.cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 1.0,
+                ),
+              ),
               child: AspectRatio(
                 aspectRatio: 120 / 160,
                 child: Stack(
@@ -802,6 +811,7 @@ class _SearchTabState extends State<SearchTab>
                         child: CachedNetworkImage(
                           imageUrl: posterUrl,
                           fit: BoxFit.cover,
+                          memCacheWidth: 250,
                           errorWidget: (context, url, error) =>
                               Container(color: TxaTheme.cardBg),
                         ),

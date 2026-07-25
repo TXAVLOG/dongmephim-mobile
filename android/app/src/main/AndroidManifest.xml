@@ -62,13 +62,13 @@
                 <data android:scheme="dongmephim" />
             </intent-filter>
 
-            <!-- App Links: Auto-verify domain dongmephim.online to open app directly -->
+            <!-- App Links: Auto-verify domain dongmephim.online/app to open app directly -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="dongmephim.online" />
-                <data android:scheme="http" android:host="dongmephim.online" />
+                <data android:scheme="https" android:host="dongmephim.online" android:pathPrefix="/app" />
+                <data android:scheme="http" android:host="dongmephim.online" android:pathPrefix="/app" />
             </intent-filter>
         </activity>
 
