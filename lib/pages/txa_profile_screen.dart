@@ -55,6 +55,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   List<dynamic> _history = [];
   List<dynamic> _payments = [];
   Map<String, dynamic>? _packagesData;
+  int _selectedIconIndex = 0;
 
   @override
   void initState() {
@@ -1985,6 +1986,11 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                   child: _buildVIPCard(auth.user!),
                 ),
 
+                // Custom App Icon Selector Section
+                SliverToBoxAdapter(
+                  child: _buildCustomAppIconSection(auth.user!),
+                ),
+
                 // Watch History Shelf
                 SliverToBoxAdapter(
                   child: _buildWatchHistoryShelf(),
@@ -2384,6 +2390,235 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _canUseCustomIcons(Map<String, dynamic> user) {
+    final pkg = (user['package'] ?? 'free').toString().toLowerCase();
+    final role = (user['role'] ?? 'user').toString().toLowerCase();
+    if (role == 'admin' || role == 'superadmin') return true;
+    if (pkg == 'custom_icon' || pkg.contains('icon') || pkg == 'vip' || pkg == 'dongphims' || pkg.contains('p2') || pkg.contains('p3')) {
+      return true;
+    }
+    final perms = user['permissions'] as Map<String, dynamic>?;
+    if (perms != null && perms['custom_app_icon'] == true) return true;
+    return false;
+  }
+
+  Widget _buildCustomAppIconSection(Map<String, dynamic> user) {
+    final hasIconPerm = _canUseCustomIcons(user);
+
+    final iconsList = [
+      {
+        'name': 'Mặc Định Neon',
+        'subtitle': 'Đỏ Neon Nguyên Bản',
+        'color1': const Color(0xFFE50914),
+        'color2': const Color(0xFF800000),
+        'icon': Icons.movie_filter_rounded,
+        'free': true,
+      },
+      {
+        'name': 'Vũ Trụ Cyber',
+        'subtitle': 'Tím Hồng Tinh Vân',
+        'color1': const Color(0xFFA855F7),
+        'color2': const Color(0xFFEC4899),
+        'icon': Icons.auto_awesome_rounded,
+        'free': false,
+      },
+      {
+        'name': 'Hoàng Gia Gold',
+        'subtitle': 'Vàng VIP Sang Trọng',
+        'color1': const Color(0xFFFFD700),
+        'color2': const Color(0xFFB8860B),
+        'icon': Icons.military_tech_rounded,
+        'free': false,
+      },
+      {
+        'name': 'Kim Cương Cyan',
+        'subtitle': 'Xanh Băng Tuyết',
+        'color1': const Color(0xFF00F2FE),
+        'color2': const Color(0xFF4FACFE),
+        'icon': Icons.diamond_rounded,
+        'free': false,
+      },
+      {
+        'name': 'Lục Bảo Emerald',
+        'subtitle': 'Xanh Ngọc Bảo',
+        'color1': const Color(0xFF10B981),
+        'color2': const Color(0xFF047857),
+        'icon': Icons.workspace_premium_rounded,
+        'free': false,
+      },
+    ];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: TxaTheme.liquidGlassPill(
+        radius: 20,
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.app_shortcut_rounded, color: Color(0xFFEC4899), size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      'Bộ Icon Ứng Dụng Độc Quyền',
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                if (!hasIconPerm)
+                  GestureDetector(
+                    onTap: _showVIPUpgradeDialog,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEC4899).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.lock_rounded, color: Color(0xFFEC4899), size: 12),
+                          SizedBox(width: 4),
+                          Text(
+                            'Gói 9k/tháng',
+                            style: TextStyle(color: Color(0xFFEC4899), fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              hasIconPerm
+                  ? 'Chọn biểu tượng màn hình chính bạn yêu thích'
+                  : 'Đăng ký Gói Đổi Icon App (9.000đ/tháng) hoặc gói VIP để mở khóa',
+              style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 11),
+            ),
+            const SizedBox(height: 14),
+
+            // Horizontal Grid of App Icons
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(iconsList.length, (index) {
+                  final item = iconsList[index];
+                  final isSelected = _selectedIconIndex == index;
+                  final isFree = item['free'] == true;
+                  final isUnlocked = isFree || hasIconPerm;
+
+                  return GestureDetector(
+                    onTap: () {
+                      if (isUnlocked) {
+                        setState(() => _selectedIconIndex = index);
+                        TxaToast.show(context, 'Đã áp dụng Icon "${item['name']}" thành công! 🎉');
+                      } else {
+                        _showVIPUpgradeDialog();
+                      }
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.all(12),
+                      width: 104,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? (item['color1'] as Color)
+                              : Colors.white.withValues(alpha: 0.08),
+                          width: isSelected ? 2.0 : 1.0,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: (item['color1'] as Color).withValues(alpha: 0.4),
+                                  blurRadius: 12,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        children: [
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [item['color1'] as Color, item['color2'] as Color],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (item['color1'] as Color).withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(item['icon'] as IconData, color: Colors.white, size: 24),
+                              ),
+                              if (!isUnlocked)
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(Icons.lock_rounded, color: Colors.white70, size: 20),
+                                ),
+                              if (isSelected)
+                                Positioned(
+                                  right: -2,
+                                  top: -2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.amber,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.check_rounded, color: Colors.black, size: 12),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            item['name'] as String,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white70,
+                              fontSize: 11,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
           ],
         ),
       ),
