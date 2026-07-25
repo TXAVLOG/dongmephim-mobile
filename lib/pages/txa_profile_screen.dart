@@ -2521,22 +2521,41 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   }
 
   bool _canUseCustomIcons(Map<String, dynamic> user) {
-    final pkg = (user['package'] ?? 'free').toString().toLowerCase();
     final role = (user['role'] ?? 'user').toString().toLowerCase();
     if (role == 'admin' || role == 'superadmin') return true;
-    if (pkg == 'custom_icon' || pkg.contains('icon') || pkg == 'vip' || pkg == 'dongphims' || pkg.contains('p2') || pkg.contains('p3')) {
-      return true;
-    }
+
+    // Check dynamic permission flags on user or current package
     if (user['custom_app_icon'] == true || user['allow_custom_icon'] == true) return true;
     final perms = user['permissions'] as Map<String, dynamic>?;
     if (perms != null && (perms['custom_app_icon'] == true || perms['custom_icon'] == true || perms['allow_custom_icon'] == true)) {
       return true;
     }
+
+    // Check package ID and verify expiry date if package is standalone custom_icon or VIP
+    final pkg = (user['package'] ?? 'free').toString().toLowerCase();
+    final expiryStr = user['expiry_date'] ?? user['expiryDate'];
+    if (pkg == 'custom_icon' || pkg.contains('icon') || pkg == 'vip' || pkg == 'dongphims') {
+      if (expiryStr != null && expiryStr.toString().isNotEmpty) {
+        final dt = DateTime.tryParse(expiryStr.toString());
+        if (dt != null && dt.isBefore(DateTime.now())) {
+          return false; // Standalone custom icon or VIP package expired!
+        }
+      }
+      return true;
+    }
+
     return false;
   }
 
   Widget _buildCustomAppIconSection(Map<String, dynamic> user) {
     final hasIconPerm = _canUseCustomIcons(user);
+
+    // Auto-revert to default icon if permission is no longer valid and paid icon was selected
+    if (!hasIconPerm && _selectedIconIndex > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedIconIndex = 0);
+      });
+    }
 
     final iconsList = [
       {
