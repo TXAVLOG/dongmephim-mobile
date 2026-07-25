@@ -2812,196 +2812,164 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: TxaTheme.liquidGlassPill(
-        radius: 20,
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.app_shortcut_rounded, color: Color(0xFFEC4899), size: 22),
-                    const SizedBox(width: 8),
-                    Text(
-                      TxaLanguage.t('custom_icon_section_title'),
-                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (ctx) => const TxaCustomIconScreen()),
+          );
+        },
+        child: TxaTheme.liquidGlassPill(
+          radius: 20,
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              // Glowing Squircle App Icon Badge
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEC4899), Color(0xFFA855F7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFEC4899).withValues(alpha: 0.4),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (ctx) => const TxaCustomIconScreen()),
-                        );
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                child: Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: Image.asset(
+                          'assets/app_icons/icon_ruby.png',
+                          width: 46,
+                          height: 46,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.app_shortcut_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
                       ),
-                      child: Text(
-                        TxaLanguage.t('view_all_icons', replace: {'count': '${iconsList.length}'}),
-                        style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    if (!hasIconPerm) ...[
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: _showVIPUpgradeDialog,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      if (!hasIconPerm)
+                        Container(
+                          width: 46,
+                          height: 46,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEC4899).withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(13),
                           ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.lock_rounded, color: Color(0xFFEC4899), size: 12),
-                              SizedBox(width: 4),
-                              Text(
-                                'Gói 9k/tháng',
-                                style: TextStyle(color: Color(0xFFEC4899), fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
+                          child: const Icon(Icons.lock_rounded, color: Colors.white70, size: 20),
                         ),
-                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              hasIconPerm
-                  ? TxaLanguage.t('custom_icon_section_desc_unlocked')
-                  : TxaLanguage.t('custom_icon_section_desc_locked'),
-              style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 11),
-            ),
-            const SizedBox(height: 14),
+              ),
+              const SizedBox(width: 14),
 
-            // Horizontal Grid of App Icons
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(iconsList.length, (index) {
-                  final item = iconsList[index];
-                  final isSelected = _selectedIconIndex == index;
-                  final isFree = item['free'] == true;
-                  final isUnlocked = isFree || hasIconPerm;
-
-                  return GestureDetector(
-                    onTap: () {
-                      if (isUnlocked) {
-                        setState(() => _selectedIconIndex = index);
-                        TxaToast.show(context, 'Đã áp dụng Icon "${item['name']}" thành công! 🎉');
-                      } else {
-                        _showVIPUpgradeDialog();
-                      }
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.all(12),
-                      width: 104,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected
-                              ? (item['color1'] as Color)
-                              : Colors.white.withValues(alpha: 0.08),
-                          width: isSelected ? 2.0 : 1.0,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: (item['color1'] as Color).withValues(alpha: 0.4),
-                                  blurRadius: 12,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Column(
-                        children: [
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: (item['color1'] as Color).withValues(alpha: 0.35),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: Image.asset(
-                                    item['asset'] as String,
-                                    width: 50,
-                                    height: 50,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                              if (!isUnlocked)
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.6),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: const Icon(Icons.lock_rounded, color: Colors.white70, size: 20),
-                                ),
-                              if (isSelected)
-                                Positioned(
-                                  right: -2,
-                                  top: -2,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.amber,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.check_rounded, color: Colors.black, size: 12),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            item['name'] as String,
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.white70,
-                              fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              // Title & Subtitle Column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            TxaLanguage.t('custom_icon_section_title'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.2,
                             ),
-                            textAlign: TextAlign.center,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
+                        ),
+                        if (!hasIconPerm) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEC4899).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.lock_rounded, color: Color(0xFFEC4899), size: 11),
+                                SizedBox(width: 3),
+                                Text(
+                                  '9k/tháng',
+                                  style: TextStyle(
+                                    color: Color(0xFFEC4899),
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasIconPerm
+                          ? TxaLanguage.t('custom_icon_section_desc_unlocked')
+                          : TxaLanguage.t('custom_icon_section_desc_locked'),
+                      style: const TextStyle(
+                        color: TxaTheme.textSecondary,
+                        fontSize: 11.5,
+                        height: 1.35,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Right Action Pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      TxaLanguage.t('view_all_icons', replace: {'count': '${iconsList.length}'}),
+                      style: const TextStyle(
+                        color: Colors.amber,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  );
-                }),
+                    const SizedBox(width: 2),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.amber, size: 11),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
