@@ -2434,8 +2434,11 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
     if (pkg == 'custom_icon' || pkg.contains('icon') || pkg == 'vip' || pkg == 'dongphims' || pkg.contains('p2') || pkg.contains('p3')) {
       return true;
     }
+    if (user['custom_app_icon'] == true || user['allow_custom_icon'] == true) return true;
     final perms = user['permissions'] as Map<String, dynamic>?;
-    if (perms != null && perms['custom_app_icon'] == true) return true;
+    if (perms != null && (perms['custom_app_icon'] == true || perms['custom_icon'] == true || perms['allow_custom_icon'] == true)) {
+      return true;
+    }
     return false;
   }
 
