@@ -525,9 +525,11 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                         : int.tryParse(rawAnnualPrice.toString()) ?? (effectiveMonthly * 12))
                 : (effectiveMonthly * 12);
 
-            final discountPercent = (effectiveMonthly > 0 && annualPrice > 0 && (effectiveMonthly * 12) > annualPrice)
-                ? ((((effectiveMonthly * 12) - annualPrice) / (effectiveMonthly * 12)) * 100).round()
+            final baseAnnualForDiscount = (monthlyPrice * 12);
+            final discountPercent = (baseAnnualForDiscount > 0 && annualPrice > 0 && baseAnnualForDiscount > annualPrice)
+                ? (((baseAnnualForDiscount - annualPrice) / baseAnnualForDiscount) * 100).round()
                 : 0;
+            final annualMonthlyEquivalent = (annualPrice / 12).round();
 
             final basePrice = selectedCycle == 'monthly' ? effectiveMonthly : annualPrice;
             int discount = 0;
@@ -772,7 +774,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                     child: GestureDetector(
                                       onTap: () => setModalState(() => selectedCycle = 'annual'),
                                       child: Container(
-                                        padding: const EdgeInsets.all(14),
+                                        padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF161A26),
                                           borderRadius: BorderRadius.circular(14),
@@ -784,7 +786,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                         child: Column(
                                           children: [
                                             Text(
-                                              '${TxaLanguage.t('billing_annual_tab')} (-$discountPercent%)',
+                                              '${TxaLanguage.t('billing_annual_tab')}${discountPercent > 0 ? " (-$discountPercent%)" : ""}',
                                               style: TextStyle(
                                                 color: selectedCycle == 'annual' ? Colors.amber : Colors.white70,
                                                 fontWeight: FontWeight.bold,
@@ -793,8 +795,16 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              NumberFormatCurrency.format(annualPrice),
-                                              style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                              '${NumberFormatCurrency.format(annualMonthlyEquivalent)}/tháng',
+                                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Thanh toán ${NumberFormatCurrency.format(annualPrice)}/năm',
+                                              style: TextStyle(
+                                                color: selectedCycle == 'annual' ? Colors.amberAccent : Colors.white54,
+                                                fontSize: 10,
+                                              ),
                                             ),
                                           ],
                                         ),
