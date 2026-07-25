@@ -1204,6 +1204,23 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                       ),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            Center(
+                              child: TextButton.icon(
+                                onPressed: () async {
+                                  Navigator.pop(ctx);
+                                  TxaToast.show(context, 'Đang đồng bộ giao dịch & kiểm tra gói...');
+                                  await _loadCabinetData();
+                                  if (!mounted) return;
+                                  TxaToast.show(context, 'Đã cập nhật trạng thái tài khoản mới nhất! 🎉');
+                                },
+                                icon: const Icon(Icons.sync_rounded, color: Colors.amber, size: 16),
+                                label: const Text(
+                                  'Khôi phục giao dịch / Đã thanh toán',
+                                  style: TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 20),
                           ],
                         ),
