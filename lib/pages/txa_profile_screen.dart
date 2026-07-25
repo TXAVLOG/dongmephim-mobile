@@ -840,17 +840,77 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                               ),
                               child: Builder(
                                 builder: (context) {
+                                  final showGooglePlay = Platform.isAndroid && !TxaPlatform.isTV;
                                   final showSepay = paymentInfo['sepay_enable'] == true;
                                   final showManual = paymentInfo['manual_enable'] == true;
                                   
-                                  if (selectedPaymentMethod == 'sepay' && !showSepay) {
-                                    selectedPaymentMethod = 'vietqr';
-                                  } else if (selectedPaymentMethod == 'vietqr' && !showManual && showSepay) {
-                                    selectedPaymentMethod = 'sepay';
+                                  if (selectedPaymentMethod == 'google_play' && !showGooglePlay) {
+                                    selectedPaymentMethod = showSepay ? 'sepay' : 'vietqr';
+                                  } else if (selectedPaymentMethod == 'sepay' && !showSepay) {
+                                    selectedPaymentMethod = showGooglePlay ? 'google_play' : 'vietqr';
+                                  } else if (selectedPaymentMethod == 'vietqr' && !showManual) {
+                                    selectedPaymentMethod = showGooglePlay ? 'google_play' : (showSepay ? 'sepay' : 'vietqr');
                                   }
 
                                   return Column(
                                     children: [
+                                      if (showGooglePlay) ...[
+                                        GestureDetector(
+                                          onTap: () => setModalState(() => selectedPaymentMethod = 'google_play'),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(16),
+                                            color: Colors.transparent,
+                                            child: Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  width: 20,
+                                                  height: 20,
+                                                  margin: const EdgeInsets.only(top: 2),
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: selectedPaymentMethod == 'google_play' ? Colors.amber : Colors.white30,
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  child: selectedPaymentMethod == 'google_play'
+                                                      ? Center(
+                                                          child: Container(
+                                                            width: 10,
+                                                            height: 10,
+                                                            decoration: const BoxDecoration(
+                                                              shape: BoxShape.circle,
+                                                              color: Colors.amber,
+                                                            ),
+                                                          ),
+                                                        )
+                                                      : null,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        TxaLanguage.t('google_play_title'),
+                                                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        TxaLanguage.t('google_play_desc'),
+                                                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        if (showSepay || showManual)
+                                          const Divider(color: Colors.white10, height: 1),
+                                      ],
                                       if (showSepay) ...[
                                         GestureDetector(
                                           onTap: () => setModalState(() => selectedPaymentMethod = 'sepay'),
@@ -1006,16 +1066,71 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                         setModalState(() {
                                           appliedPromoCode = null;
                                           appliedDiscountAmount = null;
-                                          promoController.clear();
+                                                      promoController.clear();
                                         });
                                       },
                                     )
                                   else
                                     ElevatedButton(
-                                      onPressed: () async {
-                                        final code = promoController.text.trim();
-                                        await applyPromoCode(code);
-                                      },
+                                      onPressed: isSubmitting
+                                          ? null
+                                          : () async {
+                                              setModalState(() => isSubmitting = true);
+                                              try {
+                                                TxaToast.show(context, TxaLanguage.t('syncing_account'));
+                                                final restored = await TxaIapService().restorePurchases();
+                                                await _loadCabinetData();
+                                                if (!context.mounted) return;
+                                                Navigator.pop(ctx);
+
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (alertCtx) => AlertDialog(
+                                                    backgroundColor: TxaTheme.cardBg,
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                                    title: Row(
+                                                      children: [
+                                                        Icon(
+                                                          restored ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                                                          color: restored ? Colors.green : Colors.amber,
+                                                          size: 22,
+                                                        ),
+                                                        const SizedBox(width: 10),
+                                                        Text(
+                                                          TxaLanguage.t('restore_purchase_sync'),
+                                                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    content: Text(
+                                                      restored
+                                                          ? TxaLanguage.t('restore_purchase_success')
+                                                          : TxaLanguage.t('restore_purchase_empty'),
+                                                      style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 13, height: 1.4),
+                                                    ),
+                                                    actions: [
+                                                      ElevatedButton(
+                                                        onPressed: () => Navigator.pop(alertCtx),
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: TxaTheme.accent,
+                                                          foregroundColor: Colors.black,
+                                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                        ),
+                                                        child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              } catch (e) {
+                                                if (context.mounted) {
+                                                  TxaToast.show(context, '${TxaLanguage.t('restore_purchase_failed')}: $e', isError: true);
+                                                }
+                                              } finally {
+                                                if (context.mounted) {
+                                                  setModalState(() => isSubmitting = false);
+                                                }
+                                              }
+                                            },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.amber,
                                         foregroundColor: Colors.black,
@@ -1244,13 +1359,65 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                             const SizedBox(height: 12),
                             Center(
                               child: TextButton.icon(
-                                onPressed: () async {
-                                  Navigator.pop(ctx);
-                                  TxaToast.show(context, TxaLanguage.t('syncing_account'));
-                                  await _loadCabinetData();
-                                  if (!context.mounted) return;
-                                  TxaToast.show(context, TxaLanguage.t('sync_sub_success'));
-                                },
+                                onPressed: isSubmitting
+                                    ? null
+                                    : () async {
+                                        setModalState(() => isSubmitting = true);
+                                        try {
+                                          TxaToast.show(context, TxaLanguage.t('syncing_account'));
+                                          final restored = await TxaIapService().restorePurchases();
+                                          await _loadCabinetData();
+                                          if (!context.mounted) return;
+                                          Navigator.pop(ctx);
+
+                                          showDialog(
+                                            context: context,
+                                            builder: (alertCtx) => AlertDialog(
+                                              backgroundColor: TxaTheme.cardBg,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                              title: Row(
+                                                children: [
+                                                  Icon(
+                                                    restored ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                                                    color: restored ? Colors.green : Colors.amber,
+                                                    size: 22,
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Text(
+                                                    TxaLanguage.t('restore_purchase_sync'),
+                                                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ],
+                                              ),
+                                              content: Text(
+                                                restored
+                                                    ? TxaLanguage.t('restore_purchase_success')
+                                                    : TxaLanguage.t('restore_purchase_empty'),
+                                                style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 13, height: 1.4),
+                                              ),
+                                              actions: [
+                                                ElevatedButton(
+                                                  onPressed: () => Navigator.pop(alertCtx),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: TxaTheme.accent,
+                                                    foregroundColor: Colors.black,
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                  ),
+                                                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            TxaToast.show(context, '${TxaLanguage.t('restore_purchase_failed')}: $e', isError: true);
+                                          }
+                                        } finally {
+                                          if (context.mounted) {
+                                            setModalState(() => isSubmitting = false);
+                                          }
+                                        }
+                                      },
                                 icon: const Icon(Icons.sync_rounded, color: Colors.amber, size: 16),
                                 label: const Text(
                                   'Khôi phục giao dịch / Đã thanh toán',

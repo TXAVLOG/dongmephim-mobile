@@ -66,7 +66,7 @@ class TxaUpdateChangelogModal extends StatelessWidget {
               date = rawDate;
             }
             title = (matching['title'] ?? '').toString();
-            final contentStr = (matching['content'] ?? '').toString();
+            final contentStr = (matching['content'] ?? '').toString().replaceAll(r'\n', '\n');
             if (contentStr.isNotEmpty) {
               lines = contentStr
                   .split('\n')
@@ -77,6 +77,24 @@ class TxaUpdateChangelogModal extends StatelessWidget {
           }
         } catch (e) {
           TxaLogger.log('TxaUpdateChangelogModal API fetch fallback: $e');
+        }
+
+        if (lines.isEmpty) {
+          try {
+            final updateInfo = await TxaApi().getCheckUpdate();
+            if (updateInfo != null) {
+              final rawChangelog = updateInfo['changelog'];
+              if (rawChangelog is List) {
+                for (var item in rawChangelog) {
+                  final str = item.toString().replaceAll(r'\n', '\n');
+                  lines.addAll(str.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty));
+                }
+              } else if (rawChangelog != null) {
+                final str = rawChangelog.toString().replaceAll(r'\n', '\n');
+                lines = str.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+              }
+            }
+          } catch (_) {}
         }
 
         if (!context.mounted) return;
