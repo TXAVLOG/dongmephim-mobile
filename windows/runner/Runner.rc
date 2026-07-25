@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.tphimx" "\0"
-            VALUE "FileDescription", "tphimx_setup" "\0"
+            VALUE "CompanyName", "DongMePhim" "\0"
+            VALUE "FileDescription", "DongMePhim Desktop" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "tphimx_setup" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.tphimx. All rights reserved." "\0"
-            VALUE "OriginalFilename", "tphimx_setup.exe" "\0"
-            VALUE "ProductName", "tphimx_setup" "\0"
+            VALUE "InternalName", "DongMePhim" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 DongMePhim. All rights reserved." "\0"
+            VALUE "OriginalFilename", "DongMePhim.exe" "\0"
+            VALUE "ProductName", "DongMePhim" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
