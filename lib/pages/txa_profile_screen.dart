@@ -488,15 +488,46 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
             final pkgTitle = (selectedPkg['title'] ?? 'VIP').toString();
             
             final features = selectedPkg['features'] as List<dynamic>? ?? [];
-            final hasAnnual = selectedPkg['annual_price'] != null;
-            final monthlyPrice = (selectedPkg['price'] as int?) ?? 0;
-            final annualPrice = hasAnnual ? (selectedPkg['annual_price'] as int) : (monthlyPrice * 12);
-            
-            final discountPercent = monthlyPrice > 0 
-                ? (((monthlyPrice * 12 - annualPrice) / (monthlyPrice * 12)) * 100).round()
+
+            final isSaleActive = selectedPkg['is_active_sale'] == true ||
+                (selectedPkg['sale_end_date'] != null &&
+                    DateTime.tryParse(selectedPkg['sale_end_date'].toString())?.isAfter(DateTime.now()) == true);
+
+            final rawMonthly = selectedPkg['price'];
+            final monthlyPrice = (rawMonthly is int)
+                ? rawMonthly
+                : (rawMonthly is num)
+                    ? rawMonthly.round()
+                    : int.tryParse(rawMonthly?.toString() ?? '0') ?? 0;
+
+            final rawSaleMonthly = selectedPkg['sale_price'];
+            final saleMonthlyPrice = (rawSaleMonthly is int)
+                ? rawSaleMonthly
+                : (rawSaleMonthly is num)
+                    ? rawSaleMonthly.round()
+                    : int.tryParse(rawSaleMonthly?.toString() ?? '') ?? monthlyPrice;
+
+            final effectiveMonthly = isSaleActive ? saleMonthlyPrice : monthlyPrice;
+
+            final rawAnnualPrice = isSaleActive && selectedPkg['sale_annual_price'] != null
+                ? selectedPkg['sale_annual_price']
+                : (selectedPkg['annual_price'] ?? selectedPkg['effective_annual_price']);
+
+            final hasAnnual = rawAnnualPrice != null && rawAnnualPrice != 0;
+
+            final annualPrice = hasAnnual
+                ? ((rawAnnualPrice is int)
+                    ? rawAnnualPrice
+                    : (rawAnnualPrice is num)
+                        ? rawAnnualPrice.round()
+                        : int.tryParse(rawAnnualPrice.toString()) ?? (effectiveMonthly * 12))
+                : (effectiveMonthly * 12);
+
+            final discountPercent = (effectiveMonthly > 0 && annualPrice > 0 && (effectiveMonthly * 12) > annualPrice)
+                ? ((((effectiveMonthly * 12) - annualPrice) / (effectiveMonthly * 12)) * 100).round()
                 : 0;
 
-            final basePrice = selectedCycle == 'monthly' ? monthlyPrice : annualPrice;
+            final basePrice = selectedCycle == 'monthly' ? effectiveMonthly : annualPrice;
             int discount = 0;
             if (appliedPromoCode != null && appliedDiscountAmount != null) {
               discount = appliedDiscountAmount!;
