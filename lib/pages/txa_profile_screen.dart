@@ -2378,7 +2378,17 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
 
   Widget _buildVIPCard(Map<String, dynamic> user) {
     final isVIP = (user['package'] ?? 'free').toString().toLowerCase() != 'free';
-    final packageName = isVIP ? 'MEMBER VIP' : 'FREE ACCOUNT';
+    final pkgId = (user['package'] ?? 'free').toString();
+    final packageName = isVIP ? (user['package_title'] ?? 'MEMBER VIP').toString().toUpperCase() : 'FREE ACCOUNT';
+    final expiryStr = user['expiry_date'] ?? user['expiryDate'];
+    
+    String? formattedExpiry;
+    if (expiryStr != null && expiryStr.toString().isNotEmpty) {
+      final dt = DateTime.tryParse(expiryStr.toString());
+      if (dt != null) {
+        formattedExpiry = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      }
+    }
 
     final bool enableBuyPackage = _packagesData == null ||
         (_packagesData!['package_system_enable'] != false &&
@@ -2391,53 +2401,104 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         radius: 20,
         borderGlowColor: isVIP ? Colors.amber.withValues(alpha: 0.4) : null,
         padding: const EdgeInsets.all(18),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      isVIP ? Icons.verified_user_rounded : Icons.info_outline_rounded,
-                      color: isVIP ? Colors.amber : TxaTheme.textSecondary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      packageName,
-                      style: TextStyle(
-                        color: isVIP ? Colors.amber : Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            isVIP ? Icons.verified_user_rounded : Icons.info_outline_rounded,
+                            color: isVIP ? Colors.amber : TxaTheme.textSecondary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              packageName,
+                              style: TextStyle(
+                                color: isVIP ? Colors.amber : Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 6),
+                      Text(
+                        isVIP
+                            ? (formattedExpiry != null
+                                ? TxaLanguage.t('sub_expiry_label', replace: {'date': formattedExpiry})
+                                : TxaLanguage.t('vip_card_desc_active'))
+                            : TxaLanguage.t('vip_card_desc_inactive'),
+                        style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                if (enableBuyPackage)
+                  ElevatedButton(
+                    onPressed: _showVIPUpgradeDialog,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isVIP ? TxaTheme.secondaryBg : Colors.amber,
+                      foregroundColor: isVIP ? Colors.amber : Colors.black,
+                      elevation: 0,
+                      side: isVIP ? const BorderSide(color: Colors.amber, width: 1) : null,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isVIP ? TxaLanguage.t('vip_card_desc_active') : TxaLanguage.t('vip_card_desc_inactive'),
-                  style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 11),
-                ),
+                    child: Text(
+                      isVIP ? TxaLanguage.t('renew_btn') : TxaLanguage.t('upgrade_btn'),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
               ],
             ),
-            if (enableBuyPackage)
-              ElevatedButton(
-                onPressed: _showVIPUpgradeDialog,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isVIP ? TxaTheme.secondaryBg : Colors.amber,
-                  foregroundColor: isVIP ? Colors.amber : Colors.black,
-                  elevation: 0,
-                  side: isVIP ? const BorderSide(color: Colors.amber, width: 1) : null,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                ),
-                child: Text(
-                  isVIP ? TxaLanguage.t('renew_btn') : TxaLanguage.t('upgrade_btn'),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
+            if (isVIP) ...[
+              const SizedBox(height: 12),
+              const Divider(color: Colors.white10, height: 1),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    TxaLanguage.t('sub_auto_renew_active'),
+                    style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  TextButton.icon(
+                    onPressed: () async {
+                      Uri storeUri;
+                      if (!kIsWeb && Platform.isAndroid) {
+                        storeUri = Uri.parse('https://play.google.com/store/account/subscriptions?package=com.tphimx.tphimx_setup');
+                      } else if (!kIsWeb && Platform.isIOS) {
+                        storeUri = Uri.parse('https://apps.apple.com/account/subscriptions');
+                      } else {
+                        storeUri = Uri.parse('${TxaApi.baseUrl}/tai-khoan');
+                      }
+                      if (await canLaunchUrl(storeUri)) {
+                        await launchUrl(storeUri, mode: LaunchMode.externalApplication);
+                      } else {
+                        if (mounted) TxaToast.show(context, TxaLanguage.t('not_open_link'), isError: true);
+                      }
+                    },
+                    icon: const Icon(Icons.open_in_new_rounded, color: Colors.amber, size: 14),
+                    label: Text(
+                      TxaLanguage.t('manage_subscription'),
+                      style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
+            ],
           ],
         ),
       ),
@@ -2516,13 +2577,13 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.app_shortcut_rounded, color: Color(0xFFEC4899), size: 22),
-                    SizedBox(width: 8),
+                    const Icon(Icons.app_shortcut_rounded, color: Color(0xFFEC4899), size: 22),
+                    const SizedBox(width: 8),
                     Text(
-                      'Bộ Icon Ứng Dụng Độc Quyền',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                      TxaLanguage.t('custom_icon_section_title'),
+                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -2553,8 +2614,8 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
             const SizedBox(height: 4),
             Text(
               hasIconPerm
-                  ? 'Chọn biểu tượng màn hình chính bạn yêu thích'
-                  : 'Đăng ký Gói Đổi Icon App (9.000đ/tháng) hoặc gói VIP để mở khóa',
+                  ? TxaLanguage.t('custom_icon_section_desc_unlocked')
+                  : TxaLanguage.t('custom_icon_section_desc_locked'),
               style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 11),
             ),
             const SizedBox(height: 14),
