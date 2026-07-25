@@ -1156,7 +1156,22 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                                     if (!context.mounted) return;
                                     Navigator.pop(ctx); // Close dialog
 
-                                    if (selectedPaymentMethod == 'sepay') {
+                                     if (selectedPaymentMethod == 'google_play') {
+                                       Navigator.pop(ctx);
+                                       if (context.mounted) {
+                                         TxaToast.show(context, 'Đang mở cửa hàng thanh toán Google Play...');
+                                       }
+                                       String iapProductId = TxaIapService.productIdCustomIcon;
+                                       if (pkgId.contains('p2') || pkgId == 'TXA_P2_28062026_0005' || pkgTitle.toLowerCase().contains('vip')) {
+                                         iapProductId = TxaIapService.productIdNormal;
+                                       } else if (pkgId == 'custom_icon' || pkgId.contains('icon')) {
+                                         iapProductId = TxaIapService.productIdCustomIcon;
+                                       }
+                                       final success = await TxaIapService().buyProduct(iapProductId);
+                                       if (!success && context.mounted) {
+                                         TxaToast.show(context, 'Giao dịch Google Play chưa hoàn tất.', isError: true);
+                                       }
+                                     } else if (selectedPaymentMethod == 'sepay') {
                                       // Open SePay Payment gateway web page
                                       const siteUrl = TxaApi.baseUrl;
                                       final checkoutUri = Uri.parse(
