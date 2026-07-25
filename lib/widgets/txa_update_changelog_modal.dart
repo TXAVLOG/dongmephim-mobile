@@ -164,99 +164,112 @@ class TxaUpdateChangelogModal extends StatelessWidget {
   Widget build(BuildContext context) {
     final parsedItems = changelogLines.map(_parseLine).toList();
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 620),
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF0F172A).withValues(alpha: 0.96),
-                  const Color(0xFF06070A).withValues(alpha: 0.98),
+    final media = MediaQuery.of(context);
+    final clampedScaler = TextScaler.linear(media.textScaler.scale(1.0).clamp(0.85, 1.15));
+
+    return MediaQuery(
+      data: media.copyWith(textScaler: clampedScaler),
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: 520,
+                maxHeight: media.size.height * 0.82,
+              ),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF0F172A).withValues(alpha: 0.96),
+                    const Color(0xFF06070A).withValues(alpha: 0.98),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 36,
+                    offset: const Offset(0, 18),
+                  ),
                 ],
               ),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 36,
-                  offset: const Offset(0, 18),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Banner
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: TxaTheme.brandGradient,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: TxaTheme.accent.withValues(alpha: 0.4),
-                            blurRadius: 16,
-                            spreadRadius: 1,
-                          ),
-                        ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Banner
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: TxaTheme.brandGradient,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: TxaTheme.accent.withValues(alpha: 0.4),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Colors.white,
-                        size: 26,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                TxaLanguage.t('whats_new'),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  gradient: TxaTheme.brandGradient,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'v$version',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    TxaLanguage.t('whats_new'),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.2,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      gradient: TxaTheme.brandGradient,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'v$version',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
                           if (date.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Row(

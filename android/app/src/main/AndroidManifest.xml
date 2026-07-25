@@ -49,7 +49,6 @@
               />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
             
@@ -71,6 +70,85 @@
                 <data android:scheme="http" android:host="dongmephim.online" android:pathPrefix="/app" />
             </intent-filter>
         </activity>
+
+        <!-- Dynamic Launcher Activity Aliases for App Icon Themes -->
+        <activity-alias
+            android:name=".MainActivityDefault"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_default"
+            android:label="DongMePhim"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityCyber"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_cyber"
+            android:label="DongMePhim"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityGold"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_gold"
+            android:label="DongMePhim"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityCyan"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_cyan"
+            android:label="DongMePhim"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityEmerald"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_emerald"
+            android:label="DongMePhim"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityRuby"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_ruby"
+            android:label="DongMePhim"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <provider
             android:name="androidx.core.content.FileProvider"

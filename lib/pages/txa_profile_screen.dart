@@ -24,6 +24,8 @@ import '../widgets/txa_zalo_bypass_modal.dart';
 import '../auth/google/txa_google_auth_factory.dart';
 import '../utils/txa_logger.dart';
 import 'txa_movie_detail_screen.dart';
+import 'txa_custom_icon_screen.dart';
+import '../services/txa_dynamic_icon_service.dart';
 import 'txa_qr_scan_screen.dart';
 import 'txa_favorites_list_screen.dart';
 import 'txa_watch_history_screen.dart';
@@ -2596,6 +2598,16 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         'color1': const Color(0xFF10B981),
         'color2': const Color(0xFF047857),
         'asset': 'assets/app_icons/icon_emerald.png',
+        'key': 'icon_emerald.png',
+        'free': false,
+      },
+      {
+        'name': 'Hồng Ngọc Ruby',
+        'subtitle': 'Hồng Ruby Vũ Trụ',
+        'color1': const Color(0xFFEC4899),
+        'color2': const Color(0xFFBE185D),
+        'asset': 'assets/app_icons/icon_ruby.png',
+        'key': 'icon_ruby.png',
         'free': false,
       },
     ];
@@ -2621,28 +2633,51 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                     ),
                   ],
                 ),
-                if (!hasIconPerm)
-                  GestureDetector(
-                    onTap: _showVIPUpgradeDialog,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEC4899).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (ctx) => const TxaCustomIconScreen()),
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.lock_rounded, color: Color(0xFFEC4899), size: 12),
-                          SizedBox(width: 4),
-                          Text(
-                            'Gói 9k/tháng',
-                            style: TextStyle(color: Color(0xFFEC4899), fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      child: Text(
+                        TxaLanguage.t('view_all_icons', replace: {'count': '${iconsList.length}'}),
+                        style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
-                  ),
+                    if (!hasIconPerm) ...[
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: _showVIPUpgradeDialog,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEC4899).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.lock_rounded, color: Color(0xFFEC4899), size: 12),
+                              SizedBox(width: 4),
+                              Text(
+                                'Gói 9k/tháng',
+                                style: TextStyle(color: Color(0xFFEC4899), fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 4),

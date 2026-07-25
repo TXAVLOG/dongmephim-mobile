@@ -205,6 +205,37 @@ class MainActivity : FlutterActivity() {
                         result.error("AUDIO_ERROR", e.message, null)
                     }
                 }
+                "changeAppIcon" -> {
+                    val iconName = call.argument<String>("iconName") ?: "default"
+                    val aliasMap = mapOf(
+                        "default" to "com.tphimx.tphimx_setup.MainActivityDefault",
+                        "cyber" to "com.tphimx.tphimx_setup.MainActivityCyber",
+                        "gold" to "com.tphimx.tphimx_setup.MainActivityGold",
+                        "cyan" to "com.tphimx.tphimx_setup.MainActivityCyan",
+                        "emerald" to "com.tphimx.tphimx_setup.MainActivityEmerald",
+                        "ruby" to "com.tphimx.tphimx_setup.MainActivityRuby"
+                    )
+                    val targetAlias = aliasMap[iconName] ?: "com.tphimx.tphimx_setup.MainActivityDefault"
+                    try {
+                        val pm = packageManager
+                        for ((_, aliasComponent) in aliasMap) {
+                            val comp = android.content.ComponentName(packageName, aliasComponent)
+                            val state = if (aliasComponent == targetAlias) {
+                                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                            } else {
+                                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                            }
+                            pm.setComponentEnabledSetting(
+                                comp,
+                                state,
+                                android.content.pm.PackageManager.DONT_KILL_APP
+                            )
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("ICON_ERROR", "Failed to change launcher icon: ${e.message}", null)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }

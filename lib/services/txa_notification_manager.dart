@@ -23,6 +23,7 @@ void callbackDispatcher() {
     try {
       WidgetsFlutterBinding.ensureInitialized();
       await TxaNotificationManager.instance.fetchBackgroundNotifications();
+      await TxaNotificationManager.instance.checkBackgroundUpdates();
     } catch (_) {}
     return Future.value(true);
   });
@@ -130,7 +131,7 @@ class TxaNotificationManager {
     _initialized = false;
   }
 
-  Future<void> _checkBackgroundUpdates() async {
+  Future<void> checkBackgroundUpdates() async {
     try {
       final updateInfo = await TxaApi().getCheckUpdate();
       if (updateInfo != null) {
