@@ -2417,7 +2417,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         'subtitle': 'Đỏ Neon Nguyên Bản',
         'color1': const Color(0xFFE50914),
         'color2': const Color(0xFF800000),
-        'icon': Icons.movie_filter_rounded,
+        'asset': 'assets/app_icons/icon_default.png',
         'free': true,
       },
       {
@@ -2425,7 +2425,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         'subtitle': 'Tím Hồng Tinh Vân',
         'color1': const Color(0xFFA855F7),
         'color2': const Color(0xFFEC4899),
-        'icon': Icons.auto_awesome_rounded,
+        'asset': 'assets/app_icons/icon_cyber.png',
         'free': false,
       },
       {
@@ -2433,7 +2433,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         'subtitle': 'Vàng VIP Sang Trọng',
         'color1': const Color(0xFFFFD700),
         'color2': const Color(0xFFB8860B),
-        'icon': Icons.military_tech_rounded,
+        'asset': 'assets/app_icons/icon_gold.png',
         'free': false,
       },
       {
@@ -2441,7 +2441,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         'subtitle': 'Xanh Băng Tuyết',
         'color1': const Color(0xFF00F2FE),
         'color2': const Color(0xFF4FACFE),
-        'icon': Icons.diamond_rounded,
+        'asset': 'assets/app_icons/icon_cyan.png',
         'free': false,
       },
       {
@@ -2449,7 +2449,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         'subtitle': 'Xanh Ngọc Bảo',
         'color1': const Color(0xFF10B981),
         'color2': const Color(0xFF047857),
-        'icon': Icons.workspace_premium_rounded,
+        'asset': 'assets/app_icons/icon_emerald.png',
         'free': false,
       },
     ];
@@ -2556,24 +2556,27 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                             alignment: Alignment.center,
                             children: [
                               Container(
-                                width: 48,
-                                height: 48,
+                                width: 50,
+                                height: 50,
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [item['color1'] as Color, item['color2'] as Color],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
                                   borderRadius: BorderRadius.circular(14),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: (item['color1'] as Color).withValues(alpha: 0.3),
+                                      color: (item['color1'] as Color).withValues(alpha: 0.35),
                                       blurRadius: 8,
                                       offset: const Offset(0, 3),
                                     ),
                                   ],
                                 ),
-                                child: Icon(item['icon'] as IconData, color: Colors.white, size: 24),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.asset(
+                                    item['asset'] as String,
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
                               ),
                               if (!isUnlocked)
                                 Container(
