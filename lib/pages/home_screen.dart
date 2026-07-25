@@ -253,6 +253,7 @@ class _HomeTabState extends State<HomeTab> {
           final rawTvShowsList = getList(data['TXA_TV1']);
 
           // Helper to extract country text from movie objects flexibly
+          // Helper to extract country text from movie objects strictly from country properties
           String extractCountryString(dynamic m) {
             final buffer = StringBuffer();
             void add(dynamic val) {
@@ -272,35 +273,32 @@ class _HomeTabState extends State<HomeTab> {
             add(m['region']);
             add(m['country_name']);
             add(m['country_slug']);
-            add(m['genres']);
-            add(m['name']);
-            add(m['origin_name']);
-            add(m['slug']);
             return buffer.toString().toLowerCase();
           }
 
-          // Helper to filter by country
+          // Helper to filter by country strictly
           List<dynamic> filterByCountry(List<dynamic> list) {
             if (_selectedCountryKey == null || _selectedCountryKey!.isEmpty) return list;
             final key = _selectedCountryKey!.toLowerCase();
 
             return list.where((m) {
               final text = extractCountryString(m);
+              if (text.isEmpty) return false;
 
               if (key.contains('trung') || key.contains('china')) {
-                return text.contains('trung') || text.contains('china') || text.contains('cn');
+                return text.contains('trung') || text.contains('china') || text.contains('đài loan') || text.contains('hồng kông') || text.contains('hong kong') || text.contains('taiwan');
               }
               if (key.contains('hàn') || key.contains('han') || key.contains('korea')) {
-                return text.contains('hàn') || text.contains('han') || text.contains('korea') || text.contains('kr');
+                return text.contains('hàn') || text.contains('han') || text.contains('korea');
               }
               if (key.contains('việt') || key.contains('viet')) {
-                return text.contains('việt') || text.contains('viet') || text.contains('vn');
+                return text.contains('việt') || text.contains('viet');
               }
               if (key.contains('âu') || key.contains('au') || key.contains('mỹ') || key.contains('us') || key.contains('uk')) {
-                return text.contains('âu') || text.contains('au') || text.contains('mỹ') || text.contains('us') || text.contains('uk') || text.contains('america');
+                return text.contains('âu') || text.contains('mỹ') || text.contains('us') || text.contains('uk') || text.contains('america') || text.contains('pháp') || text.contains('anh') || text.contains('đức') || text.contains('tây ban nha') || text.contains('canada');
               }
               if (key.contains('nhật') || key.contains('nhat') || key.contains('japan')) {
-                return text.contains('nhật') || text.contains('nhat') || text.contains('japan') || text.contains('jp');
+                return text.contains('nhật') || text.contains('nhat') || text.contains('japan');
               }
               if (key.contains('thái') || key.contains('thai')) {
                 return text.contains('thái') || text.contains('thai');
