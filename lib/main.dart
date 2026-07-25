@@ -15,6 +15,7 @@ import 'services/txa_ads_service.dart';
 import 'widgets/splash_screen.dart';
 import 'widgets/txa_error_widget.dart';
 import 'widgets/txa_modal.dart';
+import 'widgets/txa_update_changelog_modal.dart';
 import 'pages/home_screen.dart';
 import 'utils/txa_logger.dart';
 import 'utils/txa_platform.dart';
@@ -270,6 +271,12 @@ class _MainEntryState extends State<MainEntry> {
 
           // Check iOS version and show TxaModal warning right after splash
           _checkIOSVersionAndShowModal();
+
+          // Show Update Changelog Modal if first launch after version update
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final ctx = navigatorKey.currentContext ?? context;
+            TxaUpdateChangelogModal.checkAndShow(ctx);
+          });
 
           // Hiện toast chặn file video sau khi splash xong
           if (launchFilePath != null) {
