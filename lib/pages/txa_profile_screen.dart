@@ -67,6 +67,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       _loadCabinetData();
     }
     TxaFavoriteManager().favorites.addListener(_onFavoritesChanged);
+    _initIapService();
 
     // Add focus listeners to clear errors on click
     _identityFocusNode.addListener(() {
@@ -102,6 +103,26 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
     _identityFocusNode.dispose();
     _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _initIapService() async {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && !TxaPlatform.isTV) {
+      await TxaIapService().initialize(
+        onSuccess: (keyCode, message) async {
+          if (!mounted) return;
+          TxaToast.show(context, message);
+          await _loadCabinetData();
+        },
+        onError: (error) {
+          if (!mounted) return;
+          TxaToast.show(context, error, isError: true);
+        },
+        onPending: (statusMessage) {
+          if (!mounted) return;
+          TxaToast.show(context, statusMessage);
+        },
+      );
+    }
   }
 
   Future<void> _loadCabinetData() async {
