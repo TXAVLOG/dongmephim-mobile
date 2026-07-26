@@ -21,6 +21,7 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
   String _selectedIconKey = 'icon_default.png';
   bool _isApplying = false;
   bool _localSubActive = false;
+  bool _isTrialSub = false;
   Duration? _subRemainingDuration;
 
   @override
@@ -32,12 +33,14 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
   Future<void> _loadActiveIcon() async {
     final active = await TxaDynamicIconService.getActiveIconKey();
     final localActive = await TxaDynamicIconService.isLocalSubscriptionActive();
+    final isTrial = await TxaDynamicIconService.isLocalSubscriptionTrial();
     final remaining = await TxaDynamicIconService.getLocalSubscriptionRemaining();
     if (mounted) {
       setState(() {
         _activeIconKey = active;
         _selectedIconKey = active;
         _localSubActive = localActive;
+        _isTrialSub = isTrial;
         _subRemainingDuration = remaining;
       });
     }
@@ -82,9 +85,18 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
         }
       }
 
-      final String remainingText = (days <= 7 && days >= 0)
+      final isTrial = _isTrialSub || days <= 7;
+      final String statusTitle = isTrial
+          ? TxaLanguage.t('icon_sub_status_trial')
+          : TxaLanguage.t('icon_sub_status_paid');
+      final String tagText = isTrial
+          ? TxaLanguage.t('icon_sub_trial_tag')
+          : TxaLanguage.t('icon_sub_paid_tag');
+      final String remainingText = isTrial
           ? TxaLanguage.t('free_trial_remaining', replace: {'days': days.toString()})
           : TxaLanguage.t('icon_sub_remaining', replace: {'days': days.toString()});
+
+      final Color activeThemeColor = isTrial ? const Color(0xFF3B82F6) : const Color(0xFF10B981);
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
@@ -92,41 +104,69 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              const Color(0xFF10B981).withValues(alpha: 0.2),
-              const Color(0xFF047857).withValues(alpha: 0.1),
+              activeThemeColor.withValues(alpha: 0.2),
+              activeThemeColor.withValues(alpha: 0.08),
             ],
           ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+          border: Border.all(color: activeThemeColor.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                color: activeThemeColor.withValues(alpha: 0.25),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 22),
+              child: Icon(
+                isTrial ? Icons.card_giftcard_rounded : Icons.verified_rounded,
+                color: activeThemeColor,
+                size: 22,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    TxaLanguage.t('icon_sub_status_active'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13.5,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          statusTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: activeThemeColor.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: activeThemeColor.withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          tagText,
+                          style: TextStyle(
+                            color: activeThemeColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     remainingText,
-                    style: const TextStyle(
-                      color: Color(0xFF10B981),
+                    style: TextStyle(
+                      color: activeThemeColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),

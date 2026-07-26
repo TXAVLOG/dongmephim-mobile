@@ -86,17 +86,26 @@ class TxaDynamicIconService {
 
   static const String keySubActive = 'txa_icon_sub_active';
   static const String keySubExpiry = 'txa_icon_sub_expiry';
+  static const String keySubIsTrial = 'txa_icon_sub_is_trial';
 
   /// Save local icon subscription status (called on IAP purchase or restore)
-  static Future<void> setLocalSubscriptionActive(bool active, {DateTime? expiry}) async {
+  static Future<void> setLocalSubscriptionActive(bool active, {DateTime? expiry, bool isTrial = false}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(keySubActive, active);
+    await prefs.setBool(keySubIsTrial, isTrial);
     if (expiry != null) {
       await prefs.setString(keySubExpiry, expiry.toIso8601String());
     } else {
-      // Default 30 days from now if not specified
-      await prefs.setString(keySubExpiry, DateTime.now().add(const Duration(days: 30)).toIso8601String());
+      // Trial default = 7 days, Paid default = 30 days
+      final duration = isTrial ? const Duration(days: 7) : const Duration(days: 30);
+      await prefs.setString(keySubExpiry, DateTime.now().add(duration).toIso8601String());
     }
+  }
+
+  /// Check if local subscription is trial
+  static Future<bool> isLocalSubscriptionTrial() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(keySubIsTrial) ?? false;
   }
 
   /// Check if local subscription is active (and not expired)

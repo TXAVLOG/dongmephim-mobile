@@ -215,15 +215,26 @@ class TxaIapService {
         }
       } catch (_) {}
 
+      if (isCustomIcon) {
+        final bool isTrial = price == 0;
+        await TxaDynamicIconService.setLocalSubscriptionActive(true, isTrial: isTrial);
+      }
+
+      final String dynamicPackageTitle = isCustomIcon
+          ? (price == 0
+              ? TxaLanguage.t('icon_sub_trial_package_title')
+              : TxaLanguage.t('icon_sub_monthly_package_title'))
+          : packageTitle;
+
       // Gọi API POST lên backend /api/user/payments
       final result = await TxaApi.submitIapPayment(
         txid: orderId,
-        packageTitle: packageTitle,
+        packageTitle: dynamicPackageTitle,
         price: price,
-        cycle: isCustomIcon ? 'monthly' : 'custom_1',
+        cycle: isCustomIcon ? (price == 0 ? 'trial_7_days' : 'monthly') : 'custom_1',
         method: 'google_play',
         status: 'approved',
-        clientInfo: 'Google Play Billing - Product: $productId',
+        clientInfo: 'Google Play Billing - Product: $productId (Price: $price)',
       );
 
       if (result['success'] == true) {
