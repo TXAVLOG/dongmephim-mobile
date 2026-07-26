@@ -183,68 +183,34 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
               style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 12, height: 1.3),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      TxaToast.show(context, 'Đang mở cửa hàng thanh toán Google Play...');
-                      final success = await TxaIapService().buyProduct(TxaIapService.productIdCustomIcon);
-                      if (success) {
-                        await TxaDynamicIconService.setLocalSubscriptionActive(true);
-                        if (mounted) {
-                          setState(() {
-                            _localSubActive = true;
-                          });
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.shopping_bag_rounded, size: 15),
-                    label: Text(
-                      TxaLanguage.t('icon_sub_buy_now'),
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEC4899),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    TxaToast.show(context, TxaLanguage.t('syncing_account'));
-                    final restored = await TxaIapService().restorePurchases();
-                    final localActive = await TxaDynamicIconService.isLocalSubscriptionActive();
-                    final remaining = await TxaDynamicIconService.getLocalSubscriptionRemaining();
-                    if (mounted) {
-                      setState(() {
-                        _localSubActive = localActive;
-                        _subRemainingDuration = remaining;
-                      });
-                      if (restored || localActive) {
-                        TxaToast.show(context, TxaLanguage.t('iap_icon_restore_success'));
-                      } else {
-                        TxaToast.show(context, TxaLanguage.t('restore_purchase_empty'), isError: true);
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.restore_rounded, size: 15),
-                  label: Text(
-                    TxaLanguage.t('icon_sub_restore'),
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: const BorderSide(color: Colors.white24),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                TxaToast.show(context, 'Đang mở cửa hàng thanh toán Google Play...');
+                final success = await TxaIapService().buyProduct(TxaIapService.productIdCustomIcon);
+                if (success) {
+                  await TxaDynamicIconService.setLocalSubscriptionActive(true);
+                  if (mounted) {
+                    setState(() {
+                      _localSubActive = true;
+                    });
+                  }
+                }
+              },
+              icon: const Icon(Icons.shopping_bag_rounded, size: 16),
+              label: Text(
+                TxaLanguage.t('icon_sub_buy_now'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEC4899),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
+          ),
           ],
         ),
       );
