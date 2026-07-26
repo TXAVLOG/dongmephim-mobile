@@ -227,16 +227,10 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () async {
-                TxaToast.show(context, 'Đang mở cửa hàng thanh toán Google Play...');
-                final success = await TxaIapService().buyProduct(TxaIapService.productIdCustomIcon);
-                if (success) {
-                  await TxaDynamicIconService.setLocalSubscriptionActive(true);
-                  if (mounted) {
-                    setState(() {
-                      _localSubActive = true;
-                    });
-                  }
-                }
+                TxaToast.show(context, TxaLanguage.t('syncing_account'));
+                await TxaIapService().buyProduct(TxaIapService.productIdCustomIcon);
+                // Kích hoạt gói sẽ do _onPurchaseUpdate xử lý khi nhận PurchaseStatus.purchased
+                // KHÔNG kích hoạt ở đây vì buyProduct chỉ mở cửa sổ Google Play
               },
               icon: const Icon(Icons.shopping_bag_rounded, size: 16),
               label: Text(
