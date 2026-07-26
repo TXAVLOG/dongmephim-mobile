@@ -269,6 +269,8 @@ class TxaLanguage extends ChangeNotifier {
       'icon_desc_ruby': 'Chủ đề Hồng Ruby quyến rũ nghệ thuật',
       'buy_icon_btn': 'Mua %price%',
       'pip_mode_tooltip': 'Hình trong hình (PiP)',
+      'pip_enter_tooltip': 'Bật hình trong hình (PiP)',
+      'pip_exit_tooltip': 'Thoát hình trong hình (PiP)',
       'pip_entered': 'Đã bật chế độ Hình trong hình (PiP)',
       'pip_not_supported': 'Thiết bị không hỗ trợ chế độ Hình trong hình.',
       'restore_purchase_success': 'Khôi phục giao dịch thành công! Đã đồng bộ gói cước của bạn.',
@@ -2120,6 +2122,8 @@ class TxaLanguage extends ChangeNotifier {
       // IAP Keys (EN)
       'google_play_title': 'Pay via Google Play',
       'pip_mode_tooltip': 'Picture-in-Picture (PiP)',
+      'pip_enter_tooltip': 'Turn on Picture-in-Picture (PiP)',
+      'pip_exit_tooltip': 'Exit Picture-in-Picture (PiP)',
       'pip_entered': 'Picture-in-Picture mode enabled',
       'pip_not_supported': 'Picture-in-Picture is not supported on this device.',
       'google_play_desc': 'Direct payment via Google Play Store in app.',
