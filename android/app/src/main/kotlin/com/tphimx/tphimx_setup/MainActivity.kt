@@ -27,7 +27,16 @@ class MainActivity : FlutterActivity() {
     private var loudnessEnhancer: LoudnessEnhancer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+        }
+        try {
+            (this as? androidx.activity.ComponentActivity)?.let {
+                it.enableEdgeToEdge()
+            }
+        } catch (e: Throwable) {
+            // Ignore if ComponentActivity is not available
+        }
         super.onCreate(savedInstanceState)
     }
 
