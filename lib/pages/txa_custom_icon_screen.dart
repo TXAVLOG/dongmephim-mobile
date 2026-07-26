@@ -38,9 +38,12 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
 
   bool _hasPermission(Map<String, dynamic>? user) {
     if (user == null) return false;
+    final role = (user['role'] ?? 'user').toString().toLowerCase();
+    if (role == 'admin' || role == 'superadmin') return true;
+
     if (user['custom_app_icon'] == true || user['allow_custom_icon'] == true) return true;
     final perms = user['permissions'] as Map<String, dynamic>?;
-    if (perms != null && (perms['custom_app_icon'] == true || perms['custom_icon'] == true)) {
+    if (perms != null && (perms['custom_app_icon'] == true || perms['custom_icon'] == true || perms['allow_custom_icon'] == true)) {
       return true;
     }
     final pkg = (user['package'] ?? 'free').toString().toLowerCase();

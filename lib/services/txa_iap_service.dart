@@ -111,8 +111,11 @@ class TxaIapService {
     }
 
     final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
-    
-    // Mua sản phẩm dạng Consumable (dùng 1 lần / Air Drop item)
+
+    // Gói Thuê bao Đổi Icon / Subscriptions yêu cầu gọi buyNonConsumable để loại bỏ lỗi Developer Console
+    if (productId == productIdCustomIcon || productId.contains('icon') || productId.contains('sub')) {
+      return await _iap.buyNonConsumable(purchaseParam: purchaseParam);
+    }
     return await _iap.buyConsumable(purchaseParam: purchaseParam);
   }
 

@@ -2762,7 +2762,63 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
       return true;
     }
 
+    // Check history/payments list for any approved custom_icon payment
+    for (final p in _payments) {
+      final status = (p['status'] ?? '').toString().toLowerCase();
+      final pTitle = (p['packageTitle'] ?? p['package_title'] ?? p['package'] ?? '').toString().toLowerCase();
+      if ((status == 'approved' || status == 'active' || status == 'completed') &&
+          (pTitle.contains('icon') || pTitle.contains('custom_icon'))) {
+        final createdAtStr = p['createdAt'] ?? p['created_at'];
+        if (createdAtStr != null) {
+          final dt = DateTime.tryParse(createdAtStr.toString());
+          if (dt != null) {
+            final exp = dt.add(const Duration(days: 30));
+            if (exp.isAfter(DateTime.now())) {
+              return true;
+            }
+          }
+        } else {
+          return true;
+        }
+      }
+    }
+
     return false;
+  }
+
+  int? _getIconPackageRemainingDays(Map<String, dynamic> user) {
+    if (!_canUseCustomIcons(user)) return null;
+
+    final role = (user['role'] ?? 'user').toString().toLowerCase();
+    if (role == 'admin' || role == 'superadmin') return null;
+
+    final expiryStr = user['expiry_date'] ?? user['expiryDate'];
+    if (expiryStr != null && expiryStr.toString().isNotEmpty) {
+      final dt = DateTime.tryParse(expiryStr.toString());
+      if (dt != null) {
+        final remaining = dt.difference(DateTime.now()).inDays;
+        return remaining >= 0 ? remaining : 0;
+      }
+    }
+
+    for (final p in _payments) {
+      final status = (p['status'] ?? '').toString().toLowerCase();
+      final pTitle = (p['packageTitle'] ?? p['package_title'] ?? p['package'] ?? '').toString().toLowerCase();
+      if ((status == 'approved' || status == 'active' || status == 'completed') &&
+          (pTitle.contains('icon') || pTitle.contains('custom_icon'))) {
+        final createdAtStr = p['createdAt'] ?? p['created_at'];
+        if (createdAtStr != null) {
+          final dt = DateTime.tryParse(createdAtStr.toString());
+          if (dt != null) {
+            final exp = dt.add(const Duration(days: 30));
+            final remaining = exp.difference(DateTime.now()).inDays;
+            return remaining >= 0 ? remaining : 0;
+          }
+        }
+      }
+    }
+
+    return null;
   }
 
   Widget _buildCustomAppIconSection(Map<String, dynamic> user) {
@@ -2950,7 +3006,34 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (!hasIconPerm && iconPkgPriceLabel.isNotEmpty) ...[
+                        if (hasIconPerm) ...[
+                          if (_getIconPackageRemainingDays(user) != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.timer_outlined, color: Color(0xFF10B981), size: 11),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    TxaLanguage.t('icon_sub_remaining', replace: {'days': _getIconPackageRemainingDays(user).toString()}),
+                                    style: const TextStyle(
+                                      color: Color(0xFF10B981),
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ] else if (iconPkgPriceLabel.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
