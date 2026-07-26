@@ -3,6 +3,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import '../utils/txa_logger.dart';
 import 'txa_api.dart';
 import '../services/txa_language.dart';
+import '../services/txa_dynamic_icon_service.dart';
 typedef OnPurchaseSuccessCallback = void Function(String? keyCode, String message);
 typedef OnPurchaseErrorCallback = void Function(String error);
 typedef OnPurchasePendingCallback = void Function(String statusMessage);
@@ -149,6 +150,9 @@ class TxaIapService {
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
           _hasRestoredAny = true;
+          if (purchaseDetails.productID == productIdCustomIcon || purchaseDetails.productID.contains('icon')) {
+            await TxaDynamicIconService.setLocalSubscriptionActive(true);
+          }
           onPurchasePending?.call('Phát hiện đơn hàng! Đang xác thực với máy chủ...');
           await verifyPurchase(purchaseDetails);
           break;

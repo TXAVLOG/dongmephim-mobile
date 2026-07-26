@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/txa_language.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_dynamic_icon_service.dart';
+import '../services/txa_iap_service.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
 import '../utils/txa_platform.dart';
@@ -19,6 +20,8 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
   String _activeIconKey = 'icon_default.png';
   String _selectedIconKey = 'icon_default.png';
   bool _isApplying = false;
+  bool _localSubActive = false;
+  Duration? _subRemainingDuration;
 
   @override
   void initState() {
@@ -28,15 +31,20 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
 
   Future<void> _loadActiveIcon() async {
     final active = await TxaDynamicIconService.getActiveIconKey();
+    final localActive = await TxaDynamicIconService.isLocalSubscriptionActive();
+    final remaining = await TxaDynamicIconService.getLocalSubscriptionRemaining();
     if (mounted) {
       setState(() {
         _activeIconKey = active;
         _selectedIconKey = active;
+        _localSubActive = localActive;
+        _subRemainingDuration = remaining;
       });
     }
   }
 
   bool _hasPermission(Map<String, dynamic>? user) {
+    if (_localSubActive) return true;
     if (user == null) return false;
     final role = (user['role'] ?? 'user').toString().toLowerCase();
     if (role == 'admin' || role == 'superadmin') return true;
@@ -58,6 +66,189 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
       return true;
     }
     return false;
+  }
+
+  Widget _buildSubscriptionStatusBanner(bool hasPerm, Map<String, dynamic>? user) {
+    if (hasPerm) {
+      int days = 30;
+      if (_subRemainingDuration != null && _subRemainingDuration! > Duration.zero) {
+        days = _subRemainingDuration!.inDays;
+      } else if (user?['expiry_date'] != null || user?['expiryDate'] != null) {
+        final expiryStr = user?['expiry_date'] ?? user?['expiryDate'];
+        final dt = DateTime.tryParse(expiryStr.toString());
+        if (dt != null) {
+          final diff = dt.difference(DateTime.now());
+          days = diff.inDays >= 0 ? diff.inDays : 0;
+        }
+      }
+
+      final String remainingText = (days <= 7 && days >= 0)
+          ? TxaLanguage.t('free_trial_remaining', replace: {'days': days.toString()})
+          : TxaLanguage.t('icon_sub_remaining', replace: {'days': days.toString()});
+
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF10B981).withValues(alpha: 0.2),
+              const Color(0xFF047857).withValues(alpha: 0.1),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    TxaLanguage.t('icon_sub_status_active'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    remainingText,
+                    style: const TextStyle(
+                      color: Color(0xFF10B981),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFFEC4899).withValues(alpha: 0.18),
+              const Color(0xFFBE185D).withValues(alpha: 0.08),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEC4899).withValues(alpha: 0.25),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.lock_rounded, color: Color(0xFFEC4899), size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    TxaLanguage.t('icon_sub_status_locked'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              TxaLanguage.t('custom_icon_section_desc_locked'),
+              style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 12, height: 1.3),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      TxaToast.show(context, 'Đang mở cửa hàng thanh toán Google Play...');
+                      final success = await TxaIapService().buyProduct(TxaIapService.productIdCustomIcon);
+                      if (success) {
+                        await TxaDynamicIconService.setLocalSubscriptionActive(true);
+                        if (mounted) {
+                          setState(() {
+                            _localSubActive = true;
+                          });
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.shopping_bag_rounded, size: 15),
+                    label: Text(
+                      TxaLanguage.t('icon_sub_buy_now'),
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEC4899),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    TxaToast.show(context, TxaLanguage.t('syncing_account'));
+                    final restored = await TxaIapService().restorePurchases();
+                    final localActive = await TxaDynamicIconService.isLocalSubscriptionActive();
+                    final remaining = await TxaDynamicIconService.getLocalSubscriptionRemaining();
+                    if (mounted) {
+                      setState(() {
+                        _localSubActive = localActive;
+                        _subRemainingDuration = remaining;
+                      });
+                      if (restored || localActive) {
+                        TxaToast.show(context, TxaLanguage.t('iap_icon_restore_success'));
+                      } else {
+                        TxaToast.show(context, TxaLanguage.t('restore_purchase_empty'), isError: true);
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.restore_rounded, size: 15),
+                  label: Text(
+                    TxaLanguage.t('icon_sub_restore'),
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: const BorderSide(color: Colors.white24),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _applySelectedIcon(bool hasPerm) async {
@@ -177,7 +368,9 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
                 style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 13, height: 1.4),
               ),
             ),
-            const SizedBox(height: 12),
+
+            _buildSubscriptionStatusBanner(hasPerm, user),
+            const SizedBox(height: 8),
 
             Expanded(
               child: GridView.builder(

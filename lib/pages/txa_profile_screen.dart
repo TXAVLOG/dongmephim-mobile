@@ -12,6 +12,7 @@ import '../services/txa_auth_service.dart';
 import '../services/txa_api.dart';
 import '../services/txa_language.dart';
 import '../services/txa_iap_service.dart';
+import '../services/txa_dynamic_icon_service.dart';
 import '../services/txa_favorite_manager.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
@@ -53,6 +54,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
 
   // Cache/Data Loading States for Logged In User
   bool _cabinetLoading = true;
+  bool _localIconSubActive = false;
   List<dynamic> _favorites = [];
   List<dynamic> _history = [];
   List<dynamic> _payments = [];
@@ -62,6 +64,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _checkLocalIconSub();
     final auth = Provider.of<TxaAuthService>(context, listen: false);
     if (auth.isLoggedIn) {
       _loadCabinetData();
@@ -84,6 +87,15 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
         });
       }
     });
+  }
+
+  Future<void> _checkLocalIconSub() async {
+    final active = await TxaDynamicIconService.isLocalSubscriptionActive();
+    if (mounted) {
+      setState(() {
+        _localIconSubActive = active;
+      });
+    }
   }
 
   void _onFavoritesChanged() {
@@ -2739,6 +2751,7 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   }
 
   bool _canUseCustomIcons(Map<String, dynamic> user) {
+    if (_localIconSubActive) return true;
     final role = (user['role'] ?? 'user').toString().toLowerCase();
     if (role == 'admin' || role == 'superadmin') return true;
 

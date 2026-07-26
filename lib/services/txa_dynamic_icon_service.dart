@@ -83,4 +83,60 @@ class TxaDynamicIconService {
       return false;
     }
   }
+
+  static const String keySubActive = 'txa_icon_sub_active';
+  static const String keySubExpiry = 'txa_icon_sub_expiry';
+
+  /// Save local icon subscription status (called on IAP purchase or restore)
+  static Future<void> setLocalSubscriptionActive(bool active, {DateTime? expiry}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(keySubActive, active);
+    if (expiry != null) {
+      await prefs.setString(keySubExpiry, expiry.toIso8601String());
+    } else {
+      // Default 30 days from now if not specified
+      await prefs.setString(keySubExpiry, DateTime.now().add(const Duration(days: 30)).toIso8601String());
+    }
+  }
+
+  /// Check if local subscription is active (and not expired)
+  static Future<bool> isLocalSubscriptionActive() async {
+    final prefs = await SharedPreferences.getInstance();
+    final active = prefs.getBool(keySubActive) ?? false;
+    if (!active) return false;
+    final expiryStr = prefs.getString(keySubExpiry);
+    if (expiryStr != null) {
+      final expiry = DateTime.tryParse(expiryStr);
+      if (expiry != null && expiry.isBefore(DateTime.now())) {
+        // Subscription expired! Auto-revert local flag
+        await prefs.setBool(keySubActive, false);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Get local icon subscription expiry date
+  static Future<DateTime?> getLocalSubscriptionExpiry() async {
+    final prefs = await SharedPreferences.getInstance();
+    final expiryStr = prefs.getString(keySubExpiry);
+    if (expiryStr != null) {
+      return DateTime.tryParse(expiryStr);
+    }
+    return null;
+  }
+
+  /// Get remaining duration of local icon subscription
+  static Future<Duration?> getLocalSubscriptionRemaining() async {
+    final prefs = await SharedPreferences.getInstance();
+    final expiryStr = prefs.getString(keySubExpiry);
+    if (expiryStr != null) {
+      final expiry = DateTime.tryParse(expiryStr);
+      if (expiry != null) {
+        final diff = expiry.difference(DateTime.now());
+        return diff.isNegative ? Duration.zero : diff;
+      }
+    }
+    return null;
+  }
 }
