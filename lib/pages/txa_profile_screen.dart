@@ -1272,111 +1272,130 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
                             const SizedBox(height: 24),
 
                             // Action upgrade/renew button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: ElevatedButton(
-                                onPressed: isSubmitting ? null : () async {
-                                  setModalState(() => isSubmitting = true);
-                                  try {
-                                    final txid = 'TXA${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
-                                    final pkgId = selectedPkg['id']?.toString() ?? '';
+                             // Action upgrade/renew button
+                             SizedBox(
+                               width: double.infinity,
+                               height: 52,
+                               child: Builder(
+                                 builder: (context) {
+                                   String actionButtonText;
+                                   IconData actionButtonIcon;
+                                   if (selectedPaymentMethod == 'google_play') {
+                                     actionButtonText = TxaLanguage.t('google_play_title');
+                                     actionButtonIcon = Icons.shop_two_rounded;
+                                   } else if (selectedPaymentMethod == 'app_store') {
+                                     actionButtonText = TxaLanguage.t('app_store_title');
+                                     actionButtonIcon = Icons.apple_rounded;
+                                   } else if (selectedPaymentMethod == 'sepay') {
+                                     actionButtonText = '${TxaLanguage.t('sepay_gateway_title')} (${NumberFormatCurrency.format(finalPrice)})';
+                                     actionButtonIcon = Icons.bolt_rounded;
+                                   } else if (selectedPaymentMethod == 'vietqr') {
+                                     actionButtonText = TxaLanguage.t('manual_vietqr_title');
+                                     actionButtonIcon = Icons.qr_code_scanner_rounded;
+                                   } else {
+                                     actionButtonText = buttonText;
+                                     actionButtonIcon = Icons.payment_rounded;
+                                   }
 
-                                    // Call sepayInit to create the pending payment log on server
-                                    await TxaApi().sepayInit(
-                                      txid,
-                                      finalPrice,
-                                      pkgTitle,
-                                      selectedCycle,
-                                      pkgId,
-                                    );
+                                   return ElevatedButton(
+                                     onPressed: isSubmitting
+                                         ? null
+                                         : () async {
+                                             setModalState(() => isSubmitting = true);
+                                             try {
+                                               final txid = 'TXA${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+                                               final pkgId = selectedPkg['id']?.toString() ?? '';
 
-                                    if (!context.mounted) return;
+                                               if (selectedPaymentMethod == 'google_play' || selectedPaymentMethod == 'app_store') {
+                                                 final isAppStore = selectedPaymentMethod == 'app_store';
+                                                 final storeName = isAppStore ? 'App Store' : 'Google Play';
+                                                 if (context.mounted) {
+                                                   TxaToast.show(context, 'Đang mở cửa hàng thanh toán $storeName...');
+                                                 }
+                                                 String iapProductId = TxaIapService.productIdCustomIcon;
+                                                 if (pkgId.contains('p2') || pkgId == 'TXA_P2_28062026_0005' || pkgTitle.toLowerCase().contains('vip')) {
+                                                   iapProductId = TxaIapService.productIdNormal;
+                                                 } else if (pkgId == 'custom_icon' || pkgId.contains('icon')) {
+                                                   iapProductId = TxaIapService.productIdCustomIcon;
+                                                 }
+                                                 final success = await TxaIapService().buyProduct(iapProductId);
+                                                 if (!context.mounted) return;
+                                                 if (success) {
+                                                   Navigator.pop(ctx);
+                                                   await _loadCabinetData();
+                                                 } else {
+                                                   TxaToast.show(context, 'Giao dịch $storeName chưa hoàn tất hoặc đã bị hủy.', isError: true);
+                                                 }
+                                               } else if (selectedPaymentMethod == 'sepay') {
+                                                 await TxaApi().sepayInit(
+                                                   txid,
+                                                   finalPrice,
+                                                   pkgTitle,
+                                                   selectedCycle,
+                                                   pkgId,
+                                                 );
+                                                 if (!context.mounted) return;
+                                                 Navigator.pop(ctx);
 
-                                    // Add transaction log to backend in pending state
-                                    await TxaApi().postPaymentLog({
-                                      'txid': txid,
-                                      'username': user?['username'],
-                                      'email': user?['email'],
-                                      'packageTitle': pkgTitle,
-                                      'price': finalPrice,
-                                      'cycle': selectedCycle,
-                                      'method': selectedPaymentMethod,
-                                      'status': 'pending',
-                                      'actionType': isCurrentPkg ? 'renew' : 'upgrade',
-                                      'promoCode': appliedPromoCode,
-                                      'note': isCurrentPkg
-                                          ? TxaLanguage.t('payment_note_renew').replaceAll('%pkg%', pkgTitle)
-                                          : TxaLanguage.t('payment_note_upgrade'),
-                                    });
-
-                                    if (!context.mounted) return;
-                                    Navigator.pop(ctx); // Close dialog
-
-                                     if (selectedPaymentMethod == 'google_play' || selectedPaymentMethod == 'app_store') {
-                                       final isAppStore = selectedPaymentMethod == 'app_store';
-                                       final storeName = isAppStore ? 'App Store' : 'Google Play';
-                                       if (context.mounted) {
-                                         TxaToast.show(context, 'Đang mở cửa hàng thanh toán $storeName...');
-                                       }
-                                       String iapProductId = TxaIapService.productIdCustomIcon;
-                                       if (pkgId.contains('p2') || pkgId == 'TXA_P2_28062026_0005' || pkgTitle.toLowerCase().contains('vip')) {
-                                         iapProductId = TxaIapService.productIdNormal;
-                                       } else if (pkgId == 'custom_icon' || pkgId.contains('icon')) {
-                                         iapProductId = TxaIapService.productIdCustomIcon;
-                                       }
-                                       final success = await TxaIapService().buyProduct(iapProductId);
-                                       if (!success && context.mounted) {
-                                         TxaToast.show(context, 'Giao dịch $storeName chưa hoàn tất.', isError: true);
-                                       }
-                                     } else if (selectedPaymentMethod == 'sepay') {
-                                      // Open SePay Payment gateway web page
-                                      const siteUrl = TxaApi.baseUrl;
-                                      final checkoutUri = Uri.parse(
-                                        '$siteUrl/checkout/sepay?txid=$txid&price=$finalPrice&cycle=$selectedCycle&packageTitle=${Uri.encodeComponent(pkgTitle)}&packageId=${Uri.encodeComponent(pkgId)}&email=${Uri.encodeComponent(user?['email']?.toString() ?? '')}&isApp=1'
-                                      );
-                                      if (await canLaunchUrl(checkoutUri)) {
-                                        await launchUrl(checkoutUri, mode: LaunchMode.externalApplication);
-                                      } else {
-                                        if (context.mounted) {
-                                          TxaToast.show(context, TxaLanguage.t('payment_open_failed'), isError: true);
-                                        }
-                                      }
-                                    } else {
-                                      // Open MBBank transfer VietQR bottom sheet
-                                      _showPaymentQRSheet(
-                                        selectedPkg,
-                                        paymentInfo,
-                                        actionType: isCurrentPkg ? 'renew' : 'upgrade',
-                                        cycle: selectedCycle,
-                                        finalPrice: finalPrice,
-                                        promoCode: appliedPromoCode,
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      TxaToast.show(context, '${TxaLanguage.t('payment_init_error')}: $e', isError: true);
-                                    }
-                                  } finally {
-                                    if (context.mounted) {
-                                      setModalState(() => isSubmitting = false);
-                                    }
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.amber,
-                                  foregroundColor: Colors.black,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  elevation: 0,
-                                ),
-                                child: isSubmitting
-                                    ? const CircularProgressIndicator(color: Colors.black)
-                                    : Text(
-                                        buttonText,
-                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                                      ),
-                              ),
-                            ),
+                                                 const siteUrl = TxaApi.baseUrl;
+                                                 final checkoutUri = Uri.parse(
+                                                   '$siteUrl/checkout/sepay?txid=$txid&price=$finalPrice&cycle=$selectedCycle&packageTitle=${Uri.encodeComponent(pkgTitle)}&packageId=${Uri.encodeComponent(pkgId)}&email=${Uri.encodeComponent(user?['email']?.toString() ?? '')}&isApp=1'
+                                                 );
+                                                 if (await canLaunchUrl(checkoutUri)) {
+                                                   await launchUrl(checkoutUri, mode: LaunchMode.externalApplication);
+                                                 } else {
+                                                   if (context.mounted) {
+                                                     TxaToast.show(context, TxaLanguage.t('payment_open_failed'), isError: true);
+                                                   }
+                                                 }
+                                               } else {
+                                                 Navigator.pop(ctx);
+                                                 _showPaymentQRSheet(
+                                                   selectedPkg,
+                                                   paymentInfo,
+                                                   actionType: isCurrentPkg ? 'renew' : 'upgrade',
+                                                   cycle: selectedCycle,
+                                                   finalPrice: finalPrice,
+                                                   promoCode: appliedPromoCode,
+                                                 );
+                                               }
+                                             } catch (e) {
+                                               if (context.mounted) {
+                                                 TxaToast.show(context, '${TxaLanguage.t('payment_init_error')}: $e', isError: true);
+                                               }
+                                             } finally {
+                                               if (context.mounted) {
+                                                 setModalState(() => isSubmitting = false);
+                                               }
+                                             }
+                                           },
+                                     style: ElevatedButton.styleFrom(
+                                       backgroundColor: Colors.amber,
+                                       foregroundColor: Colors.black,
+                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                       elevation: 0,
+                                     ),
+                                     child: isSubmitting
+                                         ? const SizedBox(
+                                             width: 22,
+                                             height: 22,
+                                             child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
+                                           )
+                                         : Row(
+                                             mainAxisAlignment: MainAxisAlignment.center,
+                                             children: [
+                                               Icon(actionButtonIcon, size: 20, color: Colors.black),
+                                               const SizedBox(width: 8),
+                                               Text(
+                                                 actionButtonText,
+                                                 style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                                               ),
+                                             ],
+                                           ),
+                                   );
+                                 },
+                               ),
+                             ),
                             const SizedBox(height: 12),
                             Center(
                               child: TextButton.icon(
@@ -1474,42 +1493,11 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
     final pkgTitle = package['title'] ?? 'VIP';
     final pkgId = package['id']?.toString() ?? '';
 
-    // Call sepayInit to create the pending payment log on server
-    TxaToast.show(context, TxaLanguage.t('creating_tx'));
-    await TxaApi().sepayInit(
-      txid,
-      price,
-      pkgTitle,
-      effectiveCycle,
-      pkgId,
-    );
-
-    if (!mounted) return;
-
     // QR Image url format: https://api.vietqr.io/image/<BANK_ID>-<ACCOUNT_NO>-compact2.jpg?amount=<AMOUNT>&addInfo=<DESCRIPTION>&accountName=<ACCOUNT_NAME>
     final bankName = paymentInfo['bank_name'] ?? 'MBBank';
     final accountNo = paymentInfo['account_no'] ?? '0000000000';
     final accountName = paymentInfo['account_name'] ?? 'SYSTEM';
     final encodedAccountName = Uri.encodeComponent(accountName);
-    
-    // Add transaction log to backend in pending state
-    await TxaApi().postPaymentLog({
-      'txid': txid,
-      'username': user['username'],
-      'email': user['email'],
-      'packageTitle': pkgTitle,
-      'price': price,
-      'cycle': effectiveCycle,
-      'method': 'sepay',
-      'status': 'pending',
-      'actionType': actionType,
-      'promoCode': promoCode,
-      'note': actionType == 'renew'
-          ? TxaLanguage.t('payment_note_renew').replaceAll('%pkg%', pkgTitle)
-          : TxaLanguage.t('payment_note_upgrade'),
-    });
-
-    if (!mounted) return;
 
     final qrUrl = 'https://api.vietqr.io/image/$bankName-$accountNo-compact2.jpg?amount=$price&addInfo=$txid&accountName=$encodedAccountName';
 
