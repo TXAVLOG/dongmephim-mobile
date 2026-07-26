@@ -10,6 +10,8 @@ import android.os.Build
 import android.view.WindowManager
 import androidx.annotation.NonNull
 import androidx.core.content.FileProvider
+import android.os.Bundle
+import androidx.activity.enableEdgeToEdge
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -23,6 +25,11 @@ class MainActivity : FlutterActivity() {
     private var virtualizer: Virtualizer? = null
     private var equalizer: Equalizer? = null
     private var loudnessEnhancer: LoudnessEnhancer? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+    }
 
     private fun initAudioEffects() {
         try {
@@ -236,10 +243,33 @@ class MainActivity : FlutterActivity() {
                         result.error("ICON_ERROR", "Failed to change launcher icon: ${e.message}", null)
                     }
                 }
+                "enterPiP" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        try {
+                            val aspectRatio = android.util.Rational(16, 9)
+                            val params = android.app.PictureInPictureParams.Builder()
+                                .setAspectRatio(aspectRatio)
+                                .build()
+                            val success = enterPictureInPictureMode(params)
+                            result.success(success)
+                        } catch (e: Exception) {
+                            result.error("PIP_ERROR", "Failed to enter PiP mode: ${e.message}", null)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
             }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+            MethodChannel(messenger, CHANNEL).invokeMethod("onPiPModeChanged", isInPictureInPictureMode)
         }
     }
 }

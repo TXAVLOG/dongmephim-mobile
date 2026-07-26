@@ -225,6 +225,9 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   bool _isAudioOptimizerEnabled = false;
   double _audioBoostLevel = 1.0;
 
+  // Picture-in-Picture (PiP) State
+  bool _isInPiPMode = false;
+
   // TV D-Pad Focus Nodes
   final FocusNode _tvFocusNode = FocusNode();
 
@@ -232,6 +235,22 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    if (TxaPlatform.isMobile) {
+      const MethodChannel('online.dongmephim/platform').setMethodCallHandler((call) async {
+        if (call.method == 'onPiPModeChanged') {
+          final bool isInPiP = call.arguments as bool? ?? false;
+          if (mounted) {
+            setState(() {
+              _isInPiPMode = isInPiP;
+              if (isInPiP) {
+                _showControls = false;
+              }
+            });
+          }
+        }
+      });
+    }
     
     _currentServerIndex = widget.initialServerIndex;
     _currentEpisodeId = widget.currentEpisodeId ?? '';
@@ -478,6 +497,40 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<void> _enterPiPMode() async {
+    if (TxaPlatform.isTV) return;
+
+    try {
+      if (TxaPlatform.isMobile) {
+        const channel = MethodChannel('online.dongmephim/platform');
+        final bool? success = await channel.invokeMethod<bool>('enterPiP');
+        if (success == true) {
+          setState(() {
+            _isInPiPMode = true;
+            _showControls = false;
+          });
+        } else {
+          if (mounted) {
+            TxaToast.show(context, TxaLanguage.t('pip_not_supported'), isError: true);
+          }
+        }
+      } else if (TxaPlatform.isDesktop) {
+        setState(() {
+          _isInPiPMode = !_isInPiPMode;
+          _showControls = !_isInPiPMode;
+        });
+        if (mounted) {
+          TxaToast.show(context, _isInPiPMode ? TxaLanguage.t('pip_entered') : 'Đã thoát chế độ PiP');
+        }
+      }
+    } catch (e) {
+      TxaLogger.log('Lỗi khi kích hoạt PiP: $e', type: 'player');
+      if (mounted) {
+        TxaToast.show(context, TxaLanguage.t('pip_not_supported'), isError: true);
+      }
+    }
   }
 
   void _initAdWebView(String embedUrl) {
@@ -3556,6 +3609,16 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                                         onPressed: () => _showMobileAspectRatioPanel(context),
                                         tooltip: TxaLanguage.currentLang == 'vi' ? 'Tỉ lệ khung hình' : 'Aspect Ratio',
                                       ),
+                                      SizedBox(width: 8 * scale),
+                                      IconButton(
+                                        icon: Icon(
+                                          _isInPiPMode ? Icons.picture_in_picture_rounded : Icons.picture_in_picture_alt_rounded,
+                                          color: _isInPiPMode ? const Color(0xFF737DFD) : Colors.white,
+                                          size: iconSize - 2,
+                                        ),
+                                        onPressed: _enterPiPMode,
+                                        tooltip: TxaLanguage.t('pip_mode_tooltip'),
+                                      ),
                                       if (widget.servers != null && widget.servers!.isNotEmpty) ...[
                                         SizedBox(width: 8 * scale),
                                         IconButton(
@@ -3655,6 +3718,16 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                                         tooltip: TxaLanguage.currentLang == 'vi' ? 'Tỉ lệ khung hình' : 'Aspect Ratio',
                                       ),
                                       if (TxaPlatform.isDesktop) ...[
+                                        SizedBox(width: 12 * scale),
+                                        IconButton(
+                                          icon: Icon(
+                                            _isInPiPMode ? Icons.picture_in_picture_rounded : Icons.picture_in_picture_alt_rounded,
+                                            color: _isInPiPMode ? const Color(0xFF737DFD) : Colors.white,
+                                            size: iconSize - 2,
+                                          ),
+                                          onPressed: _enterPiPMode,
+                                          tooltip: TxaLanguage.t('pip_mode_tooltip'),
+                                        ),
                                         SizedBox(width: 12 * scale),
                                         IconButton(
                                           icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: Colors.white, size: iconSize),
