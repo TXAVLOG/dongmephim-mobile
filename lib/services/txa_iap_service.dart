@@ -224,12 +224,15 @@ class TxaIapService {
 
       if (result['success'] == true) {
         final String? keyCode = result['keyCode'];
+        final String defaultSuccessMsg = isCustomIcon
+            ? TxaLanguage.t('iap_icon_restore_success')
+            : TxaLanguage.t('iap_zalo_key_success');
         onPurchaseSuccess?.call(
           keyCode, 
-          result['message'] ?? 'Thanh toán thành công! Mã Key của bạn đã được khởi tạo.',
+          result['message'] ?? defaultSuccessMsg,
         );
       } else {
-        onPurchaseError?.call(result['message'] ?? 'Không thể xác thực hóa đơn trên hệ thống.');
+        onPurchaseError?.call(result['message'] ?? TxaLanguage.t('iap_verify_failed'));
       }
     } catch (e) {
       TxaLogger.log('Lỗi khi verifyPurchase: $e', type: 'iap');
