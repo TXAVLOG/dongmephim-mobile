@@ -53,6 +53,11 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
+IDI_APP_ICON_CYAN       ICON                    "resources\\app_icon_cyan.ico"
+IDI_APP_ICON_CYBER      ICON                    "resources\\app_icon_cyber.ico"
+IDI_APP_ICON_EMERALD    ICON                    "resources\\app_icon_emerald.ico"
+IDI_APP_ICON_GOLD       ICON                    "resources\\app_icon_gold.ico"
+IDI_APP_ICON_RUBY       ICON                    "resources\\app_icon_ruby.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////

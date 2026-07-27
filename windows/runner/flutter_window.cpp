@@ -45,6 +45,56 @@ bool FlutterWindow::OnCreate() {
           } else {
             result->Error("BAD_ARGUMENT", "Argument must be a boolean");
           }
+        } else if (call.method_name() == "changeAppIcon") {
+          const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+          std::string icon_name = "default";
+          if (arguments) {
+            auto name_it = arguments->find(flutter::EncodableValue("iconName"));
+            if (name_it != arguments->end() && std::holds_alternative<std::string>(name_it->second)) {
+              icon_name = std::get<std::string>(name_it->second);
+            }
+          }
+
+          int icon_resource_id = 101; // IDI_APP_ICON
+          if (icon_name == "cyan") icon_resource_id = 102;
+          else if (icon_name == "cyber") icon_resource_id = 103;
+          else if (icon_name == "emerald") icon_resource_id = 104;
+          else if (icon_name == "gold") icon_resource_id = 105;
+          else if (icon_name == "ruby") icon_resource_id = 106;
+
+          HWND hwnd = GetHandle();
+          if (hwnd) {
+            HICON h_icon_small = (HICON)LoadImage(
+                GetModuleHandle(nullptr),
+                MAKEINTRESOURCE(icon_resource_id),
+                IMAGE_ICON,
+                GetSystemMetrics(SM_CXSMICON),
+                GetSystemMetrics(SM_CYSMICON),
+                LR_DEFAULTCOLOR
+            );
+            HICON h_icon_large = (HICON)LoadImage(
+                GetModuleHandle(nullptr),
+                MAKEINTRESOURCE(icon_resource_id),
+                IMAGE_ICON,
+                GetSystemMetrics(SM_CXICON),
+                GetSystemMetrics(SM_CYICON),
+                LR_DEFAULTCOLOR
+            );
+            
+            if (h_icon_small || h_icon_large) {
+              if (h_icon_small) {
+                SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)h_icon_small);
+              }
+              if (h_icon_large) {
+                SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)h_icon_large);
+              }
+              result->Success(flutter::EncodableValue(true));
+            } else {
+              result->Error("ICON_LOAD_FAILED", "Failed to load dynamic icon resources");
+            }
+          } else {
+            result->Error("NO_WINDOW", "Window handle not available");
+          }
         } else {
           result->NotImplemented();
         }

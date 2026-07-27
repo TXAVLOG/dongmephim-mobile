@@ -3,6 +3,11 @@
 // Used by Runner.rc
 //
 #define IDI_APP_ICON                    101
+#define IDI_APP_ICON_CYAN               102
+#define IDI_APP_ICON_CYBER              103
+#define IDI_APP_ICON_EMERALD            104
+#define IDI_APP_ICON_GOLD               105
+#define IDI_APP_ICON_RUBY               106
 
 // Next default values for new objects
 //

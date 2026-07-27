@@ -71,7 +71,7 @@ class TxaDynamicIconService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(keyActiveIcon, iconKey);
 
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isAndroid || Platform.isIOS || Platform.isWindows) {
         final bool success = await _channel.invokeMethod('changeAppIcon', {
           'iconName': iconId,
         });
