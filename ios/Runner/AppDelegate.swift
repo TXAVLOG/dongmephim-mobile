@@ -36,6 +36,14 @@ import UIKit
           self?.disableSecureMode()
           result(true)
           
+        case "changeAppIcon":
+          if let args = call.arguments as? [String: Any],
+             let iconName = args["iconName"] as? String {
+            self?.changeAppIcon(iconName: iconName, result: result)
+          } else {
+            result(FlutterError(code: "INVALID_ARGS", message: "Arguments must be a dictionary with iconName key", details: nil))
+          }
+          
         case "set3DAudioEnabled", "setAudioOptimizeEnabled", "setAudioBoostLevel":
           result(true)
           
@@ -46,6 +54,25 @@ import UIKit
     }
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private func changeAppIcon(iconName: String, result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      guard UIApplication.shared.supportsAlternateIcons else {
+        result(FlutterError(code: "NOT_SUPPORTED", message: "iOS device/version does not support alternate icons", details: nil))
+        return
+      }
+      
+      let targetIconName: String? = (iconName == "default" || iconName.isEmpty) ? nil : "icon_" + iconName
+      
+      UIApplication.shared.setAlternateIconName(targetIconName) { error in
+        if let error = error {
+          result(FlutterError(code: "ICON_ERROR", message: error.localizedDescription, details: nil))
+        } else {
+          result(true)
+        }
+      }
+    }
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
