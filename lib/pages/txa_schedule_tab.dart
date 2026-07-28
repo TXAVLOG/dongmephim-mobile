@@ -256,6 +256,7 @@ class _TxaScheduleTabState extends State<TxaScheduleTab> {
           margin: const EdgeInsets.only(bottom: 12),
           child: TxaTheme.liquidGlassPill(
             radius: 20,
+            useBlur: false,
             child: Material(
               color: Colors.transparent,
               child: ListTile(

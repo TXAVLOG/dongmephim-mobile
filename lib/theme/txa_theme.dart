@@ -57,36 +57,46 @@ class TxaTheme {
     double radius = 999.0,
     EdgeInsets padding = EdgeInsets.zero,
     Color? borderGlowColor,
+    bool useBlur = true,
   }) {
+    final Widget container = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: borderGlowColor ?? Colors.white.withValues(alpha: 0.12),
+          width: 1.0,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.08),
+              Colors.white.withValues(alpha: 0.01),
+            ],
+          ),
+        ),
+        child: child,
+      ),
+    );
+
+    if (!useBlur) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: container,
+      );
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.25),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(
-              color: borderGlowColor ?? Colors.white.withValues(alpha: 0.12),
-              width: 1.0,
-            ),
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(radius),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.08),
-                  Colors.white.withValues(alpha: 0.01),
-                ],
-              ),
-            ),
-            child: child,
-          ),
-        ),
+        child: container,
       ),
     );
   }

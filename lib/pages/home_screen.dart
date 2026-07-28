@@ -963,6 +963,7 @@ class _HomeTabState extends State<HomeTab> {
             // Movie Poster inside Liquid Glass card
             TxaTheme.liquidGlassPill(
               radius: 16,
+              useBlur: false,
               child: SizedBox(
                 height: 160,
                 width: 120,
@@ -1252,6 +1253,7 @@ class _HomeTabState extends State<HomeTab> {
           Expanded(
             child: TxaTheme.liquidGlassPill(
               radius: 16,
+              useBlur: false,
               child: Stack(
                 fit: StackFit.expand,
                 children: [

@@ -231,6 +231,7 @@ class _FavoriteGridItem extends StatelessWidget {
           Expanded(
             child: TxaTheme.liquidGlassPill(
               radius: 16,
+              useBlur: false,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
