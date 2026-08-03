@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "267657753024",
+    "project_id": "dongmephim",
+    "storage_bucket": "dongmephim.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:267657753024:android:f2ade5b8a6da9c4803d825",
+        "android_client_info": {
+          "package_name": "com.tphimx.tphimx_setup"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5yyVw7Yb_pPl_Z-ASU0_Wa4Uh0pcigNY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
