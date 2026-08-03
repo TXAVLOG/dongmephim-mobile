@@ -6,6 +6,8 @@ import 'txa_language.dart';
 import 'txa_persistent_auth_vault.dart';
 import 'txa_dynamic_icon_service.dart';
 import '../utils/txa_logger.dart';
+import '../utils/txa_navigator.dart';
+import '../utils/txa_toast.dart';
 
 class TxaAuthService extends ChangeNotifier {
   static final TxaAuthService _instance = TxaAuthService._internal();
@@ -73,10 +75,12 @@ class TxaAuthService extends ChangeNotifier {
       if (isLoggedIn) {
         await refreshUser(onShowToast: onShowToast);
       } else {
+        await runIconCheck();
         notifyListeners();
       }
     } catch (e) {
       TxaLogger.log('TxaAuthService initialization error: $e', type: 'auth');
+      await runIconCheck();
       notifyListeners();
     }
   }
@@ -100,6 +104,7 @@ class TxaAuthService extends ChangeNotifier {
             user: _user!,
             activeAppIcon: activeIcon,
           );
+          await runIconCheck();
           notifyListeners();
         }
       } else if (status == 'banned' || status == 'deleted' || status == 'unauthorized') {
@@ -140,6 +145,7 @@ class TxaAuthService extends ChangeNotifier {
             }
             TxaApi.clearCache();
             TxaLogger.log('Login successful for $identity', type: 'auth');
+            await runIconCheck();
             notifyListeners();
             return {'success': true, 'message': response['message'] ?? 'Đăng nhập thành công'};
           }
@@ -218,6 +224,7 @@ class TxaAuthService extends ChangeNotifier {
     }
     TxaApi.clearCache();
     TxaLogger.log('Auth session manually set for ${userData['username'] ?? userData['email']}', type: 'auth');
+    await runIconCheck();
     notifyListeners();
   }
 
@@ -256,6 +263,7 @@ class TxaAuthService extends ChangeNotifier {
       _user = null;
       TxaApi.clearCache();
       TxaLogger.log('Logged out successfully', type: 'auth');
+      await runIconCheck();
       notifyListeners();
 
       if (reasonMessage != null && reasonMessage.isNotEmpty) {
@@ -263,6 +271,21 @@ class TxaAuthService extends ChangeNotifier {
       }
     } catch (e) {
       TxaLogger.log('Logout error: $e', type: 'auth');
+    }
+  }
+
+  /// Run check for active icon license. If expired/invalid reset to default
+  Future<void> runIconCheck() async {
+    try {
+      final wasReset = await TxaDynamicIconService.checkAndRevertExpiredOrUnlicensedIcon(_user);
+      if (wasReset) {
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null) {
+          TxaToast.show(ctx, TxaLanguage.t('icon_expired_reverted'), isError: true);
+        }
+      }
+    } catch (e) {
+      TxaLogger.log('Error running icon license check: $e', type: 'app');
     }
   }
 

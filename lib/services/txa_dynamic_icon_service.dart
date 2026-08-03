@@ -84,6 +84,88 @@ class TxaDynamicIconService {
     }
   }
 
+  static const String prefixAdUnlockExpiry = 'txa_ad_unlocked_expiry_';
+
+  /// Save ad unlock status for 3 days
+  static Future<void> saveAdUnlock(String iconKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    final expiry = DateTime.now().add(const Duration(days: 3));
+    await prefs.setString('$prefixAdUnlockExpiry$iconKey', expiry.toIso8601String());
+  }
+
+  /// Check if icon is currently unlocked via ad (and not expired)
+  static Future<bool> isAdUnlocked(String iconKey) async {
+    if (iconKey == 'icon_default.png') return true;
+    final expiry = await getAdUnlockExpiry(iconKey);
+    if (expiry == null) return false;
+    return expiry.isAfter(DateTime.now());
+  }
+
+  /// Get ad unlock expiry date
+  static Future<DateTime?> getAdUnlockExpiry(String iconKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    final expiryStr = prefs.getString('$prefixAdUnlockExpiry$iconKey');
+    if (expiryStr != null) {
+      return DateTime.tryParse(expiryStr);
+    }
+    return null;
+  }
+
+  /// Get remaining duration of ad unlock
+  static Future<Duration?> getAdUnlockRemaining(String iconKey) async {
+    final expiry = await getAdUnlockExpiry(iconKey);
+    if (expiry != null) {
+      final diff = expiry.difference(DateTime.now());
+      return diff.isNegative ? Duration.zero : diff;
+    }
+    return null;
+  }
+
+  /// Helper to check subscription permission based on user map
+  static bool hasSubscriptionPermission(Map<String, dynamic>? user) {
+    if (user == null) return false;
+    final role = (user['role'] ?? 'user').toString().toLowerCase();
+    if (role == 'admin' || role == 'superadmin') return true;
+
+    if (user['custom_app_icon'] == true || user['allow_custom_icon'] == true) return true;
+    final perms = user['permissions'] as Map<String, dynamic>?;
+    if (perms != null && (perms['custom_app_icon'] == true || perms['custom_icon'] == true || perms['allow_custom_icon'] == true)) {
+      return true;
+    }
+    final pkg = (user['package'] ?? 'free').toString().toLowerCase();
+    if (pkg == 'custom_icon' || pkg.contains('icon') || pkg == 'vip' || pkg == 'dongphims') {
+      final expiryStr = user['expiry_date'] ?? user['expiryDate'];
+      if (expiryStr != null && expiryStr.toString().isNotEmpty) {
+        final dt = DateTime.tryParse(expiryStr.toString());
+        if (dt != null && dt.isBefore(DateTime.now())) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /// Check active icon permission, if expired/unlicensed reset to default
+  /// Returns true if the icon was reset to default.
+  static Future<bool> checkAndRevertExpiredOrUnlicensedIcon(Map<String, dynamic>? currentUser) async {
+    final activeIcon = await getActiveIconKey();
+    if (activeIcon == 'icon_default.png') return false;
+
+    // Check if user has subscription permission
+    final hasSub = hasSubscriptionPermission(currentUser);
+    if (hasSub) return false;
+
+    // Check if current active icon is unlocked via ads
+    final adsUnlocked = await isAdUnlocked(activeIcon);
+    if (adsUnlocked) return false;
+
+    // Not subscribed, and not ads-unlocked (or ads-unlocked expired). Revert to default.
+    TxaLogger.log('Active app icon ($activeIcon) is no longer licensed or has expired. Reverting to default Neon Default.', type: 'app');
+    await setAppIcon('icon_default.png');
+    return true;
+  }
+
   static const String keySubActive = 'txa_icon_sub_active';
   static const String keySubExpiry = 'txa_icon_sub_expiry';
   static const String keySubIsTrial = 'txa_icon_sub_is_trial';

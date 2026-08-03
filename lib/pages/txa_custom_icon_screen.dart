@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/txa_language.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_dynamic_icon_service.dart';
+import '../services/txa_ads_service.dart';
 import '../services/txa_iap_service.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
@@ -24,10 +26,47 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
   bool _isTrialSub = false;
   Duration? _subRemainingDuration;
 
+  Timer? _countdownTimer;
+  final Map<String, Duration> _adUnlockRemainingMap = {};
+
   @override
   void initState() {
     super.initState();
     _loadActiveIcon();
+    _startCountdownTimer();
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateAdUnlockRemainingTimes();
+    });
+  }
+
+  Future<void> _updateAdUnlockRemainingTimes() async {
+    bool changed = false;
+    for (final item in TxaDynamicIconService.availableIcons) {
+      final key = item['key']!;
+      if (key == 'icon_default.png') continue;
+      final remaining = await TxaDynamicIconService.getAdUnlockRemaining(key);
+      final current = _adUnlockRemainingMap[key];
+      if (remaining != current) {
+        if (remaining != null) {
+          _adUnlockRemainingMap[key] = remaining;
+        } else {
+          _adUnlockRemainingMap.remove(key);
+        }
+        changed = true;
+      }
+    }
+    if (changed && mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadActiveIcon() async {
@@ -35,6 +74,7 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
     final localActive = await TxaDynamicIconService.isLocalSubscriptionActive();
     final isTrial = await TxaDynamicIconService.isLocalSubscriptionTrial();
     final remaining = await TxaDynamicIconService.getLocalSubscriptionRemaining();
+    await _updateAdUnlockRemainingTimes();
     if (mounted) {
       setState(() {
         _activeIconKey = active;
@@ -251,13 +291,140 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
     }
   }
 
-  Future<void> _applySelectedIcon(bool hasPerm) async {
+  bool _isIconUnlocked(String iconKey, Map<String, dynamic>? user) {
+    if (iconKey == 'icon_default.png') return true;
+    if (_hasPermission(user)) return true;
+    final remaining = _adUnlockRemainingMap[iconKey];
+    return remaining != null && remaining > Duration.zero;
+  }
+
+  String _formatAdUnlockRemaining(Duration duration) {
+    if (duration <= Duration.zero) return '00:00:00';
+    final days = duration.inDays;
+    final hours = duration.inHours.remainder(24);
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    final hoursStr = hours.toString().padLeft(2, '0');
+    final minutesStr = minutes.toString().padLeft(2, '0');
+    final secondsStr = seconds.toString().padLeft(2, '0');
+
+    final prefix = TxaLanguage.t('icon_countdown_prefix');
+    if (days >= 1) {
+      final daysWord = TxaLanguage.currentLang == 'vi' ? 'ngày' : 'days';
+      return '$prefix$days $daysWord $hoursStr:$minutesStr:$secondsStr';
+    } else {
+      return '$hoursStr:$minutesStr:$secondsStr';
+    }
+  }
+
+  void _showWatchAdDialog(String iconKey, String iconName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: TxaTheme.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            const Icon(Icons.play_circle_fill_rounded, color: TxaTheme.accent, size: 24),
+            const SizedBox(width: 10),
+            Text(
+              TxaLanguage.t('watch_ad_unlock_title'),
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Text(
+          TxaLanguage.t('watch_ad_unlock_confirm').replaceAll('%name%', iconName),
+          style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 13, height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              TxaLanguage.t('cancel'),
+              style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _playAdToUnlock(iconKey, iconName);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TxaTheme.accent,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(
+              TxaLanguage.t('ok'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _playAdToUnlock(String iconKey, String iconName) async {
+    TxaToast.show(context, TxaLanguage.t('loading_image'));
+    await TxaAdsService().showRewardedAd(onComplete: (rewarded) async {
+      if (!mounted) return;
+      if (rewarded) {
+        await TxaDynamicIconService.saveAdUnlock(iconKey);
+        await _loadActiveIcon();
+        
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: TxaTheme.cardBg,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: Row(
+              children: [
+                const Icon(Icons.stars_rounded, color: Colors.amber, size: 24),
+                const SizedBox(width: 10),
+                Text(
+                  TxaLanguage.t('ad_reward_success_title'),
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: Text(
+              TxaLanguage.t('ad_reward_success_desc').replaceAll('%name%', iconName),
+              style: const TextStyle(color: TxaTheme.textSecondary, fontSize: 13, height: 1.45),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _selectedIconKey = iconKey;
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: TxaTheme.accent,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      } else {
+        TxaToast.show(context, TxaLanguage.t('ad_load_failed'), isError: true);
+      }
+    });
+  }
+
+  Future<void> _applySelectedIcon(Map<String, dynamic>? user) async {
     if (TxaPlatform.isTV) {
       TxaToast.show(context, TxaLanguage.t('tv_icon_not_supported'), isError: true);
       return;
     }
 
-    if (!hasPerm && _selectedIconKey != 'icon_default.png') {
+    final isUnlocked = _isIconUnlocked(_selectedIconKey, user);
+    if (!isUnlocked) {
       TxaToast.show(context, TxaLanguage.t('custom_icon_section_desc_locked'), isError: true);
       return;
     }
@@ -389,7 +556,8 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
                   final iconDesc = TxaLanguage.t(item['descKey']!);
                   final isCurrentActive = _activeIconKey == iconKey;
                   final isSelected = _selectedIconKey == iconKey;
-                  final isLocked = !hasPerm && iconKey != 'icon_default.png';
+                  final isLocked = !_isIconUnlocked(iconKey, user);
+                  final remaining = _adUnlockRemainingMap[iconKey];
 
                   Color themeColor = TxaTheme.accent;
                   try {
@@ -400,7 +568,7 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
                   return GestureDetector(
                     onTap: () {
                       if (isLocked) {
-                        TxaToast.show(context, TxaLanguage.t('custom_icon_section_desc_locked'), isError: true);
+                        _showWatchAdDialog(iconKey, iconName);
                         return;
                       }
                       setState(() => _selectedIconKey = iconKey);
@@ -433,14 +601,39 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Center(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Image.asset(
-                                    'assets/app_icons/$iconKey',
-                                    width: 72,
-                                    height: 72,
-                                    fit: BoxFit.cover,
-                                  ),
+                                child: Stack(
+                                  alignment: Alignment.bottomCenter,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Image.asset(
+                                        'assets/app_icons/$iconKey',
+                                        width: 72,
+                                        height: 72,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    if (remaining != null && remaining > Duration.zero)
+                                      Positioned(
+                                        bottom: 2,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.85),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: themeColor.withValues(alpha: 0.6), width: 0.6),
+                                          ),
+                                          child: Text(
+                                            _formatAdUnlockRemaining(remaining),
+                                            style: TextStyle(
+                                              color: themeColor,
+                                              fontSize: 7.5,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -518,7 +711,7 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
                 child: ElevatedButton(
                   onPressed: (_isApplying || TxaPlatform.isTV)
                       ? null
-                      : () => _applySelectedIcon(hasPerm),
+                      : () => _applySelectedIcon(user),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: TxaTheme.accent,
                     foregroundColor: Colors.black,

@@ -13,7 +13,7 @@ import '../pages/txa_movie_detail_screen.dart';
 import '../tv/screens/tv_movie_detail_screen.dart';
 import '../utils/txa_platform.dart';
 import '../utils/txa_logger.dart';
-import '../main.dart';
+import '../utils/txa_navigator.dart';
 
 import 'package:workmanager/workmanager.dart';
 

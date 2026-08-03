@@ -1101,7 +1101,12 @@ class TxaLanguage extends ChangeNotifier {
       'country_japan': 'Nhật Bản',
       // Special Categories
       'txa_category_chinese_masterpieces': 'Tinh Hoa Hoa Ngữ',
-
+      'watch_ad_unlock_title': 'Mở khóa Icon ứng dụng',
+      'watch_ad_unlock_confirm': 'Bạn có muốn xem hết 1 video quảng cáo để mở khóa icon "%name%" trong 3 ngày không?',
+      'ad_reward_success_title': 'Mở khóa thành công!',
+      'ad_reward_success_desc': 'Bạn đã nhận được phần thưởng là icon "%name%" với hạn sử dụng 3 ngày.',
+      'icon_expired_reverted': 'Hạn sử dụng icon đã hết. Icon đã được đặt lại về mặc định của ứng dụng!',
+      'icon_countdown_prefix': 'Còn ',
     },
     'en': {
       'preparing': 'Preparing...',
@@ -2188,6 +2193,12 @@ class TxaLanguage extends ChangeNotifier {
       'app_crash_copy_details': 'Copy Error Details',
       'app_crash_restart_app': 'Restart Application',
       'app_crash_copied': 'Copied crash error details to Clipboard!',
+      'watch_ad_unlock_title': 'Unlock App Icon',
+      'watch_ad_unlock_confirm': 'Do you want to watch a full video ad to unlock icon "%name%" for 3 days?',
+      'ad_reward_success_title': 'Unlock Successful!',
+      'ad_reward_success_desc': 'You have received icon "%name%" with a 3-day expiry!',
+      'icon_expired_reverted': 'App icon theme has expired. Reverted to default app icon!',
+      'icon_countdown_prefix': 'Remaining: ',
     },
   };
 

@@ -12,17 +12,19 @@ import 'theme/txa_theme.dart';
 import 'services/txa_language.dart';
 import 'services/txa_auth_service.dart';
 import 'services/txa_ads_service.dart';
+import 'services/txa_dynamic_icon_service.dart';
 import 'widgets/splash_screen.dart';
 import 'widgets/txa_error_widget.dart';
 import 'widgets/txa_modal.dart';
 import 'widgets/txa_update_changelog_modal.dart';
 import 'pages/home_screen.dart';
 import 'utils/txa_logger.dart';
+import 'utils/txa_navigator.dart';
 import 'utils/txa_platform.dart';
 import 'tv/tv_app.dart';
 import 'utils/txa_toast.dart';
 
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+export 'utils/txa_navigator.dart' show navigatorKey;
 String? launchFilePath;
 
 void main(List<String> args) async {
@@ -268,6 +270,14 @@ class _MainEntryState extends State<MainEntry> {
           });
           // Schedule 5s App Start Ad (checks VIP status & AdMob settings)
           TxaAdsService().scheduleAppStartAd();
+
+          // Run app start app icon check
+          final auth = Provider.of<TxaAuthService>(context, listen: false);
+          TxaDynamicIconService.checkAndRevertExpiredOrUnlicensedIcon(auth.user).then((wasReset) {
+            if (wasReset && mounted) {
+              TxaToast.show(context, TxaLanguage.t('icon_expired_reverted'), isError: true);
+            }
+          });
 
           // Check iOS version and show TxaModal warning right after splash
           _checkIOSVersionAndShowModal();
