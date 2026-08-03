@@ -970,6 +970,7 @@ class TxaLanguage extends ChangeNotifier {
       'play_speed_toast': 'Tốc độ phát: %speed%x',
       'ad_error_skip': 'Lỗi quảng cáo - Bỏ qua',
       'ad_load_failed': 'Không thể tải video quảng cáo từ hệ thống.',
+      'ad_frequency_cap': 'Bạn đã xem đủ quảng cáo hôm nay (tối đa 5 lần/ngày).\nVui lòng thử lại vào ngày mai!',
       'ad_loading_yt': 'Đang phát quảng cáo YouTube...',
       'sponsored_link': 'Liên kết tài trợ',
       'next_video_countdown': 'Video tiếp theo sau %seconds%',
@@ -1107,6 +1108,8 @@ class TxaLanguage extends ChangeNotifier {
       'ad_reward_success_desc': 'Bạn đã nhận được phần thưởng là icon "%name%" với hạn sử dụng 3 ngày.',
       'icon_expired_reverted': 'Hạn sử dụng icon đã hết. Icon đã được đặt lại về mặc định của ứng dụng!',
       'icon_countdown_prefix': 'Còn ',
+      'loading_ad': 'Đang tải quảng cáo...',
+      'maintenance_server_down': 'Website đang bảo trì, vui lòng quay lại sau.',
     },
     'en': {
       'preparing': 'Preparing...',
@@ -2053,6 +2056,7 @@ class TxaLanguage extends ChangeNotifier {
       'play_speed_toast': 'Play speed: %speed%x',
       'ad_error_skip': 'Ad error - Skipping',
       'ad_load_failed': 'Could not load video advertisement from system.',
+      'ad_frequency_cap': 'You have reached today\'s ad limit (max 5/day).\nPlease try again tomorrow!',
       'ad_loading_yt': 'Playing YouTube ad...',
       'sponsored_link': 'Sponsored link',
       'next_video_countdown': 'Next video in %seconds%',
@@ -2199,6 +2203,8 @@ class TxaLanguage extends ChangeNotifier {
       'ad_reward_success_desc': 'You have received icon "%name%" with a 3-day expiry!',
       'icon_expired_reverted': 'App icon theme has expired. Reverted to default app icon!',
       'icon_countdown_prefix': 'Remaining: ',
+      'loading_ad': 'Loading ad...',
+      'maintenance_server_down': 'Website is under maintenance, please try again later.',
     },
   };
 

@@ -367,13 +367,15 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
   }
 
   Future<void> _playAdToUnlock(String iconKey, String iconName) async {
-    TxaToast.show(context, TxaLanguage.t('loading_image'));
-    await TxaAdsService().showRewardedAd(onComplete: (rewarded) async {
+    TxaToast.show(context, TxaLanguage.t('loading_ad'));
+    await TxaAdsService().showRewardedAd(onComplete: (rewarded, [String? errorMsg]) async {
       if (!mounted) return;
       if (rewarded) {
         await TxaDynamicIconService.saveAdUnlock(iconKey);
         await _loadActiveIcon();
-        
+
+        if (!mounted) return;
+
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -412,7 +414,11 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
           ),
         );
       } else {
-        TxaToast.show(context, TxaLanguage.t('ad_load_failed'), isError: true);
+        TxaToast.show(
+          context,
+          errorMsg ?? TxaLanguage.t('ad_load_failed'),
+          isError: true,
+        );
       }
     });
   }
@@ -613,22 +619,30 @@ class _TxaCustomIconScreenState extends State<TxaCustomIconScreen> {
                                         fit: BoxFit.cover,
                                       ),
                                     ),
-                                    if (remaining != null && remaining > Duration.zero)
+                                     if (remaining != null && remaining > Duration.zero)
                                       Positioned(
-                                        bottom: 2,
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.85),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: themeColor.withValues(alpha: 0.6), width: 0.6),
+                                            color: Colors.black.withValues(alpha: 0.88),
+                                            borderRadius: const BorderRadius.only(
+                                              bottomLeft: Radius.circular(16),
+                                              bottomRight: Radius.circular(16),
+                                            ),
+                                            border: Border.all(color: themeColor.withValues(alpha: 0.5), width: 0.6),
                                           ),
-                                          child: Text(
-                                            _formatAdUnlockRemaining(remaining),
-                                            style: TextStyle(
-                                              color: themeColor,
-                                              fontSize: 7.5,
-                                              fontWeight: FontWeight.bold,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              _formatAdUnlockRemaining(remaining),
+                                              style: TextStyle(
+                                                color: themeColor,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                         ),

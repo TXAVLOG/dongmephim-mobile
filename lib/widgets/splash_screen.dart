@@ -27,6 +27,7 @@ class _SplashScreenState extends State<SplashScreen>
   double _progress = 0.0;
   String _status = '';
   bool _hasError = false;
+  String _errorMessage = '';
   late AnimationController _breathingController;
   late Animation<double> _glowAnimation;
   late AnimationController _rotationController;
@@ -67,7 +68,8 @@ class _SplashScreenState extends State<SplashScreen>
   void _startInitialization() async {
     setState(() {
       _hasError = false;
-      _status = TxaLanguage.t('connecting'); // "Đang kết nối..."
+      _errorMessage = '';
+      _status = TxaLanguage.t('connecting');
       _progress = 0.15;
     });
 
@@ -77,6 +79,9 @@ class _SplashScreenState extends State<SplashScreen>
       if (mounted) {
         setState(() {
           _hasError = true;
+          _errorMessage = TxaLanguage.t('network_error').isNotEmpty
+              ? TxaLanguage.t('network_error')
+              : 'Không có kết nối mạng.\nVui lòng kiểm tra WiFi / 4G và thử lại.';
         });
       }
       return;
@@ -92,7 +97,13 @@ class _SplashScreenState extends State<SplashScreen>
     try {
       checkUpdate = await TxaApi().getCheckUpdate();
       if (checkUpdate == null) {
-        throw Exception("Cannot load system configuration");
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = 'Không thể kết nối đến máy chủ.\nVui lòng kiểm tra mạng và thử lại.';
+          });
+        }
+        return;
       }
 
       // Check Google Play In-App Update immediately on Splash Screen
@@ -101,6 +112,7 @@ class _SplashScreenState extends State<SplashScreen>
       if (mounted) {
         setState(() {
           _hasError = true;
+          _errorMessage = e.toString();
         });
       }
       return;
@@ -187,6 +199,7 @@ class _SplashScreenState extends State<SplashScreen>
       return Scaffold(
         backgroundColor: const Color(0xFF09090B),
         body: TxaErrorWidget(
+          error: _errorMessage.isNotEmpty ? _errorMessage : null,
           onRetry: _startInitialization,
         ),
       );

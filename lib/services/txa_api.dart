@@ -508,6 +508,24 @@ class TxaApi {
         statusCode: response.statusCode,
         responseBody: utf8.decode(response.bodyBytes),
       );
+
+      // Handle maintenance / server down (503, 502, 500, etc.)
+      if (response.statusCode != 200) {
+        String maintenanceMsg = TxaLanguage.t('maintenance_server_down');
+        try {
+          final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+          if (decoded is Map<String, dynamic>) {
+            final msg = decoded['message']?.toString() ?? decoded['error']?.toString();
+            if (msg != null && msg.isNotEmpty) maintenanceMsg = msg;
+          }
+        } catch (_) {}
+        return {
+          'maintenance_mode': true,
+          'maintenance_message': maintenanceMsg,
+          'status_code': response.statusCode,
+        };
+      }
+
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic>) {

@@ -206,9 +206,10 @@ class TxaAdsService {
   }
 
   /// Show Rewarded Ad to unlock premium items (Android & iOS)
-  Future<void> showRewardedAd({required Function(bool rewardGranted) onComplete}) async {
+  Future<void> showRewardedAd({required Function(bool rewardGranted, [String? errorMsg]) onComplete}) async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
-      onComplete(true);
+      // Windows / desktop / unsupported platforms: no ad SDK → no reward
+      onComplete(false);
       return;
     }
 
@@ -231,10 +232,10 @@ class TxaAdsService {
 
     bool completed = false;
     bool granted = false;
-    void safeComplete(bool rewardGranted) {
+    void safeComplete(bool rewardGranted, [String? errorMsg]) {
       if (!completed) {
         completed = true;
-        onComplete(rewardGranted);
+        onComplete(rewardGranted, errorMsg);
       }
     }
 
@@ -263,7 +264,12 @@ class TxaAdsService {
         },
         onAdFailedToLoad: (error) {
           TxaLogger.log('Rewarded Ad failed to load: $error', type: 'app');
-          safeComplete(false);
+          // code 3 = Frequency cap reached (user hit daily limit)
+          if (error.code == 3) {
+            safeComplete(false, TxaLanguage.t('ad_frequency_cap'));
+          } else {
+            safeComplete(false);
+          }
         },
       ),
     );

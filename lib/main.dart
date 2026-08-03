@@ -100,9 +100,10 @@ void main(List<String> args) async {
       }
     }
 
+    TxaAuthService? authService;
     try {
       TxaLogger.log('Startup: Initializing TxaAuthService...', type: 'app');
-      final authService = TxaAuthService();
+      authService = TxaAuthService();
       await authService.initialize();
       TxaLogger.log('Startup: TxaAuthService initialized', type: 'app');
     } catch (e, s) {
@@ -289,7 +290,7 @@ class _MainEntryState extends State<MainEntry> {
   Widget build(BuildContext context) {
     if (_showSplash) {
       return SplashScreen(
-        onFinish: () {
+        onFinish: () async {
           setState(() {
             _showSplash = false;
           });
@@ -298,11 +299,10 @@ class _MainEntryState extends State<MainEntry> {
 
           // Run app start app icon check
           final auth = Provider.of<TxaAuthService>(context, listen: false);
-          TxaDynamicIconService.checkAndRevertExpiredOrUnlicensedIcon(auth.user).then((wasReset) {
-            if (wasReset && mounted) {
-              TxaToast.show(context, TxaLanguage.t('icon_expired_reverted'), isError: true);
-            }
-          });
+          final wasReset = await TxaDynamicIconService.checkAndRevertExpiredOrUnlicensedIcon(auth.user);
+          if (wasReset && mounted) {
+            TxaToast.show(context, TxaLanguage.t('icon_expired_reverted'), isError: true);
+          }
 
           // Check iOS version and show TxaModal warning right after splash
           _checkIOSVersionAndShowModal();

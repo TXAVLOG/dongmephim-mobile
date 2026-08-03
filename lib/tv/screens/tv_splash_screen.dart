@@ -26,6 +26,7 @@ class _TvSplashScreenState extends State<TvSplashScreen>
   String _status = '';
   double _progress = 0.0;
   bool _hasError = false;
+  String _errorMessage = '';
 
   @override
   void initState() {
@@ -60,7 +61,8 @@ class _TvSplashScreenState extends State<TvSplashScreen>
   void _startTvInit() async {
     setState(() {
       _hasError = false;
-      _status = TxaLanguage.t('connecting'); // "Đang kết nối..."
+      _errorMessage = '';
+      _status = TxaLanguage.t('connecting');
       _progress = 0.2;
     });
 
@@ -80,6 +82,9 @@ class _TvSplashScreenState extends State<TvSplashScreen>
       if (mounted) {
         setState(() {
           _hasError = true;
+          _errorMessage = TxaLanguage.t('network_error').isNotEmpty
+              ? TxaLanguage.t('network_error')
+              : 'Không có kết nối mạng.\nVui lòng kiểm tra mạng và thử lại.';
         });
       }
       return;
@@ -106,12 +111,19 @@ class _TvSplashScreenState extends State<TvSplashScreen>
     try {
       checkUpdate = await TxaApi().getCheckUpdate();
       if (checkUpdate == null) {
-        throw Exception("Cannot load system configuration");
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = 'Không thể kết nối đến máy chủ.\nVui lòng kiểm tra mạng và thử lại.';
+          });
+        }
+        return;
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _hasError = true;
+          _errorMessage = e.toString();
         });
       }
       return;
@@ -202,6 +214,7 @@ class _TvSplashScreenState extends State<TvSplashScreen>
       return Scaffold(
         backgroundColor: const Color(0xFF090A0F),
         body: TxaErrorWidget(
+          error: _errorMessage.isNotEmpty ? _errorMessage : null,
           onRetry: _startTvInit,
         ),
       );

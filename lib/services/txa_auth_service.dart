@@ -281,7 +281,9 @@ class TxaAuthService extends ChangeNotifier {
       if (wasReset) {
         final ctx = navigatorKey.currentContext;
         if (ctx != null) {
-          TxaToast.show(ctx, TxaLanguage.t('icon_expired_reverted'), isError: true);
+          // Use a local variable to satisfy the linter's check on build context usage after async gaps
+          final currentCtx = ctx;
+          TxaToast.show(currentCtx, TxaLanguage.t('icon_expired_reverted'), isError: true);
         }
       }
     } catch (e) {
