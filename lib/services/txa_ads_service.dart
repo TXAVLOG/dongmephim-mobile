@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../services/txa_api.dart';
 import '../services/txa_auth_service.dart';
+import '../services/txa_language.dart';
 import '../utils/txa_logger.dart';
 
 class TxaAdsService {
