@@ -8,6 +8,7 @@ import 'txa_dynamic_icon_service.dart';
 import '../utils/txa_logger.dart';
 import '../utils/txa_navigator.dart';
 import '../utils/txa_toast.dart';
+import '../widgets/txa_account_banned_screen.dart';
 
 class TxaAuthService extends ChangeNotifier {
   static final TxaAuthService _instance = TxaAuthService._internal();
@@ -108,14 +109,24 @@ class TxaAuthService extends ChangeNotifier {
           notifyListeners();
         }
       } else if (status == 'banned' || status == 'deleted' || status == 'unauthorized') {
-        final String reasonMsg = (status == 'banned')
-            ? TxaLanguage.t('account_banned_msg')
-            : ((status == 'deleted')
-                ? TxaLanguage.t('account_invalid_or_deleted')
-                : TxaLanguage.t('session_expired'));
-
-        TxaLogger.log('Tài khoản không hợp lệ (Status: $status). Tự động đăng xuất!', type: 'auth');
-        await logout(onShowToast: onShowToast, reasonMessage: reasonMsg);
+        if (status == 'banned') {
+          // Tài khoản bị ban → hiển thị màn hình block thay vì auto logout
+          TxaLogger.log('Tài khoản bị ban. Chuyển hướng đến TxaAccountBannedScreen.', type: 'auth');
+          final ctx = navigatorKey.currentContext;
+          if (ctx != null) {
+            Navigator.of(ctx).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const TxaAccountBannedScreen()),
+              (_) => false,
+            );
+          }
+        } else {
+          // deleted / unauthorized → auto logout như cũ
+          final String reasonMsg = (status == 'deleted')
+              ? TxaLanguage.t('account_invalid_or_deleted')
+              : TxaLanguage.t('session_expired');
+          TxaLogger.log('Tài khoản không hợp lệ (Status: $status). Tự động đăng xuất!', type: 'auth');
+          await logout(onShowToast: onShowToast, reasonMessage: reasonMsg);
+        }
       }
     } catch (e) {
       TxaLogger.log('TxaAuthService refreshUser error: $e', type: 'auth');
@@ -153,6 +164,14 @@ class TxaAuthService extends ChangeNotifier {
       }
       
       final data = response?['data'] as Map<String, dynamic>?;
+      // Tài khoản bị ban
+      if (data != null && data['error_code'] == 'ACCOUNT_BANNED') {
+        return {
+          'success': false,
+          'isBanned': true,
+          'message': response?['message'] ?? TxaLanguage.t('account_banned_msg'),
+        };
+      }
       if (data != null && (data['error_code'] == 'EMAIL_NOT_VERIFIED' || data['errorType'] == 'verification')) {
         return {
           'success': false,
