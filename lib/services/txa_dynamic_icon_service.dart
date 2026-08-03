@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/txa_logger.dart';
+import 'txa_auth_service.dart';
 
 class TxaDynamicIconService {
   static const MethodChannel _channel = MethodChannel('online.dongmephim/platform');
@@ -86,14 +87,23 @@ class TxaDynamicIconService {
 
   static const String prefixAdUnlockExpiry = 'txa_ad_unlocked_expiry_';
 
-  /// Save ad unlock status for 3 days
-  static Future<void> saveAdUnlock(String iconKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    final expiry = DateTime.now().add(const Duration(days: 3));
-    await prefs.setString('$prefixAdUnlockExpiry$iconKey', expiry.toIso8601String());
+  /// Returns a user-scoped prefix so that ad unlocks are isolated per account.
+  /// Uses user ID (stable) + username fallback. Guests get 'guest_' prefix.
+  static String _userScopePrefix() {
+    final auth = TxaAuthService();
+    final userId = auth.user?['id'] as String? ?? auth.user?['username'] as String?;
+    return (userId != null && userId.isNotEmpty) ? '${userId}_' : 'guest_';
   }
 
-  /// Check if icon is currently unlocked via ad (and not expired)
+  /// Save ad unlock status for 3 days — scoped to current logged-in user
+  static Future<void> saveAdUnlock(String iconKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = '$prefixAdUnlockExpiry${_userScopePrefix()}$iconKey';
+    final expiry = DateTime.now().add(const Duration(days: 3));
+    await prefs.setString(key, expiry.toIso8601String());
+  }
+
+  /// Check if icon is currently unlocked via ad (and not expired) — scoped to current user
   static Future<bool> isAdUnlocked(String iconKey) async {
     if (iconKey == 'icon_default.png') return true;
     final expiry = await getAdUnlockExpiry(iconKey);
@@ -101,17 +111,18 @@ class TxaDynamicIconService {
     return expiry.isAfter(DateTime.now());
   }
 
-  /// Get ad unlock expiry date
+  /// Get ad unlock expiry date — scoped to current user
   static Future<DateTime?> getAdUnlockExpiry(String iconKey) async {
     final prefs = await SharedPreferences.getInstance();
-    final expiryStr = prefs.getString('$prefixAdUnlockExpiry$iconKey');
+    final key = '$prefixAdUnlockExpiry${_userScopePrefix()}$iconKey';
+    final expiryStr = prefs.getString(key);
     if (expiryStr != null) {
       return DateTime.tryParse(expiryStr);
     }
     return null;
   }
 
-  /// Get remaining duration of ad unlock
+  /// Get remaining duration of ad unlock — scoped to current user
   static Future<Duration?> getAdUnlockRemaining(String iconKey) async {
     final expiry = await getAdUnlockExpiry(iconKey);
     if (expiry != null) {
@@ -170,57 +181,58 @@ class TxaDynamicIconService {
   static const String keySubExpiry = 'txa_icon_sub_expiry';
   static const String keySubIsTrial = 'txa_icon_sub_is_trial';
 
-  /// Save local icon subscription status (called on IAP purchase or restore)
+  /// Build user-scoped key for local subscription fields
+  static String _subKey(String base) => '${base}_${_userScopePrefix()}';
+
+  /// Save local icon subscription status — scoped to current user
   static Future<void> setLocalSubscriptionActive(bool active, {DateTime? expiry, bool isTrial = false}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(keySubActive, active);
-    await prefs.setBool(keySubIsTrial, isTrial);
+    await prefs.setBool(_subKey(keySubActive), active);
+    await prefs.setBool(_subKey(keySubIsTrial), isTrial);
     if (expiry != null) {
-      await prefs.setString(keySubExpiry, expiry.toIso8601String());
+      await prefs.setString(_subKey(keySubExpiry), expiry.toIso8601String());
     } else {
-      // Trial default = 7 days, Paid default = 30 days
       final duration = isTrial ? const Duration(days: 7) : const Duration(days: 30);
-      await prefs.setString(keySubExpiry, DateTime.now().add(duration).toIso8601String());
+      await prefs.setString(_subKey(keySubExpiry), DateTime.now().add(duration).toIso8601String());
     }
   }
 
-  /// Check if local subscription is trial
+  /// Check if local subscription is trial — scoped to current user
   static Future<bool> isLocalSubscriptionTrial() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(keySubIsTrial) ?? false;
+    return prefs.getBool(_subKey(keySubIsTrial)) ?? false;
   }
 
-  /// Check if local subscription is active (and not expired)
+  /// Check if local subscription is active (and not expired) — scoped to current user
   static Future<bool> isLocalSubscriptionActive() async {
     final prefs = await SharedPreferences.getInstance();
-    final active = prefs.getBool(keySubActive) ?? false;
+    final active = prefs.getBool(_subKey(keySubActive)) ?? false;
     if (!active) return false;
-    final expiryStr = prefs.getString(keySubExpiry);
+    final expiryStr = prefs.getString(_subKey(keySubExpiry));
     if (expiryStr != null) {
       final expiry = DateTime.tryParse(expiryStr);
       if (expiry != null && expiry.isBefore(DateTime.now())) {
-        // Subscription expired! Auto-revert local flag
-        await prefs.setBool(keySubActive, false);
+        await prefs.setBool(_subKey(keySubActive), false);
         return false;
       }
     }
     return true;
   }
 
-  /// Get local icon subscription expiry date
+  /// Get local icon subscription expiry date — scoped to current user
   static Future<DateTime?> getLocalSubscriptionExpiry() async {
     final prefs = await SharedPreferences.getInstance();
-    final expiryStr = prefs.getString(keySubExpiry);
+    final expiryStr = prefs.getString(_subKey(keySubExpiry));
     if (expiryStr != null) {
       return DateTime.tryParse(expiryStr);
     }
     return null;
   }
 
-  /// Get remaining duration of local icon subscription
+  /// Get remaining duration of local icon subscription — scoped to current user
   static Future<Duration?> getLocalSubscriptionRemaining() async {
     final prefs = await SharedPreferences.getInstance();
-    final expiryStr = prefs.getString(keySubExpiry);
+    final expiryStr = prefs.getString(_subKey(keySubExpiry));
     if (expiryStr != null) {
       final expiry = DateTime.tryParse(expiryStr);
       if (expiry != null) {

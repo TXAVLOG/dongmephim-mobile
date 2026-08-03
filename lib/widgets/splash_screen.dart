@@ -9,6 +9,7 @@ import '../services/txa_api.dart';
 import '../services/txa_permission.dart';
 import '../services/txa_notification_manager.dart';
 import '../services/txa_play_update_service.dart';
+import '../services/txa_settings_cache.dart';
 import '../theme/txa_theme.dart';
 import '../widgets/txa_error_widget.dart';
 import '../widgets/txa_maintenance_screen.dart';
@@ -107,6 +108,9 @@ class _SplashScreenState extends State<SplashScreen>
         }
         return;
       }
+
+      // Populate settings cache ngay sau khi load — dùng cho banned screens
+      TxaSettingsCache().populate(checkUpdate);
 
       // Check Google Play In-App Update immediately on Splash Screen
       await TxaPlayUpdateService.checkInAppUpdateOnSplash();
