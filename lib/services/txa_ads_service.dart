@@ -91,7 +91,9 @@ class TxaAdsService {
       final admobEnable = adsConfig?['admob_enable'] == true;
       if (!admobEnable) return;
 
-      final unitId = (adsConfig?['admob_app_start_ad_id'] ?? '').toString().trim();
+      final unitId = Platform.isAndroid
+          ? (adsConfig?['admob_app_start_ad_id_android'] ?? '').toString().trim()
+          : (adsConfig?['admob_app_start_ad_id_ios'] ?? '').toString().trim();
       final effectiveUnitId = unitId.isNotEmpty
           ? unitId
           : (Platform.isAndroid 
@@ -145,7 +147,9 @@ class TxaAdsService {
       return;
     }
 
-    final unitId = (adsConfig?['admob_preroll_ad_id'] ?? '').toString().trim();
+    final unitId = Platform.isAndroid
+        ? (adsConfig?['admob_preroll_ad_id_android'] ?? '').toString().trim()
+        : (adsConfig?['admob_preroll_ad_id_ios'] ?? '').toString().trim();
     final effectiveUnitId = unitId.isNotEmpty
         ? unitId
         : (Platform.isAndroid
@@ -208,7 +212,9 @@ class TxaAdsService {
       return;
     }
 
-    final unitId = (adsConfig?['admob_rewarded_ad_id'] ?? '').toString().trim();
+    final unitId = Platform.isAndroid
+        ? (adsConfig?['admob_rewarded_ad_id_android'] ?? '').toString().trim()
+        : (adsConfig?['admob_rewarded_ad_id_ios'] ?? '').toString().trim();
     final testId = Platform.isAndroid 
         ? 'ca-app-pub-3940256099942544/5224354917' 
         : 'ca-app-pub-3940256099942544/1712485313';
