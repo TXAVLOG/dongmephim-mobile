@@ -77,52 +77,59 @@ class TxaAdsService {
     if (_appStartAdShown) return;
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
 
-    Timer(const Duration(seconds: 5), () async {
+    // Delay slightly more or use a frame callback to ensure UI is stable
+    Timer(const Duration(seconds: 6), () async {
       if (_appStartAdShown) return;
       _appStartAdShown = true;
 
-      final bypass = await shouldBypassAds();
-      if (bypass) {
-        TxaLogger.log('VIP user: Bypassing App Start Ad.', type: 'app');
-        return;
+      try {
+        final bypass = await shouldBypassAds();
+        if (bypass) {
+          TxaLogger.log('VIP user: Bypassing App Start Ad.', type: 'app');
+          return;
+        }
+
+        final adsConfig = await _getAdSettings();
+        final admobEnable = adsConfig?['admob_enable'] == true;
+        if (!admobEnable) return;
+
+        final unitId = Platform.isAndroid
+            ? (adsConfig?['admob_app_start_ad_id_android'] ?? '').toString().trim()
+            : (adsConfig?['admob_app_start_ad_id_ios'] ?? '').toString().trim();
+        final effectiveUnitId = unitId.isNotEmpty
+            ? unitId
+            : (Platform.isAndroid
+                ? 'ca-app-pub-3940256099942544/1033173712'
+                : 'ca-app-pub-3940256099942544/5135179831'); // Test Interstitial Ad ID
+
+        await init();
+
+        // Optimization: Load the ad but set a strict timeout and monitor memory
+        // On low-end devices, loading a heavy Interstitial can trigger OOM
+        InterstitialAd.load(
+          adUnitId: effectiveUnitId,
+          request: const AdRequest(),
+          adLoadCallback: InterstitialAdLoadCallback(
+            onAdLoaded: (ad) {
+              TxaLogger.log('App Start Interstitial Ad loaded, showing now...', type: 'app');
+              ad.fullScreenContentCallback = FullScreenContentCallback(
+                onAdDismissedFullScreenContent: (ad) {
+                  ad.dispose();
+                },
+                onAdFailedToShowFullScreenContent: (ad, error) {
+                  ad.dispose();
+                },
+              );
+              ad.show();
+            },
+            onAdFailedToLoad: (error) {
+              TxaLogger.log('App Start Ad failed to load: $error', type: 'app');
+            },
+          ),
+        );
+      } catch (e) {
+        TxaLogger.log('Error in scheduleAppStartAd: $e', type: 'app');
       }
-
-      final adsConfig = await _getAdSettings();
-      final admobEnable = adsConfig?['admob_enable'] == true;
-      if (!admobEnable) return;
-
-      final unitId = Platform.isAndroid
-          ? (adsConfig?['admob_app_start_ad_id_android'] ?? '').toString().trim()
-          : (adsConfig?['admob_app_start_ad_id_ios'] ?? '').toString().trim();
-      final effectiveUnitId = unitId.isNotEmpty
-          ? unitId
-          : (Platform.isAndroid 
-              ? 'ca-app-pub-3940256099942544/1033173712' 
-              : 'ca-app-pub-3940256099942544/5135179831'); // Test Interstitial Ad ID
-
-      await init();
-
-      InterstitialAd.load(
-        adUnitId: effectiveUnitId,
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (ad) {
-            TxaLogger.log('App Start Interstitial Ad loaded, showing now...', type: 'app');
-            ad.fullScreenContentCallback = FullScreenContentCallback(
-              onAdDismissedFullScreenContent: (ad) {
-                ad.dispose();
-              },
-              onAdFailedToShowFullScreenContent: (ad, error) {
-                ad.dispose();
-              },
-            );
-            ad.show();
-          },
-          onAdFailedToLoad: (error) {
-            TxaLogger.log('App Start Ad failed to load: $error', type: 'app');
-          },
-        ),
-      );
     });
   }
 

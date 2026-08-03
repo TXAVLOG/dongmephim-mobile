@@ -33,6 +33,7 @@ void main(List<String> args) async {
 
     // Start logger immediately on line 1 to capture startup logs before any crash
     TxaLogger.init();
+    TxaLogger.log('Startup: Logger initialized', type: 'app');
 
     // Custom ErrorWidget builder to catch Flutter UI crashes globally
     ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -46,11 +47,14 @@ void main(List<String> args) async {
     // Initialize MediaKit for Windows only
     if (TxaPlatform.isDesktop && Platform.isWindows) {
       try {
+        TxaLogger.log('Startup: Initializing MediaKit...', type: 'app');
         VideoPlayerMediaKit.ensureInitialized(
           windows: true,
         );
+        TxaLogger.log('Startup: MediaKit initialized', type: 'app');
       } catch (e) {
         debugPrint('Failed to initialize VideoPlayerMediaKit: $e');
+        TxaLogger.log('Startup: MediaKit Init Error: $e', type: 'crash');
       }
     }
 
@@ -70,23 +74,43 @@ void main(List<String> args) async {
       ),
     );
 
-    await TxaPlatform.init(); // Detect if running on TV
-    await TxaLanguage.init();
-    
+    try {
+      TxaLogger.log('Startup: Initializing TxaPlatform...', type: 'app');
+      await TxaPlatform.init(); // Detect if running on TV
+      TxaLogger.log('Startup: TxaPlatform initialized', type: 'app');
+
+      TxaLogger.log('Startup: Initializing TxaLanguage...', type: 'app');
+      await TxaLanguage.init();
+      TxaLogger.log('Startup: TxaLanguage initialized', type: 'app');
+    } catch (e, s) {
+      TxaLogger.log('Startup: Platform/Language Init Crash: $e\n$s', type: 'crash');
+      rethrow;
+    }
+
     // Initialize local notification manager (desktop only)
     if (TxaPlatform.isDesktop) {
       try {
+        TxaLogger.log('Startup: Setting up LocalNotifier...', type: 'app');
         await localNotifier.setup(
           appName: 'DongMePhim',
         );
+        TxaLogger.log('Startup: LocalNotifier setup complete', type: 'app');
       } catch (e) {
-        TxaLogger.log('LocalNotifier setup error: $e');
+        TxaLogger.log('Startup: LocalNotifier setup error: $e', type: 'crash');
       }
     }
 
-    final authService = TxaAuthService();
-    await authService.initialize();
+    try {
+      TxaLogger.log('Startup: Initializing TxaAuthService...', type: 'app');
+      final authService = TxaAuthService();
+      await authService.initialize();
+      TxaLogger.log('Startup: TxaAuthService initialized', type: 'app');
+    } catch (e, s) {
+      TxaLogger.log('Startup: AuthService Init Crash: $e\n$s', type: 'crash');
+      rethrow;
+    }
 
+    TxaLogger.log('Startup: Calling runApp...', type: 'app');
     runApp(
       MultiProvider(
         providers: [
@@ -96,6 +120,7 @@ void main(List<String> args) async {
         child: const DongPhimApp(),
       ),
     );
+    TxaLogger.log('Startup: runApp called successfully', type: 'app');
   }, (Object error, StackTrace stack) {
     TxaLogger.log('UNCAUGHT ASYNC CRASH: $error\n$stack', type: 'crash');
   });

@@ -75,7 +75,6 @@ class TxaLogger {
       // Always print to debug console
       debugPrint('[$type] $message');
 
-      // Crash logs MUST ALWAYS be written to disk and sent to server even if in background/transition
       final isCrash = type == 'crash';
       if (!_fileWriteEnabled && !isCrash) return;
 
@@ -85,28 +84,34 @@ class TxaLogger {
       final logLine = '[$timestamp] [${type.toUpperCase()}] $message\n';
       final date = DateFormat('yyyy-MM-dd').format(now);
 
-      // Write to specific log type file with max size check (1MB limit per file)
-      final typeFile = File('$path/${type}_$date.log');
-      if (await typeFile.exists() && (await typeFile.length()) > 1024 * 1024) {
-        // Truncate file if over 1MB to prevent excessive memory & storage usage
-        await typeFile.writeAsString('--- LOG ROTATED (MAX 1MB REACHED) ---\n$logLine');
-      } else {
-        await typeFile.writeAsString(logLine, mode: FileMode.append, flush: isCrash);
+      // For crashes, use SYNCHRONOUS writing to ensure data hits disk before process death
+      if (isCrash) {
+        final typeFile = File('$path/${type}_$date.log');
+        typeFile.writeAsStringSync(logLine, mode: FileMode.append);
+
+        final allFile = File('$path/all_$date.log');
+        allFile.writeAsStringSync(logLine, mode: FileMode.append);
+
+        // Send report to server asynchronously
+        TxaApi().sendCrashReport(message);
+        return; // Exit early for crash logs
       }
 
-      // ALSO write to "all" log file (if not crash or api success to reduce double writes)
-      if (type != 'all' && (isCrash || type == 'app' || type == 'downloader')) {
+      // --- Regular async logging for non-crash types ---
+      final typeFile = File('$path/${type}_$date.log');
+      if (await typeFile.exists() && (await typeFile.length()) > 1024 * 1024) {
+        await typeFile.writeAsString('--- LOG ROTATED (MAX 1MB REACHED) ---\n$logLine');
+      } else {
+        await typeFile.writeAsString(logLine, mode: FileMode.append, flush: false);
+      }
+
+      if (type != 'all' && (type == 'app' || type == 'downloader')) {
         final allFile = File('$path/all_$date.log');
         if (await allFile.exists() && (await allFile.length()) > 1024 * 1024) {
           await allFile.writeAsString('--- LOG ROTATED (MAX 1MB REACHED) ---\n$logLine');
         } else {
           await allFile.writeAsString(logLine, mode: FileMode.append, flush: false);
         }
-      }
-
-      // If crash event, send report to server asynchronously immediately
-      if (isCrash) {
-        TxaApi().sendCrashReport(message);
       }
     } catch (e) {
       debugPrint('Failed to write log: $e');
