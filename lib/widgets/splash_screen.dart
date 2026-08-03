@@ -12,6 +12,8 @@ import '../services/txa_play_update_service.dart';
 import '../theme/txa_theme.dart';
 import '../widgets/txa_error_widget.dart';
 import '../widgets/txa_maintenance_screen.dart';
+import '../widgets/txa_block_screen.dart';
+import '../services/txa_device_fingerprint_service.dart';
 import '../utils/txa_toast.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -172,6 +174,26 @@ class _SplashScreenState extends State<SplashScreen>
           }
         },
       );
+    }
+
+    // 6. Device fingerprint log + block check
+    setState(() {
+      _status = 'Xác thực thiết bị...';
+      _progress = 0.92;
+    });
+    try {
+      final deviceResult = await TxaDeviceFingerprintService().initAndCheck();
+      if (deviceResult.isBlocked && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TxaBlockScreen(reason: deviceResult.blockReason),
+          ),
+        );
+        return;
+      }
+    } catch (_) {
+      // Fail silently — không block user nếu service lỗi
     }
 
     setState(() {
