@@ -65,9 +65,8 @@ import AdSupport
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     
-    // Lấy messenger qua pluginRegistry — đây là API đúng của FlutterImplicitEngineBridge
-    // FlutterImplicitEngineBridge KHÔNG có flutterViewController property
-    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TxaPlatformPlugin")
+    // registrar(forPlugin:) trả về optional — phải unwrap trước
+    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TxaPlatformPlugin") else { return }
     let messenger = registrar.messenger()
     let channel = FlutterMethodChannel(
       name: "online.dongmephim/platform",
