@@ -65,16 +65,16 @@ import AdSupport
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     
-    // CRITICAL: Setup MethodChannel ở đây — KHÔNG phải trong didFinishLaunchingWithOptions
-    // Vì app dùng SceneDelegate (UIWindowScene), window của AppDelegate là nil khi launch.
-    // engineBridge.flutterViewController luôn available tại thời điểm này.
-    let messenger = engineBridge.flutterViewController.binaryMessenger
+    // Lấy messenger qua pluginRegistry — đây là API đúng của FlutterImplicitEngineBridge
+    // FlutterImplicitEngineBridge KHÔNG có flutterViewController property
+    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TxaPlatformPlugin")
+    let messenger = registrar.messenger()
     let channel = FlutterMethodChannel(
       name: "online.dongmephim/platform",
       binaryMessenger: messenger
     )
     
-    channel.setMethodCallHandler { [weak self] (call, result) in
+    channel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
       switch call.method {
       case "getBatteryInfo":
         UIDevice.current.isBatteryMonitoringEnabled = true
