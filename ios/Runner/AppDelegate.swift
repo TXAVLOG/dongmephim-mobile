@@ -1,5 +1,7 @@
 import Flutter
 import UIKit
+import AppTrackingTransparency
+import AdSupport
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -9,52 +11,37 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Setup platform channel
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let channel = FlutterMethodChannel(
-        name: "online.dongmephim/platform",
-        binaryMessenger: controller.binaryMessenger
-      )
-      
-      channel.setMethodCallHandler { [weak self] (call, result) in
-        switch call.method {
-        case "getBatteryInfo":
-          UIDevice.current.isBatteryMonitoringEnabled = true
-          let level = Int(UIDevice.current.batteryLevel * 100)
-          let state = UIDevice.current.batteryState
-          let isCharging = (state == .charging || state == .full)
-          result([
-            "level": level >= 0 ? level : -1,
-            "isCharging": isCharging
-          ])
-          
-        case "enableSecureMode":
-          self?.enableSecureMode()
-          result(true)
-          
-        case "disableSecureMode":
-          self?.disableSecureMode()
-          result(true)
-          
-        case "changeAppIcon":
-          if let args = call.arguments as? [String: Any],
-             let iconName = args["iconName"] as? String {
-            self?.changeAppIcon(iconName: iconName, result: result)
-          } else {
-            result(FlutterError(code: "INVALID_ARGS", message: "Arguments must be a dictionary with iconName key", details: nil))
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // iOS 14+: Request ATT (App Tracking Transparency) sau khi UI đã load xong
+  // PHẢI request trước khi MobileAds.initialize() để AdMob có IDFA → serve được ads
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
+    if #available(iOS 14, *) {
+      // Delay nhỏ để đảm bảo UI đã hiển thị trước khi show dialog ATT
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        ATTrackingManager.requestTrackingAuthorization { status in
+          // status: .authorized / .denied / .restricted / .notDetermined
+          // AdMob SDK tự đọc IDFA sau khi user cho phép
+          // Không cần làm gì thêm — flutter ads service sẽ init sau
+          switch status {
+          case .authorized:
+            print("[ATT] User authorized tracking → IDFA available for AdMob")
+          case .denied:
+            print("[ATT] User denied tracking → AdMob will serve non-personalized ads")
+          case .restricted:
+            print("[ATT] Tracking restricted by parental controls")
+          case .notDetermined:
+            print("[ATT] Tracking status not determined")
+          @unknown default:
+            break
           }
-          
-        case "set3DAudioEnabled", "setAudioOptimizeEnabled", "setAudioBoostLevel":
-          result(true)
-          
-        default:
-          result(FlutterMethodNotImplemented)
         }
       }
     }
-    
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
+
 
   private func changeAppIcon(iconName: String, result: @escaping FlutterResult) {
     DispatchQueue.main.async {
@@ -77,6 +64,51 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    
+    // CRITICAL: Setup MethodChannel ở đây — KHÔNG phải trong didFinishLaunchingWithOptions
+    // Vì app dùng SceneDelegate (UIWindowScene), window của AppDelegate là nil khi launch.
+    // engineBridge.flutterViewController luôn available tại thời điểm này.
+    let messenger = engineBridge.flutterViewController.binaryMessenger
+    let channel = FlutterMethodChannel(
+      name: "online.dongmephim/platform",
+      binaryMessenger: messenger
+    )
+    
+    channel.setMethodCallHandler { [weak self] (call, result) in
+      switch call.method {
+      case "getBatteryInfo":
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let level = Int(UIDevice.current.batteryLevel * 100)
+        let state = UIDevice.current.batteryState
+        let isCharging = (state == .charging || state == .full)
+        result([
+          "level": level >= 0 ? level : -1,
+          "isCharging": isCharging
+        ])
+        
+      case "enableSecureMode":
+        self?.enableSecureMode()
+        result(true)
+        
+      case "disableSecureMode":
+        self?.disableSecureMode()
+        result(true)
+        
+      case "changeAppIcon":
+        if let args = call.arguments as? [String: Any],
+           let iconName = args["iconName"] as? String {
+          self?.changeAppIcon(iconName: iconName, result: result)
+        } else {
+          result(FlutterError(code: "INVALID_ARGS", message: "Arguments must be a dictionary with iconName key", details: nil))
+        }
+        
+      case "set3DAudioEnabled", "setAudioOptimizeEnabled", "setAudioBoostLevel":
+        result(true)
+        
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
   }
 
   // --- Secure Mode (DRM) ---

@@ -82,7 +82,7 @@ class TxaDeviceFingerprintService {
       } else if (Platform.isAndroid) {
         final info = await deviceInfo.androidInfo;
         // ANDROID_ID: ổn định đến factory reset
-        raw = 'android:${info.id}:${info.serialNumber}';
+        raw = 'android:${info.id}';
       } else if (Platform.isIOS) {
         final info = await deviceInfo.iosInfo;
         // identifierForVendor: ổn định đến khi gỡ hết app cùng vendor
@@ -221,8 +221,8 @@ class TxaDeviceFingerprintService {
       'is_physical_device': isPhysical,
       'build_fingerprint': buildFp,
       'ip_address': ipAddress,
-      'user_id': auth.isLoggedIn ? auth.user?['id'] : null,
-      'username': auth.isLoggedIn ? auth.user?['username'] : null,
+      'user_id': auth.user?['id'],
+      'username': auth.user?['username'],
     };
   }
 

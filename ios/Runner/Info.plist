@@ -211,6 +211,8 @@
 			<string>cstr6suwn9.skadnetwork</string>
 		</dict>
 	</array>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Ứng dụng cần quyền theo dõi để hiển thị quảng cáo phù hợp với bạn. Điều này giúp chúng tôi cung cấp nội dung miễn phí.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Ứng dụng cần truy cập máy ảnh để quét mã QR và cập nhật ảnh đại diện.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

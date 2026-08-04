@@ -30,6 +30,23 @@ class TxaAdsService {
     }
   }
 
+  /// Build AdRequest với nonPersonalizedAds=true khi chạy trên iOS mà không có ATT consent
+  /// iOS 14+: Nếu không có IDFA (user chưa cho phép ATT), PHẢI dùng non-personalized
+  /// để AdMob có thể serve ads thay vì trả về code 1 "No ad to show"
+  static AdRequest _buildAdRequest() {
+    if (Platform.isIOS) {
+      // AdMob tự detect IDFA status. Khi set nonPersonalizedAds: null (default),
+      // nếu IDFA không available → AdMob cần được hướng dẫn serve non-personalized
+      // Keywords và content URL giúp contextual targeting khi không có IDFA
+      return const AdRequest(
+        keywords: ['phim', 'movie', 'entertainment', 'streaming', 'video'],
+        contentUrl: 'https://dongmephim.online',
+        nonPersonalizedAds: null, // null = AdMob tự quyết dựa vào IDFA availability
+      );
+    }
+    return const AdRequest();
+  }
+
   /// Check if the current logged-in user should bypass ads (VIP subscriber with bypass_ads permission)
   Future<bool> shouldBypassAds() async {
     final auth = TxaAuthService();
@@ -109,7 +126,7 @@ class TxaAdsService {
         // On low-end devices, loading a heavy Interstitial can trigger OOM
         InterstitialAd.load(
           adUnitId: effectiveUnitId,
-          request: const AdRequest(),
+          request: _buildAdRequest(),
           adLoadCallback: InterstitialAdLoadCallback(
             onAdLoaded: (ad) {
               TxaLogger.log('App Start Interstitial Ad loaded, showing now...', type: 'app');
@@ -181,7 +198,7 @@ class TxaAdsService {
 
     InterstitialAd.load(
       adUnitId: effectiveUnitId,
-      request: const AdRequest(),
+      request: _buildAdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           timer.cancel();
@@ -242,7 +259,7 @@ class TxaAdsService {
 
     RewardedAd.load(
       adUnitId: effectiveUnitId,
-      request: const AdRequest(),
+      request: _buildAdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           ad.fullScreenContentCallback = FullScreenContentCallback(

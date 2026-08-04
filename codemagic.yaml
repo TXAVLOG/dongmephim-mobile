@@ -35,7 +35,43 @@ workflows:
         script: |
           set -e
           echo "Building iOS for v$VERSION..."
-          flutter build ios --release --no-codesign
+          
+          # Dùng xcodebuild trực tiếp để bypass hoàn toàn codesign requirement
+          # flutter build ios --no-codesign vẫn cần Development Team từ Flutter 3.x+
+          flutter build ios --release --no-codesign \
+            --dart-define=FLUTTER_BUILD_MODE=release || true
+          
+          # Nếu flutter build thất bại do codesign, dùng xcodebuild trực tiếp
+          if [ ! -d "build/ios/iphoneos/Runner.app" ]; then
+            echo "⚠️ Flutter build failed, trying xcodebuild directly..."
+            
+            # Resolve workspace
+            WORKSPACE="ios/Runner.xcworkspace"
+            
+            # Chạy flutter build --config-only trước để generate build files
+            flutter build ios --release --config-only
+            
+            # Dùng xcodebuild với CODE_SIGNING_ALLOWED=NO để bypass hoàn toàn
+            xcodebuild \
+              -workspace "$WORKSPACE" \
+              -scheme Runner \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath "build/ios/DerivedData" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              PROVISIONING_PROFILE="" \
+              PRODUCT_BUNDLE_IDENTIFIER=com.tphimx.tphimxSetup \
+              build
+            
+            # Copy artifact từ DerivedData
+            APP_PATH=$(find "build/ios/DerivedData" -name "Runner.app" -not -path "*/Index.noindex/*" | head -n 1)
+            if [ -n "$APP_PATH" ]; then
+              mkdir -p build/ios/iphoneos
+              cp -r "$APP_PATH" build/ios/iphoneos/Runner.app
+            fi
+          fi
           
           # Verify build success
           if [ ! -d "build/ios/iphoneos/Runner.app" ]; then
