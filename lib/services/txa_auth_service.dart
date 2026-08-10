@@ -113,7 +113,7 @@ class TxaAuthService extends ChangeNotifier {
           // Tài khoản bị ban → hiển thị màn hình block thay vì auto logout
           TxaLogger.log('Tài khoản bị ban. Chuyển hướng đến TxaAccountBannedScreen.', type: 'auth');
           final ctx = navigatorKey.currentContext;
-          if (ctx != null) {
+          if (ctx != null && ctx.mounted) {
             Navigator.of(ctx).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const TxaAccountBannedScreen()),
               (_) => false,
@@ -299,10 +299,8 @@ class TxaAuthService extends ChangeNotifier {
       final wasReset = await TxaDynamicIconService.checkAndRevertExpiredOrUnlicensedIcon(_user);
       if (wasReset) {
         final ctx = navigatorKey.currentContext;
-        if (ctx != null) {
-          // Use a local variable to satisfy the linter's check on build context usage after async gaps
-          final currentCtx = ctx;
-          TxaToast.show(currentCtx, TxaLanguage.t('icon_expired_reverted'), isError: true);
+        if (ctx != null && ctx.mounted) {
+          TxaToast.show(ctx, TxaLanguage.t('icon_expired_reverted'), isError: true);
         }
       }
     } catch (e) {

@@ -14,12 +14,6 @@ class TxaPermission {
         'desc': TxaLanguage.t('permission_storage_desc'),
         'permission': Permission.manageExternalStorage,
       });
-      perms.add({
-        'id': 'install_packages',
-        'label': TxaLanguage.t('permission_install_label'),
-        'desc': TxaLanguage.t('permission_install_desc'),
-        'permission': Permission.requestInstallPackages,
-      });
     }
     return perms;
   }
@@ -125,9 +119,7 @@ class TxaPermission {
   }
 
   static Future<bool> requestInstall() async {
-    if (!Platform.isAndroid) return true;
-    final status = await Permission.requestInstallPackages.request();
-    return status.isGranted;
+    return true;
   }
 
   static List<Map<String, dynamic>> get permissions => [...mandatoryPermissions, ...optionalPermissions];

@@ -298,10 +298,13 @@ class _MainEntryState extends State<MainEntry> {
           TxaAdsService().scheduleAppStartAd();
 
           // Run app start app icon check
-          final auth = Provider.of<TxaAuthService>(context, listen: false);
-          final wasReset = await TxaDynamicIconService.checkAndRevertExpiredOrUnlicensedIcon(auth.user);
-          if (wasReset && mounted) {
-            TxaToast.show(context, TxaLanguage.t('icon_expired_reverted'), isError: true);
+          final user = Provider.of<TxaAuthService>(context, listen: false).user;
+          final wasReset = await TxaDynamicIconService.checkAndRevertExpiredOrUnlicensedIcon(user);
+          if (wasReset) {
+            final navCtx = navigatorKey.currentContext;
+            if (navCtx != null && navCtx.mounted) {
+              TxaToast.show(navCtx, TxaLanguage.t('icon_expired_reverted'), isError: true);
+            }
           }
 
           // Check iOS version and show TxaModal warning right after splash

@@ -32,11 +32,11 @@ class TxaBlockScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(colors: [
-                        const Color(0xFFFF3B30).withOpacity(0.25),
-                        const Color(0xFFFF3B30).withOpacity(0.05),
+                        const Color(0xFFFF3B30).withValues(alpha: 0.25),
+                        const Color(0xFFFF3B30).withValues(alpha: 0.05),
                       ]),
                       border: Border.all(
-                        color: const Color(0xFFFF3B30).withOpacity(0.6),
+                        color: const Color(0xFFFF3B30).withValues(alpha: 0.6),
                         width: 2,
                       ),
                     ),
@@ -67,7 +67,7 @@ class TxaBlockScreen extends StatelessWidget {
                   Text(
                     TxaLanguage.t('device_blocked_desc'),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.55),
+                      color: Colors.white.withValues(alpha: 0.55),
                       fontSize: 14,
                       height: 1.5,
                     ),
@@ -80,24 +80,24 @@ class TxaBlockScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF3B30).withOpacity(0.08),
+                        color: const Color(0xFFFF3B30).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: const Color(0xFFFF3B30).withOpacity(0.2),
+                          color: const Color(0xFFFF3B30).withValues(alpha: 0.2),
                         ),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(Icons.info_outline_rounded,
-                              color: const Color(0xFFFF3B30).withOpacity(0.7),
+                              color: const Color(0xFFFF3B30).withValues(alpha: 0.7),
                               size: 18),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               reason!,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.75),
+                                color: Colors.white.withValues(alpha: 0.75),
                                 fontSize: 13,
                                 height: 1.45,
                               ),
@@ -115,9 +115,9 @@ class TxaBlockScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.04),
+                      color: Colors.white.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.08)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,12 +125,12 @@ class TxaBlockScreen extends StatelessWidget {
                         Row(
                           children: [
                             Icon(Icons.support_agent_rounded,
-                                size: 16, color: Colors.white.withOpacity(0.5)),
+                                size: 16, color: Colors.white.withValues(alpha: 0.5)),
                             const SizedBox(width: 6),
                             Text(
                               TxaLanguage.t('device_blocked_contact'),
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.5),
+                                color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 12,
                                 height: 1.5,
                               ),
@@ -185,9 +185,9 @@ class _ContactChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.07),
+          color: Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withOpacity(0.12)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

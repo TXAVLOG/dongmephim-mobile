@@ -227,8 +227,8 @@ class TxaDeviceFingerprintService {
   }
 
   bool _isAndroidTV(AndroidDeviceInfo info) {
-    final model = (info.model ?? '').toLowerCase();
-    final device = (info.device ?? '').toLowerCase();
+    final model = info.model.toLowerCase();
+    final device = info.device.toLowerCase();
     return model.contains('atv') ||
         model.contains('tv') ||
         device.contains('tv') ||

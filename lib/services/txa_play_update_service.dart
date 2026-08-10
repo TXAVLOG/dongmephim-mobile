@@ -156,15 +156,18 @@ class TxaPlayUpdateService {
         final tvUrl = (info['smart_tv_url'] ?? info['download_url'] ?? 'https://pub-ffb3837c19c940af8cc1bc7f2682fd70.r2.dev/DongMePhim-TV.apk').toString();
         _startFileDownload(context, tvUrl, 'DongMePhim_TV_$version.apk');
       } else {
-        // Android Mobile: Try InAppUpdate first if approved on Play Store
+        // Android Mobile: Use Google Play In-App Update or open Google Play Store page
         final inAppSuccess = await tryInAppUpdate();
         if (inAppSuccess) return;
 
-        // Fallback: If Play Store update is not available (review pending/not approved yet),
-        // do NOT open Play Store (which only shows old version). Download APK directly!
         if (!context.mounted) return;
-        final apkUrl = (info['apk_url'] ?? info['download_url'] ?? 'https://pub-ffb3837c19c940af8cc1bc7f2682fd70.r2.dev/DongMePhim-Mobile.apk').toString();
-        _startFileDownload(context, apkUrl, 'DongMePhim_$version.apk');
+        final openedStore = await openPlayStore();
+        if (!openedStore && context.mounted) {
+          final apkUrl = (info['apk_url'] ?? info['download_url'] ?? '').toString();
+          if (apkUrl.isNotEmpty) {
+            _launchExternalUrl(context, apkUrl);
+          }
+        }
       }
     } else if (Platform.isIOS) {
       // iOS: Open App Store or iOS IPA link
