@@ -10,6 +10,9 @@ import '../navigation/tv_focus_system.dart';
 import '../services/tv_device_service.dart';
 import '../../widgets/txa_error_widget.dart';
 import '../../widgets/txa_maintenance_screen.dart';
+import '../../widgets/txa_force_update_screen.dart';
+import '../../services/txa_version.dart';
+import '../../services/txa_play_update_service.dart';
 import 'tv_home_screen.dart';
 
 class TvSplashScreen extends StatefulWidget {
@@ -137,6 +140,26 @@ class _TvSplashScreenState extends State<TvSplashScreen>
           MaterialPageRoute(
             builder: (context) => TxaMaintenanceScreen(
               message: checkUpdate!['maintenance_message'] as String?,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Force Update / Min Version Check (Chặn Smart TV nếu phiên bản app < min_version)
+    final minVersion = (checkUpdate['min_version'] ?? '1.0.0').toString().trim();
+    final isForceUpdate = checkUpdate['force_update'] == true ||
+        TxaPlayUpdateService.isVersionLower(TxaVersion.version, minVersion);
+
+    if (isForceUpdate) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TxaForceUpdateScreen(
+              updateInfo: checkUpdate!,
+              minVersion: minVersion,
             ),
           ),
         );

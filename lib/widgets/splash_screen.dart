@@ -13,8 +13,10 @@ import '../services/txa_settings_cache.dart';
 import '../theme/txa_theme.dart';
 import '../widgets/txa_error_widget.dart';
 import '../widgets/txa_maintenance_screen.dart';
+import '../widgets/txa_force_update_screen.dart';
 import '../widgets/txa_block_screen.dart';
 import '../services/txa_device_fingerprint_service.dart';
+import '../services/txa_version.dart';
 import '../utils/txa_toast.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -132,6 +134,26 @@ class _SplashScreenState extends State<SplashScreen>
           MaterialPageRoute(
             builder: (context) => TxaMaintenanceScreen(
               message: checkUpdate!['maintenance_message'] as String?,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 3.5. Force Update / Min Version Check (Chặn người dùng nếu phiên bản app < min_version)
+    final minVersion = (checkUpdate['min_version'] ?? '1.0.0').toString().trim();
+    final isForceUpdate = checkUpdate['force_update'] == true ||
+        TxaPlayUpdateService.isVersionLower(TxaVersion.version, minVersion);
+
+    if (isForceUpdate) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TxaForceUpdateScreen(
+              updateInfo: checkUpdate!,
+              minVersion: minVersion,
             ),
           ),
         );

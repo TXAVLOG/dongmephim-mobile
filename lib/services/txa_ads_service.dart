@@ -117,8 +117,8 @@ class TxaAdsService {
         final effectiveUnitId = unitId.isNotEmpty
             ? unitId
             : (Platform.isAndroid
-                ? 'ca-app-pub-3940256099942544/1033173712'
-                : 'ca-app-pub-3940256099942544/5135179831'); // Test Interstitial Ad ID
+                ? 'ca-app-pub-1543189450912703/7479521417'
+                : 'ca-app-pub-1543189450912703/7479521417'); // Real Interstitial App Start Ad ID
 
         await init();
 
@@ -178,8 +178,8 @@ class TxaAdsService {
     final effectiveUnitId = unitId.isNotEmpty
         ? unitId
         : (Platform.isAndroid
-            ? 'ca-app-pub-3940256099942544/1033173712'
-            : 'ca-app-pub-3940256099942544/5135179831'); // Test Interstitial Ad ID
+            ? 'ca-app-pub-1543189450912703/7914635685'
+            : 'ca-app-pub-1543189450912703/7914635685'); // Real Interstitial Pre-roll Ad ID
 
     await init();
 
@@ -241,10 +241,10 @@ class TxaAdsService {
     final unitId = Platform.isAndroid
         ? (adsConfig?['admob_rewarded_ad_id_android'] ?? '').toString().trim()
         : (adsConfig?['admob_rewarded_ad_id_ios'] ?? '').toString().trim();
-    final testId = Platform.isAndroid 
-        ? 'ca-app-pub-3940256099942544/5224354917' 
-        : 'ca-app-pub-3940256099942544/1712485313';
-    final effectiveUnitId = unitId.isNotEmpty ? unitId : testId;
+    final defaultId = Platform.isAndroid 
+        ? 'ca-app-pub-1543189450912703/9254657575' 
+        : 'ca-app-pub-1543189450912703/6552472614';
+    final effectiveUnitId = unitId.isNotEmpty ? unitId : defaultId;
 
     await init();
 
@@ -291,5 +291,60 @@ class TxaAdsService {
         },
       ),
     );
+  }
+
+  /// Create and load a BannerAd for non-VIP / Free users
+  /// Returns null if user has a paid package (bypass_ads) or on unsupported platforms
+  Future<BannerAd?> loadBannerAd({
+    required Function(Ad ad) onAdLoaded,
+    required Function(Ad ad, LoadAdError error) onAdFailedToLoad,
+    AdSize adSize = AdSize.banner,
+  }) async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return null;
+
+    final bypass = await shouldBypassAds();
+    if (bypass) {
+      TxaLogger.log('VIP user: Bypassing Banner Ad.', type: 'app');
+      return null;
+    }
+
+    final adsConfig = await _getAdSettings();
+    final admobEnable = adsConfig?['admob_enable'] == true;
+    if (!admobEnable) return null;
+
+    final unitId = Platform.isAndroid
+        ? (adsConfig?['admob_banner_ad_id_android'] ?? '').toString().trim()
+        : (adsConfig?['admob_banner_ad_id_ios'] ?? '').toString().trim();
+    final defaultId = Platform.isAndroid
+        ? 'ca-app-pub-1543189450912703/2225333886'
+        : 'ca-app-pub-1543189450912703/2225333886';
+    final effectiveUnitId = unitId.isNotEmpty ? unitId : defaultId;
+
+    await init();
+
+    try {
+      final bannerAd = BannerAd(
+        adUnitId: effectiveUnitId,
+        size: adSize,
+        request: _buildAdRequest(),
+        listener: BannerAdListener(
+          onAdLoaded: (ad) {
+            TxaLogger.log('Banner Ad loaded successfully.', type: 'app');
+            onAdLoaded(ad);
+          },
+          onAdFailedToLoad: (ad, error) {
+            TxaLogger.log('Banner Ad failed to load: $error', type: 'app');
+            ad.dispose();
+            onAdFailedToLoad(ad, error);
+          },
+        ),
+      );
+
+      await bannerAd.load();
+      return bannerAd;
+    } catch (e) {
+      TxaLogger.log('Error loading Banner Ad: $e', type: 'app');
+      return null;
+    }
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:http/http.dart' as http;
 import '../services/txa_language.dart';
 import '../services/txa_auth_service.dart';
@@ -107,6 +108,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   // Player Settings & Dragging States
   bool _autoSkipIntro = false;
   bool _autoNextEpisode = false;
+  bool _hidePlayerTitle = false;
   String _preferredSubLang = 'vi';
   bool _showSettingsPanel = false;
   int _settingsSelectedIndex = 0;
@@ -114,6 +116,23 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   bool _nextEpisodeOverlayTriggered = false;
   Map<String, dynamic>? _nextEpisodeData;
   Map<String, dynamic>? _prevEpisodeData;
+
+  /// Check if user has a paid package (not Free and not Guest)
+  bool get _hasPaidPackage {
+    final auth = TxaAuthService();
+    if (!auth.isLoggedIn || auth.user == null) {
+      final plan = widget.userPlan.trim().toLowerCase();
+      return plan.isNotEmpty && plan != 'free';
+    }
+
+    final authUser = auth.user!;
+    final userPackage = (authUser['package'] ?? 'free').toString().toLowerCase();
+    if (userPackage != 'free') return true;
+    if (authUser['role'] == 'admin' || authUser['role'] == 'superadmin') return true;
+
+    final plan = widget.userPlan.trim().toLowerCase();
+    return plan.isNotEmpty && plan != 'free';
+  }
 
   // Subtitles States
   String _subtitleMode = 'off'; // 'off' | 'primary' | 'bilingual'
@@ -186,6 +205,8 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   String? _adUrl;
   bool _adError = false;
   WebViewController? _webViewController;
+  BannerAd? _bannerAd;
+  bool _isBannerAdLoaded = false;
 
   // Mobile Gestures & States
   bool _isLocked = false;
@@ -303,6 +324,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       _loadStoryboard(widget.storyboardUrl!);
     }
     _checkAndInitAdFlow();
+    _initBannerAd();
 
     // Battery monitoring & system brightness/volume (mobile only)
     if (TxaPlatform.isMobile) {
@@ -373,6 +395,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
 
     _controller?.dispose();
     _adController?.dispose();
+    _bannerAd?.dispose();
     _adTimer?.cancel();
     _positionSyncTimer?.cancel();
     _hideControlsTimer?.cancel();
@@ -555,6 +578,29 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
         ),
       )
       ..loadRequest(Uri.parse(embedUrl), headers: const {'Referer': 'https://www.youtube.com'});
+  }
+
+  void _initBannerAd() async {
+    if (TxaPlatform.isTV || TxaPlatform.isWeb) return;
+    if (_hasPaidPackage) return;
+
+    _bannerAd = await TxaAdsService().loadBannerAd(
+      adSize: AdSize.banner,
+      onAdLoaded: (ad) {
+        if (mounted) {
+          setState(() {
+            _isBannerAdLoaded = true;
+          });
+        }
+      },
+      onAdFailedToLoad: (ad, error) {
+        if (mounted) {
+          setState(() {
+            _isBannerAdLoaded = false;
+          });
+        }
+      },
+    );
   }
 
   Future<void> _checkAndInitAdFlow() async {
@@ -926,6 +972,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       setState(() {
         _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
         _autoNextEpisode = prefs.getBool('auto_next_episode') ?? false;
+        _hidePlayerTitle = prefs.getBool('hide_player_title') ?? false;
         _isVoiceover = prefs.getBool('ai_voiceover_enabled') ?? false;
         _preferredSubLang = prefs.getString('preferred_sub_lang') ?? 'vi';
         _subtitleFontSize = prefs.getDouble('subtitle_font_size') ?? 16.0;
@@ -2170,10 +2217,18 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
     required String title,
     required bool value,
     required ValueChanged<bool> onChanged,
+    bool isPaidOnly = false,
+    bool hasPaidPackage = true,
   }) {
     final isFocused = TxaPlatform.isTV && _settingsSelectedIndex == index;
+    final isLocked = isPaidOnly && !hasPaidPackage;
+
     return InkWell(
       onTap: () {
+        if (isLocked) {
+          TxaToast.show(context, TxaLanguage.t('vip_feature_locked_msg'), isError: true);
+          return;
+        }
         onChanged(!value);
       },
       child: Container(
@@ -2182,35 +2237,51 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
           color: isFocused ? const Color(0xFF737DFD).withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isFocused ? const Color(0xFF737DFD) : Colors.white12,
+            color: isFocused ? const Color(0xFF737DFD) : (isLocked ? Colors.amber.withValues(alpha: 0.25) : Colors.white12),
             width: isFocused ? 1.5 : 1.0,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(icon, color: isFocused ? const Color(0xFF737DFD) : Colors.white70, size: 18),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isFocused ? const Color(0xFF737DFD) : Colors.white,
-                    fontSize: 12,
-                    fontWeight: isFocused ? FontWeight.bold : FontWeight.normal,
+            Expanded(
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    color: isLocked ? Colors.amber : (isFocused ? const Color(0xFF737DFD) : Colors.white70),
+                    size: 18,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        color: isLocked ? Colors.white70 : (isFocused ? const Color(0xFF737DFD) : Colors.white),
+                        fontSize: 12,
+                        fontWeight: isFocused ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            Switch(
-              value: value,
-              activeThumbColor: const Color(0xFF737DFD),
-              activeTrackColor: const Color(0xFF737DFD).withValues(alpha: 0.5),
-              inactiveThumbColor: Colors.grey,
-              inactiveTrackColor: Colors.white24,
-              onChanged: onChanged,
-            ),
+            if (isLocked)
+              const Padding(
+                padding: EdgeInsets.only(right: 6),
+                child: Icon(Icons.lock_rounded, color: Colors.amber, size: 18),
+              )
+            else
+              Switch(
+                value: value,
+                activeThumbColor: const Color(0xFF737DFD),
+                activeTrackColor: const Color(0xFF737DFD).withValues(alpha: 0.5),
+                inactiveThumbColor: Colors.grey,
+                inactiveTrackColor: Colors.white24,
+                onChanged: onChanged,
+              ),
           ],
         ),
       ),
@@ -3271,22 +3342,23 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                                   ),
                                 ),
                               ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: (_showControls && !_isLocked) ? 80 : 56,
-                              ),
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 250),
-                                opacity: _showControls ? 1.0 : 0.8,
-                                child: Text(
-                                  "${widget.movieName} - ${(TxaLanguage.currentLang == 'vi' ? 'Tập' : 'EP')} ${_cleanEpisodeName(_currentEpisodeName)} | $_currentServerName",
-                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                            if (!(_hidePlayerTitle && _hasPaidPackage))
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: (_showControls && !_isLocked) ? 80 : 56,
+                                ),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 250),
+                                  opacity: _showControls ? 1.0 : 0.8,
+                                  child: Text(
+                                    "${widget.movieName} - ${(TxaLanguage.currentLang == 'vi' ? 'Tập' : 'EP')} ${_cleanEpisodeName(_currentEpisodeName)} | $_currentServerName",
+                                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
-                            ),
                             Positioned(
                               right: 0,
                               child: AnimatedOpacity(
@@ -3405,6 +3477,27 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                             ),
                           ],
                         ],
+                      ),
+                    ),
+
+                  // 5.8 FREE/GUEST PAUSE BANNER AD
+                  if (TxaPlatform.isMobile && !_isPlaying && _showControls && !_hasPaidPackage && _isBannerAdLoaded && _bannerAd != null && !_isInPiPMode)
+                    Positioned(
+                      top: 48,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          width: _bannerAd!.size.width.toDouble(),
+                          height: _bannerAd!.size.height.toDouble(),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.white12, width: 0.5),
+                          ),
+                          child: AdWidget(ad: _bannerAd!),
+                        ),
                       ),
                     ),
 
@@ -4236,6 +4329,18 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                               } else {
                                 _flutterTts?.stop();
                               }
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSettingsToggleItem(
+                            index: 15,
+                            icon: Icons.title_rounded,
+                            title: TxaLanguage.t('hide_player_title'),
+                            value: _hidePlayerTitle,
+                            isPaidOnly: true,
+                            hasPaidPackage: _hasPaidPackage,
+                            onChanged: (val) {
+                              _setPlayerSetting('hide_player_title', val);
                             },
                           ),
                           const SizedBox(height: 20),

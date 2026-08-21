@@ -112,7 +112,7 @@ class TxaPlayUpdateService {
       if (info == null || !context.mounted) return;
 
       final serverVersion = (info['app_version'] ?? TxaVersion.version).toString().trim();
-      if (_isVersionLower(TxaVersion.version, serverVersion)) {
+      if (isVersionLower(TxaVersion.version, serverVersion)) {
         if (!context.mounted) return;
 
         final msg = TxaLanguage.t('update_toast_msg').replaceAll('%version%', serverVersion);
@@ -244,7 +244,7 @@ class TxaPlayUpdateService {
       final info = await TxaApi().getCheckUpdate();
       if (info != null && context.mounted) {
         final serverVersion = (info['app_version'] ?? TxaVersion.version).toString().trim();
-        if (_isVersionLower(TxaVersion.version, serverVersion)) {
+        if (isVersionLower(TxaVersion.version, serverVersion)) {
           handleMultiplatformUpdate(context, info, serverVersion);
           return;
         }
@@ -258,7 +258,7 @@ class TxaPlayUpdateService {
   }
 
   /// Version comparison helper (e.g. 5.1.4 < 5.1.5)
-  static bool _isVersionLower(String current, String latest) {
+  static bool isVersionLower(String current, String latest) {
     try {
       final cParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
       final lParts = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();

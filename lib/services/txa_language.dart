@@ -179,6 +179,11 @@ class TxaLanguage extends ChangeNotifier {
       'maintenance_title': 'Hệ thống đang bảo trì',
       'maintenance_msg':
           'Chúng tôi đang nâng cấp hệ thống để mang lại trải nghiệm tốt hơn. Vui lòng quay lại sau ít phút.',
+      'force_update_title': 'Yêu cầu cập nhật ứng dụng',
+      'force_update_desc':
+          'Phiên bản bạn đang sử dụng (%current%) đã quá cũ và không còn được hỗ trợ. Vui lòng cập nhật lên phiên bản %latest% để tiếp tục sử dụng.',
+      'force_update_btn': 'Cập nhật ngay',
+      'force_update_exit': 'Thoát ứng dụng',
       'check_permissions': 'Kiểm tra quyền truy cập',
       'please_grant_all': 'Vui lòng cấp các quyền bắt buộc để tiếp tục.',
       'go_to_settings': 'Vào cài đặt',
@@ -1032,6 +1037,9 @@ class TxaLanguage extends ChangeNotifier {
       'sub_on': 'Bật',
       'auto_skip_intro_title': 'Tự động bỏ qua Intro',
       'auto_next_episode_title': 'Tự động chuyển tập',
+      'hide_player_title': 'Ẩn tiêu đề phim & tập',
+      'hide_player_title_desc': 'Loại bỏ tên phim và tập để màn hình rạp chiếu sạch sẽ',
+      'vip_feature_locked_msg': 'Tính năng chỉ khả dụng cho tài khoản đã nâng cấp gói (không áp dụng gói Free/Khách). Vui lòng nâng cấp gói!',
       'ai_voiceover_title': 'Thuyết minh AI (by TXA)',
       'pref_sub_lang_title': 'NGÔN NGỮ PHỤ ĐỀ ƯU TIÊN',
       'adv_audio_config_title': 'CẤU HÌNH ÂM THANH NÂNG CAO',
@@ -1298,6 +1306,11 @@ class TxaLanguage extends ChangeNotifier {
       'maintenance_title': 'System Under Maintenance',
       'maintenance_msg':
           'We are upgrading our system to provide a better experience. Please check back in a few minutes.',
+      'force_update_title': 'App Update Required',
+      'force_update_desc':
+          'Your current app version (%current%) is no longer supported. Please update to version %latest% to continue.',
+      'force_update_btn': 'Update Now',
+      'force_update_exit': 'Exit App',
       'check_permissions': 'Checking permissions',
       'please_grant_all': 'Please grant required permissions to continue.',
       'go_to_settings': 'Go to Settings',
@@ -2121,6 +2134,9 @@ class TxaLanguage extends ChangeNotifier {
       'sub_on': 'On',
       'auto_skip_intro_title': 'Auto Skip Intro',
       'auto_next_episode_title': 'Auto Next Episode',
+      'hide_player_title': 'Hide Movie & Episode Title',
+      'hide_player_title_desc': 'Remove movie and episode name for a clean cinematic view',
+      'vip_feature_locked_msg': 'This feature is only available for paid subscription accounts (not available for Free/Guest). Please upgrade!',
       'ai_voiceover_title': 'AI Voiceover (by TXA)',
       'pref_sub_lang_title': 'PREFERRED SUBTITLE LANGUAGE',
       'adv_audio_config_title': 'ADVANCED AUDIO CONFIGURATION',
