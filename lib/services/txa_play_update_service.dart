@@ -175,14 +175,28 @@ class TxaPlayUpdateService {
                   ),
                   const SizedBox(height: 8),
 
-                  // Changelog content
+                  // Changelog dedicated scrollable card box
                   Flexible(
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: TxaRichTextParser.parse(
-                          (info['app_release_notes'] ?? info['changelog'] ?? '').toString(),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+                      ),
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        radius: const Radius.circular(4),
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: TxaRichTextParser.parse(
+                              (info['app_release_notes'] ?? info['changelog'] ?? '').toString(),
+                            ),
+                          ),
                         ),
                       ),
                     ),

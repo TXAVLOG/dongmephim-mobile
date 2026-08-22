@@ -360,103 +360,142 @@ class _HomeTabState extends State<HomeTab> {
             slivers: [
               // Home Premium Header
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 16,
-                    left: 10,
-                    right: 16,
-                    bottom: 12,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            key: TxaCoachKeys.menuKey,
-                            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
-                            onPressed: () => HomeScreen.scaffoldKey.currentState?.openDrawer(),
-                          ),
-                          const SizedBox(width: 4),
-                          Image.asset('assets/dongphim_logo.png', height: 32),
-                          const SizedBox(width: 10),
-                          Text(
-                            TxaLanguage.t('app_name'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
+                child: Builder(
+                  builder: (context) {
+                    final screenWidth = MediaQuery.of(context).size.width;
+                    final isSmallScreen = screenWidth < 360;
+
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        top: MediaQuery.of(context).padding.top + (isSmallScreen ? 10 : 16),
+                        left: isSmallScreen ? 6 : 10,
+                        right: isSmallScreen ? 10 : 16,
+                        bottom: isSmallScreen ? 8 : 12,
                       ),
-                      Row(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 26),
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (ctx) => const NotificationScreen()),
-                              );
-                              if (!context.mounted) return;
-                              if (result == 'go_to_profile') {
-                                final homeState = context.findAncestorStateOfType<_HomeScreenState>();
-                                if (homeState != null) {
-                                  homeState.setState(() {
-                                    homeState._currentIndex = 4;
-                                  });
-                                }
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          Consumer<TxaAuthService>(
-                            builder: (context, auth, child) {
-                              final initials = auth.isLoggedIn && auth.user?['name'] != null && auth.user!['name'].toString().isNotEmpty
-                                  ? auth.user!['name'].toString()[0].toUpperCase()
-                                  : '';
-                              
-                              return GestureDetector(
-                                onTap: () {
-                                  final homeState = context.findAncestorStateOfType<_HomeScreenState>();
-                                  if (homeState != null) {
-                                    homeState.setState(() {
-                                      homeState._currentIndex = 4;
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: TxaTheme.accent, width: 1.5),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  key: TxaCoachKeys.menuKey,
+                                  padding: EdgeInsets.zero,
+                                  constraints: BoxConstraints(
+                                    minWidth: isSmallScreen ? 36 : 44,
+                                    minHeight: isSmallScreen ? 36 : 44,
                                   ),
-                                  child: CircleAvatar(
-                                    radius: 18,
-                                    backgroundColor: auth.isLoggedIn ? TxaTheme.secondaryBg : Colors.white.withValues(alpha: 0.08),
-                                    backgroundImage: auth.isLoggedIn ? _getAvatarProvider(auth.user?['avatar_url']?.toString()) : null,
-                                    child: auth.isLoggedIn
-                                        ? ((auth.user?['avatar_url'] == null || auth.user!['avatar_url'].toString().isEmpty)
-                                            ? Text(
-                                                initials,
-                                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                                              )
-                                            : null)
-                                        : const Icon(
-                                            Icons.person_outline_rounded,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
+                                  icon: Icon(
+                                    Icons.menu_rounded,
+                                    color: Colors.white,
+                                    size: isSmallScreen ? 24 : 28,
+                                  ),
+                                  onPressed: () => HomeScreen.scaffoldKey.currentState?.openDrawer(),
+                                ),
+                                const SizedBox(width: 4),
+                                Image.asset(
+                                  'assets/dongphim_logo.png',
+                                  height: isSmallScreen ? 26 : 32,
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    TxaLanguage.t('app_name'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: isSmallScreen ? 18 : 22,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                 ),
-                              );
-                            },
+                              ],
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: BoxConstraints(
+                                  minWidth: isSmallScreen ? 36 : 40,
+                                  minHeight: isSmallScreen ? 36 : 40,
+                                ),
+                                icon: Icon(
+                                  Icons.notifications_outlined,
+                                  color: Colors.white,
+                                  size: isSmallScreen ? 22 : 26,
+                                ),
+                                onPressed: () async {
+                                  final result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (ctx) => const NotificationScreen()),
+                                  );
+                                  if (!context.mounted) return;
+                                  if (result == 'go_to_profile') {
+                                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                                    if (homeState != null) {
+                                      homeState.setState(() {
+                                        homeState._currentIndex = 4;
+                                      });
+                                    }
+                                  }
+                                },
+                              ),
+                              SizedBox(width: isSmallScreen ? 4 : 8),
+                              Consumer<TxaAuthService>(
+                                builder: (context, auth, child) {
+                                  final initials = auth.isLoggedIn && auth.user?['name'] != null && auth.user!['name'].toString().isNotEmpty
+                                      ? auth.user!['name'].toString()[0].toUpperCase()
+                                      : '';
+                                  
+                                  return GestureDetector(
+                                    onTap: () {
+                                      final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                                      if (homeState != null) {
+                                        homeState.setState(() {
+                                          homeState._currentIndex = 4;
+                                        });
+                                      }
+                                    },
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: TxaTheme.accent, width: 1.5),
+                                      ),
+                                      child: CircleAvatar(
+                                        radius: isSmallScreen ? 15 : 18,
+                                        backgroundColor: auth.isLoggedIn ? TxaTheme.secondaryBg : Colors.white.withValues(alpha: 0.08),
+                                        backgroundImage: auth.isLoggedIn ? _getAvatarProvider(auth.user?['avatar_url']?.toString()) : null,
+                                        child: auth.isLoggedIn
+                                            ? ((auth.user?['avatar_url'] == null || auth.user!['avatar_url'].toString().isEmpty)
+                                                ? Text(
+                                                    initials,
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: isSmallScreen ? 11 : 13,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  )
+                                                : null)
+                                            : Icon(
+                                                Icons.person_outline_rounded,
+                                                color: Colors.white,
+                                                size: isSmallScreen ? 16 : 20,
+                                              ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
 
