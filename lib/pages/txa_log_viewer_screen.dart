@@ -45,8 +45,8 @@ class TxaLogViewerScreen extends StatefulWidget {
 
 class _TxaLogViewerScreenState extends State<TxaLogViewerScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _logTypes = ['all', 'api', 'downloader', 'crash'];
-  final List<String> _tabNames = ['Tất Cả', 'API', 'Tải Xuống', 'Lỗi/Crash'];
+  final List<String> _logTypes = ['all', 'api', 'iap', 'downloader', 'crash'];
+  final List<String> _tabNames = ['Tất Cả', 'API', 'Mua Hàng/IAP', 'Tải Xuống', 'Lỗi/Crash'];
   List<LogEntry> _parsedEntries = [];
   bool _isLoading = false;
   final Set<int> _expandedIndices = {};
@@ -398,6 +398,9 @@ class _TxaLogViewerScreenState extends State<TxaLogViewerScreen> with SingleTick
     if (typeUpper.contains('API')) {
       typeColor = Colors.greenAccent;
       typeIcon = Icons.api_rounded;
+    } else if (typeUpper.contains('IAP') || typeUpper.contains('PURCHASE')) {
+      typeColor = const Color(0xFFF59E0B);
+      typeIcon = Icons.shopping_bag_rounded;
     } else if (typeUpper.contains('DOWNLOAD') || typeUpper.contains('DOWN')) {
       typeColor = Colors.orangeAccent;
       typeIcon = Icons.download_rounded;
@@ -581,6 +584,8 @@ class _TxaLogViewerScreenState extends State<TxaLogViewerScreen> with SingleTick
         ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           indicatorColor: TxaTheme.accent,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white38,

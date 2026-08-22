@@ -15,9 +15,11 @@ class TxaNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    const horizontalMargin = 16.0;
-    final bottomMargin = bottomPadding > 0 ? bottomPadding + 8.0 : 18.0;
+    final horizontalMargin = screenWidth < 360 ? 10.0 : (screenWidth < 400 ? 12.0 : 16.0);
+    final navHeight = screenWidth < 360 ? 64.0 : 70.0;
+    final bottomMargin = bottomPadding > 0 ? bottomPadding + 6.0 : 16.0;
 
     final List<Map<String, dynamic>> items = [
       {'index': 0, 'icon': Icons.home_rounded, 'label': TxaLanguage.t('home')},
@@ -40,7 +42,7 @@ class TxaNav extends StatelessWidget {
         radius: 34,
         child: Container(
           key: TxaCoachKeys.bottomNavKey,
-          height: 70,
+          height: navHeight,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(34),
             border: Border.all(

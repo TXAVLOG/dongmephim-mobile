@@ -2,7 +2,7 @@ name: tphimx_setup
 description: "DongMePhim Mobile App - Rebranded premium movie client."
 publish_to: 'none'
 
-version: 5.5.4+554
+version: 5.6.0+560
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

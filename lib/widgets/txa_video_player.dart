@@ -3302,75 +3302,119 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                       ),
                       child: SizedBox(
                         height: 48,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            if (_showControls && !_isLocked)
-                              Positioned(
-                                left: 0,
-                                child: IconButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-                                ),
-                              ),
-                            // Battery Indicator (Mobile Only) - always visible
-                            if (TxaPlatform.isMobile && _batteryLevel >= 0)
-                              Positioned(
-                                left: (_showControls && !_isLocked) ? 48 : 0,
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 250),
-                                  opacity: _showControls ? 1.0 : 0.7,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        _getBatteryIcon(),
-                                        color: _getBatteryColor(),
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '$_batteryLevel%',
-                                        style: TextStyle(
+                        child: LayoutBuilder(
+                          builder: (context, barConstraints) {
+                            final barWidth = barConstraints.maxWidth;
+                            final isNarrow = barWidth < 550;
+                            final titleFontSize = isNarrow ? 12.0 : 14.0;
+
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                if (_showControls && !_isLocked) ...[
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    onPressed: () => Navigator.pop(context),
+                                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+
+                                // Battery Indicator (Mobile Only) - always visible
+                                if (TxaPlatform.isMobile && _batteryLevel >= 0)
+                                  AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 250),
+                                    opacity: _showControls ? 1.0 : 0.7,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _getBatteryIcon(),
                                           color: _getBatteryColor(),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: 'monospace',
+                                          size: isNarrow ? 15 : 18,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '$_batteryLevel%',
+                                          style: TextStyle(
+                                            color: _getBatteryColor(),
+                                            fontSize: isNarrow ? 10 : 11,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                const SizedBox(width: 8),
+
+                                // Movie Title + Episode + Server Chips (Responsive Expanded)
+                                if (!(_hidePlayerTitle && _hasPaidPackage))
+                                  Expanded(
+                                    child: AnimatedOpacity(
+                                      duration: const Duration(milliseconds: 250),
+                                      opacity: _showControls ? 1.0 : 0.8,
+                                      child: RichText(
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: widget.movieName,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: titleFontSize,
+                                                fontWeight: FontWeight.bold,
+                                                shadows: const [Shadow(blurRadius: 4, color: Colors.black87)],
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: " • ${(TxaLanguage.currentLang == 'vi' ? 'Tập' : 'EP')} ${_cleanEpisodeName(_currentEpisodeName)}",
+                                              style: TextStyle(
+                                                color: const Color(0xFF737DFD),
+                                                fontSize: titleFontSize,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            if (_currentServerName.isNotEmpty)
+                                              TextSpan(
+                                                text: " (${_currentServerName.trim()})",
+                                                style: TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: titleFontSize * 0.9,
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            if (!(_hidePlayerTitle && _hasPaidPackage))
-                              Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: (_showControls && !_isLocked) ? 80 : 56,
-                                ),
-                                child: AnimatedOpacity(
+                                    ),
+                                  )
+                                else
+                                  const Spacer(),
+
+                                const SizedBox(width: 8),
+
+                                // Clock String
+                                AnimatedOpacity(
                                   duration: const Duration(milliseconds: 250),
-                                  opacity: _showControls ? 1.0 : 0.8,
+                                  opacity: _showControls ? 1.0 : 0.7,
                                   child: Text(
-                                    "${widget.movieName} - ${(TxaLanguage.currentLang == 'vi' ? 'Tập' : 'EP')} ${_cleanEpisodeName(_currentEpisodeName)} | $_currentServerName",
-                                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    _clockString,
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: isNarrow ? 11.5 : 13.0,
+                                      fontFamily: 'monospace',
+                                      fontWeight: FontWeight.bold,
+                                      shadows: const [Shadow(blurRadius: 4, color: Colors.black87)],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            Positioned(
-                              right: 0,
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 250),
-                                opacity: _showControls ? 1.0 : 0.7,
-                                child: Text(
-                                  _clockString,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'monospace', fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -3480,10 +3524,10 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                       ),
                     ),
 
-                  // 5.8 FREE/GUEST PAUSE BANNER AD
-                  if (TxaPlatform.isMobile && !_isPlaying && _showControls && !_hasPaidPackage && _isBannerAdLoaded && _bannerAd != null && !_isInPiPMode)
+                  // 5.8 FREE/GUEST BANNER AD
+                  if (TxaPlatform.isMobile && !_hasPaidPackage && _isBannerAdLoaded && _bannerAd != null && !_isInPiPMode)
                     Positioned(
-                      top: 48,
+                      top: _showControls ? 52 : 12,
                       left: 0,
                       right: 0,
                       child: Center(

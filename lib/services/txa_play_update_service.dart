@@ -78,9 +78,11 @@ class TxaPlayUpdateService {
     return false;
   }
 
+  static bool _updateToastDismissed = false;
+
   /// Subtle background update check when entering HomeScreen (Multiplatform)
   static Future<void> checkBackgroundUpdate(BuildContext context) async {
-    if (!context.mounted) return;
+    if (!context.mounted || _updateToastDismissed) return;
 
     try {
       // 1. Android Mobile: Try native Google Play In-App update check first
@@ -88,12 +90,15 @@ class TxaPlayUpdateService {
         try {
           final updateInfo = await InAppUpdate.checkForUpdate();
           if (updateInfo.updateAvailability == UpdateAvailability.updateAvailable) {
-            if (!context.mounted) return;
+            if (!context.mounted || _updateToastDismissed) return;
             final msg = TxaLanguage.t('update_toast_msg').replaceAll('%version%', 'Play Store');
             TxaToast.showWithAction(
               context,
               msg,
               actionLabel: TxaLanguage.t('update_chplay'),
+              onDismiss: () {
+                _updateToastDismissed = true;
+              },
               onAction: () async {
                 try {
                   await InAppUpdate.performImmediateUpdate();
@@ -109,11 +114,11 @@ class TxaPlayUpdateService {
 
       // 2. Multiplatform Server API check (Android, Smart TV, iOS, Windows)
       final info = await TxaApi().getCheckUpdate();
-      if (info == null || !context.mounted) return;
+      if (info == null || !context.mounted || _updateToastDismissed) return;
 
       final serverVersion = (info['app_version'] ?? TxaVersion.version).toString().trim();
       if (isVersionLower(TxaVersion.version, serverVersion)) {
-        if (!context.mounted) return;
+        if (!context.mounted || _updateToastDismissed) return;
 
         final msg = TxaLanguage.t('update_toast_msg').replaceAll('%version%', serverVersion);
         final String actionLabel = (!kIsWeb && Platform.isAndroid && !TxaPlatform.isTV)
@@ -125,6 +130,9 @@ class TxaPlayUpdateService {
           msg,
           actionLabel: actionLabel,
           durationSeconds: 8,
+          onDismiss: () {
+            _updateToastDismissed = true;
+          },
           onAction: () async {
             if (!context.mounted) return;
             handleMultiplatformUpdate(context, info, serverVersion);

@@ -104,12 +104,21 @@ class TxaToast {
     String message, {
     required String actionLabel,
     required VoidCallback onAction,
+    VoidCallback? onDismiss,
     int durationSeconds = 6,
   }) {
     final overlay = Overlay.of(context);
     final topInset = MediaQuery.of(context).padding.top;
 
     late OverlayEntry overlayEntry;
+    void dismiss() {
+      if (_entries.contains(overlayEntry)) {
+        _entries.remove(overlayEntry);
+        overlayEntry.remove();
+        onDismiss?.call();
+      }
+    }
+
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: topInset + 14,
@@ -128,7 +137,7 @@ class TxaToast {
               );
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -173,16 +182,13 @@ class TxaToast {
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: () {
-                      if (_entries.contains(overlayEntry)) {
-                        _entries.remove(overlayEntry);
-                        overlayEntry.remove();
-                      }
+                      dismiss();
                       onAction();
                     },
                     style: TextButton.styleFrom(
                       backgroundColor: TxaTheme.accent,
                       foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       minimumSize: Size.zero,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -190,6 +196,15 @@ class TxaToast {
                       actionLabel,
                       style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Close (X) button to dismiss immediately
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    onPressed: dismiss,
+                    tooltip: 'Đóng',
                   ),
                 ],
               ),
@@ -201,11 +216,6 @@ class TxaToast {
 
     _entries.add(overlayEntry);
     overlay.insert(overlayEntry);
-    Future.delayed(Duration(seconds: durationSeconds), () {
-      if (_entries.contains(overlayEntry)) {
-        _entries.remove(overlayEntry);
-        overlayEntry.remove();
-      }
-    });
+    Future.delayed(Duration(seconds: durationSeconds), dismiss);
   }
 }

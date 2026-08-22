@@ -148,6 +148,17 @@ class DongPhimApp extends StatelessWidget {
               theme: TxaTheme.darkTheme.copyWith(
                 textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
               ),
+              builder: (context, child) {
+                final mediaQueryData = MediaQuery.of(context);
+                final clampedTextScale = mediaQueryData.textScaler.clamp(
+                  minScaleFactor: 0.85,
+                  maxScaleFactor: 1.15,
+                );
+                return MediaQuery(
+                  data: mediaQueryData.copyWith(textScaler: clampedTextScale),
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
               home: const MainEntry(),
             );
           },

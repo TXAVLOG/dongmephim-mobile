@@ -2339,9 +2339,13 @@ class _TxaProfileScreenState extends State<TxaProfileScreen> {
   }
 
   Widget _buildLoginForm() {
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: EdgeInsets.fromLTRB(24.0, topPadding + 24.0, 24.0, bottomPadding + 110.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

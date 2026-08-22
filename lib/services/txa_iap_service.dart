@@ -60,7 +60,7 @@ class TxaIapService {
       onDone: () => _subscription?.cancel(),
       onError: (error) {
         TxaLogger.log('Lỗi purchaseStream: $error', type: 'iap');
-        onPurchaseError?.call(error.toString());
+        onPurchaseError?.call(TxaLanguage.t('iap_payment_failed'));
       },
     );
 
@@ -77,21 +77,28 @@ class TxaIapService {
 
     final ProductDetailsResponse response = await _iap.queryProductDetails(_kProductIds);
     if (response.error != null) {
-      TxaLogger.log('Lỗi queryProductDetails: ${response.error!.message}', type: 'iap');
+      final errMsg = 'Lỗi queryProductDetails Google Play: [${response.error!.code}] ${response.error!.message}';
+      TxaLogger.log(errMsg, type: 'crash');
+      TxaLogger.log(errMsg, type: 'iap');
     }
 
     if (response.notFoundIDs.isNotEmpty) {
-      TxaLogger.log('Không tìm thấy Product IDs trên Store Console: ${response.notFoundIDs}', type: 'iap');
+      final notFoundMsg = 'Google Play không tìm thấy Product IDs: ${response.notFoundIDs}. '
+          'Gói thuê bao (custom_icon_monthly) cần có Base Plan đã Active trên Play Console và bản build tester đã upload.';
+      TxaLogger.log(notFoundMsg, type: 'crash');
+      TxaLogger.log(notFoundMsg, type: 'iap');
     }
 
     _products = response.productDetails;
+    TxaLogger.log('Tải thành công ${_products.length} sản phẩm từ Google Play: ${_products.map((p) => '${p.id} (${p.price})').toList()}', type: 'iap');
     return _products;
   }
 
   /// 3. Thực hiện kích hoạt luồng Mua sản phẩm
   Future<bool> buyProduct(String productId) async {
     if (!_isAvailable) {
-      onPurchaseError?.call('Cửa hàng thanh toán Google Play không sẵn sàng.');
+      TxaLogger.log('Google Play Billing không sẵn sàng trên thiết bị khi mua $productId', type: 'crash');
+      onPurchaseError?.call(TxaLanguage.t('iap_store_unavailable'));
       return false;
     }
 
@@ -107,7 +114,8 @@ class TxaIapService {
     }
 
     if (product == null) {
-      onPurchaseError?.call('Sản phẩm ($productId) chưa được kích hoạt trên Google Play Console.');
+      TxaLogger.log('Không tìm thấy product details cho $productId trên Store Console (Chưa active Base Plan hoặc ID chưa sẵn sàng).', type: 'crash');
+      onPurchaseError?.call(TxaLanguage.t('iap_product_not_available'));
       return false;
     }
 
@@ -123,16 +131,16 @@ class TxaIapService {
   /// 4. Khôi phục giao dịch cũ (Restore Purchases)
   Future<bool> restorePurchases() async {
     if (!_isAvailable) {
-      onPurchaseError?.call('Cửa hàng thanh toán Google Play không sẵn sàng.');
+      onPurchaseError?.call(TxaLanguage.t('iap_store_unavailable'));
       return false;
     }
     _hasRestoredAny = false;
-    onPurchasePending?.call('Đang quét lịch sử đơn hàng từ Google Play...');
+    onPurchasePending?.call(TxaLanguage.t('iap_checking_orders'));
     await _iap.restorePurchases();
 
     await Future.delayed(const Duration(milliseconds: 2500));
     if (!_hasRestoredAny) {
-      onPurchaseError?.call('Không tìm thấy đơn hàng nào đã mua trên Google Play để khôi phục.');
+      onPurchaseError?.call(TxaLanguage.t('iap_no_orders_to_restore'));
       return false;
     }
     return true;
@@ -144,7 +152,7 @@ class TxaIapService {
       switch (purchaseDetails.status) {
         case PurchaseStatus.pending:
           TxaLogger.log('Giao dịch đang được xử lý (Pending)... ID: ${purchaseDetails.productID}', type: 'iap');
-          onPurchasePending?.call('Đang quét và xử lý giao dịch trên Google Play...');
+          onPurchasePending?.call(TxaLanguage.t('iap_processing_order'));
           break;
 
         case PurchaseStatus.purchased:
@@ -153,13 +161,14 @@ class TxaIapService {
           if (purchaseDetails.productID == productIdCustomIcon || purchaseDetails.productID.contains('icon')) {
             await TxaDynamicIconService.setLocalSubscriptionActive(true);
           }
-          onPurchasePending?.call('Phát hiện đơn hàng! Đang xác thực với máy chủ...');
+          onPurchasePending?.call(TxaLanguage.t('iap_verifying_with_server'));
           await verifyPurchase(purchaseDetails);
           break;
 
         case PurchaseStatus.error:
           final errCode = purchaseDetails.error?.code ?? '';
           final errMessage = purchaseDetails.error?.message ?? '';
+          TxaLogger.log('Lỗi giao dịch IAP: Code=$errCode, Message=$errMessage', type: 'crash');
           TxaLogger.log('Lỗi giao dịch IAP: Code=$errCode, Message=$errMessage', type: 'iap');
 
           final isAlreadyOwned = errCode.contains('itemAlreadyOwned') ||
@@ -172,13 +181,13 @@ class TxaIapService {
           if (isAlreadyOwned) {
             onPurchaseError?.call(TxaLanguage.t('iap_item_already_owned'));
           } else {
-            onPurchaseError?.call(errMessage.isNotEmpty ? errMessage : 'Giao dịch thất bại.');
+            onPurchaseError?.call(TxaLanguage.t('iap_payment_failed'));
           }
           break;
 
         case PurchaseStatus.canceled:
           TxaLogger.log('Người dùng đã hủy giao dịch IAP.', type: 'iap');
-          onPurchaseError?.call('Giao dịch đã bị hủy.');
+          onPurchaseError?.call(TxaLanguage.t('iap_purchase_canceled_msg'));
           break;
       }
 
@@ -250,8 +259,9 @@ class TxaIapService {
         onPurchaseError?.call(result['message'] ?? TxaLanguage.t('iap_verify_failed'));
       }
     } catch (e) {
+      TxaLogger.log('Lỗi khi verifyPurchase: $e', type: 'crash');
       TxaLogger.log('Lỗi khi verifyPurchase: $e', type: 'iap');
-      onPurchaseError?.call('Lỗi xác thực đơn hàng: $e');
+      onPurchaseError?.call(TxaLanguage.t('iap_verify_order_error'));
     }
   }
 
