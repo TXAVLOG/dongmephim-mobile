@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,9 +8,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'txa_api.dart';
 import 'txa_language.dart';
 import 'txa_version.dart';
+import '../theme/txa_theme.dart';
 import '../utils/txa_logger.dart';
 import '../utils/txa_toast.dart';
 import '../utils/txa_platform.dart';
+import '../utils/txa_rich_text.dart';
 import '../widgets/txa_download_dialog.dart';
 
 class TxaPlayUpdateService {
@@ -80,6 +83,160 @@ class TxaPlayUpdateService {
 
   static bool _updateToastDismissed = false;
 
+  /// Show beautiful update modal dialog with changelog & actions
+  static void showUpdateDialog(
+    BuildContext context,
+    Map<String, dynamic> info,
+    String serverVersion,
+  ) {
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 500, maxHeight: 540),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    TxaTheme.secondaryBg.withValues(alpha: 0.95),
+                    TxaTheme.cardBg.withValues(alpha: 0.92),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 28,
+                    offset: const Offset(0, 14),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: TxaTheme.accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.system_update_rounded, color: TxaTheme.accent, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              TxaLanguage.t('update_available'),
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'v${TxaVersion.version} → v$serverVersion',
+                              style: const TextStyle(color: TxaTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _updateToastDismissed = true;
+                        },
+                        icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white12, height: 1),
+                  const SizedBox(height: 12),
+
+                  // Changelog title
+                  Text(
+                    TxaLanguage.t('whats_new'),
+                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Changelog content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: TxaRichTextParser.parse(
+                          (info['app_release_notes'] ?? info['changelog'] ?? '').toString(),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _updateToastDismissed = true;
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.white24),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(
+                            TxaLanguage.t('later'),
+                            style: const TextStyle(color: TxaTheme.textSecondary, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            handleMultiplatformUpdate(context, info, serverVersion);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: TxaTheme.accent,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(TxaLanguage.t('update_now'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Subtle background update check when entering HomeScreen (Multiplatform)
   static Future<void> checkBackgroundUpdate(BuildContext context) async {
     if (!context.mounted || _updateToastDismissed) return;
@@ -120,24 +277,8 @@ class TxaPlayUpdateService {
       if (isVersionLower(TxaVersion.version, serverVersion)) {
         if (!context.mounted || _updateToastDismissed) return;
 
-        final msg = TxaLanguage.t('update_toast_msg').replaceAll('%version%', serverVersion);
-        final String actionLabel = (!kIsWeb && Platform.isAndroid && !TxaPlatform.isTV)
-            ? TxaLanguage.t('update_chplay')
-            : TxaLanguage.t('update_now');
-
-        TxaToast.showWithAction(
-          context,
-          msg,
-          actionLabel: actionLabel,
-          durationSeconds: 8,
-          onDismiss: () {
-            _updateToastDismissed = true;
-          },
-          onAction: () async {
-            if (!context.mounted) return;
-            handleMultiplatformUpdate(context, info, serverVersion);
-          },
-        );
+        // Display the full update dialog modal with changelog & update button directly
+        showUpdateDialog(context, info, serverVersion);
       }
     } catch (e) {
       TxaLogger.log('Background update check error: $e', type: 'app');
