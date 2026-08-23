@@ -583,24 +583,35 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   void _initBannerAd() async {
     if (TxaPlatform.isTV || TxaPlatform.isWeb) return;
     if (_hasPaidPackage) return;
+    if (_bannerAd != null) return; // Prevent duplicate concurrent loads
 
-    _bannerAd = await TxaAdsService().loadBannerAd(
-      adSize: AdSize.banner,
-      onAdLoaded: (ad) {
-        if (mounted) {
-          setState(() {
-            _isBannerAdLoaded = true;
-          });
-        }
-      },
-      onAdFailedToLoad: (ad, error) {
-        if (mounted) {
-          setState(() {
-            _isBannerAdLoaded = false;
-          });
-        }
-      },
-    );
+    try {
+      final ad = await TxaAdsService().loadBannerAd(
+        adSize: AdSize.banner,
+        onAdLoaded: (loadedAd) {
+          if (mounted) {
+            setState(() {
+              _bannerAd = loadedAd as BannerAd;
+              _isBannerAdLoaded = true;
+            });
+          }
+        },
+        onAdFailedToLoad: (failedAd, error) {
+          if (mounted) {
+            setState(() {
+              _isBannerAdLoaded = false;
+            });
+          }
+        },
+      );
+      if (ad != null && mounted && _bannerAd == null) {
+        setState(() {
+          _bannerAd = ad;
+        });
+      }
+    } catch (e) {
+      TxaLogger.log('Player banner ad init error: $e', type: 'app');
+    }
   }
 
   Future<void> _checkAndInitAdFlow() async {
@@ -3524,23 +3535,37 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                       ),
                     ),
 
-                  // 5.8 FREE/GUEST BANNER AD
+                  // 5.8 FREE/GUEST BANNER AD (Positioned at bottom above timeline to NEVER overlap top bar title & info)
                   if (TxaPlatform.isMobile && !_hasPaidPackage && _isBannerAdLoaded && _bannerAd != null && !_isInPiPMode)
                     Positioned(
-                      top: _showControls ? 52 : 12,
+                      bottom: _showControls ? 82 : 16,
                       left: 0,
                       right: 0,
                       child: Center(
                         child: Container(
+                          key: ValueKey<int>(_bannerAd.hashCode),
                           width: _bannerAd!.size.width.toDouble(),
                           height: _bannerAd!.size.height.toDouble(),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.white12, width: 0.5),
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white24, width: 0.8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          child: AdWidget(ad: _bannerAd!),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: AdWidget(
+                              key: ValueKey<String>('player_ad_${_bannerAd.hashCode}'),
+                              ad: _bannerAd!,
+                            ),
+                          ),
                         ),
                       ),
                     ),
