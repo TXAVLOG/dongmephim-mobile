@@ -808,11 +808,18 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
             'Referer': '${TxaApi.baseUrl}/',
           };
     TxaLogger.log('Headers cấu hình: $headers', type: 'app');
-    _controller = VideoPlayerController.networkUrl(
-      Uri.parse(resolvedUrl),
-      httpHeaders: headers,
-      formatHint: resolvedUrl.contains('.m3u8') ? VideoFormat.hls : null,
-    );
+    final isLocalFile = !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://');
+    if (isLocalFile) {
+      _controller = VideoPlayerController.file(
+        File(resolvedUrl),
+      );
+    } else {
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(resolvedUrl),
+        httpHeaders: headers,
+        formatHint: resolvedUrl.contains('.m3u8') ? VideoFormat.hls : null,
+      );
+    }
     
     try {
       await _controller!.initialize();

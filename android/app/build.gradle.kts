@@ -35,7 +35,7 @@ configure<ApplicationExtension> {
     defaultConfig {
         // Application ID registered on Google Play Console
         applicationId = "com.tphimx.tphimx_setup"
-        minSdk = flutter.minSdkVersion
+        minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName

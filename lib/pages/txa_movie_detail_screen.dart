@@ -11,6 +11,7 @@ import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
 import '../widgets/txa_video_player.dart';
 import '../utils/txa_schedule.dart';
+import '../features/download/ui/txa_download_bottom_sheet.dart';
 import 'txa_profile_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -957,7 +958,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                               label: TxaLanguage.t('download'),
                               color: Colors.white,
                               onTap: () {
-                                TxaToast.show(context, TxaLanguage.t('coming_soon'));
+                                if (_data != null) {
+                                  TxaDownloadBottomSheet.show(context, _data!);
+                                }
                               },
                             ),
                             _IconBtn(

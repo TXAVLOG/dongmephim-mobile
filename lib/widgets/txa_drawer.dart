@@ -10,6 +10,7 @@ import '../utils/txa_toast.dart';
 import '../utils/txa_platform.dart';
 import '../pages/txa_update_history_screen.dart';
 import '../services/txa_play_update_service.dart';
+import '../features/download/ui/downloaded_films_screen.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -440,6 +441,22 @@ class _TxaDrawerState extends State<TxaDrawer> {
                             onTap: () {
                               Navigator.pop(context); // Close Drawer
                               _showMovieRequestDialog();
+                            },
+                          ),
+
+                          // Downloaded Movies
+                          _buildDrawerTile(
+                            icon: Icons.download_done_rounded,
+                            title: TxaLanguage.t('downloaded_movies'),
+                            subtitle: TxaLanguage.t('offline_mode'),
+                            onTap: () {
+                              Navigator.pop(context); // Close Drawer
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (ctx) => const DownloadedFilmsScreen(),
+                                ),
+                              );
                             },
                           ),
 

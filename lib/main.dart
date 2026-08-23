@@ -13,6 +13,7 @@ import 'services/txa_language.dart';
 import 'services/txa_auth_service.dart';
 import 'services/txa_ads_service.dart';
 import 'services/txa_dynamic_icon_service.dart';
+import 'features/download/services/txa_download_manager.dart';
 import 'widgets/splash_screen.dart';
 import 'widgets/txa_error_widget.dart';
 import 'widgets/txa_modal.dart';
@@ -117,6 +118,7 @@ void main(List<String> args) async {
         providers: [
           ChangeNotifierProvider<TxaLanguage>.value(value: TxaLanguage()),
           ChangeNotifierProvider<TxaAuthService>.value(value: authService),
+          ChangeNotifierProvider<TxaDownloadManager>.value(value: TxaDownloadManager()),
         ],
         child: const DongPhimApp(),
       ),
