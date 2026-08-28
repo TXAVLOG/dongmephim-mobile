@@ -1134,6 +1134,34 @@ class TxaLanguage extends ChangeNotifier {
       'icon_countdown_prefix': 'Còn ',
       'loading_ad': 'Đang tải quảng cáo...',
       'maintenance_server_down': 'Website đang bảo trì, vui lòng quay lại sau.',
+      // Download Status Codes
+      'download_status_2311': 'Tải tập phim hoàn tất thành công.',
+      'download_status_3667': 'Lỗi kết nối mạng hoặc máy chủ phản hồi chậm. Vui lòng kiểm tra Wi-Fi / 4G!',
+      'download_status_36': 'Bộ nhớ thiết bị không đủ để lưu trữ tập phim này.',
+      'download_status_403': 'Máy chủ từ chối yêu cầu tải tập phim này.',
+      'download_status_404': 'Liên kết tập phim không tồn tại hoặc đã bị gỡ bỏ.',
+      'download_status_429': 'Bạn đang tải quá nhanh. Vui lòng thử lại sau vài phút.',
+      'download_status_500': 'Máy chủ phát phim đang gặp sự cố nội bộ.',
+      'download_status_unknown': 'Đã xảy ra lỗi không xác định trong quá trình tải.',
+      // Ad-Free Pass
+      'ad_free_title': 'Vé 24h Miễn Quảng Cáo',
+      'ad_free_subtitle': 'Sạch bóng quảng cáo',
+      'ad_free_desc': 'Xem %required% video để tận hưởng %hours%h xem phim không có bất kỳ quảng cáo xen kẽ nào!',
+      'ad_free_btn_watch': 'Xem Video (%current%/%required%)',
+      'ad_free_btn_active': 'Đang Kích Hoạt',
+      'ad_free_badge_remaining': 'Còn %time%',
+      'ad_free_badge_short': '🛡️ %time%',
+      'ad_free_activated_toast': '🎉 Bạn đã mở khóa thành công Vé 24h Sạch Bóng Quảng Cáo!',
+      'ad_free_progress_toast': 'Đã xem %current%/%required% video. Xem thêm 1 video nữa để nhận vé 24h nhé!',
+      'ad_free_max_stacked': 'Bạn đã tích lũy tối đa thời gian miễn quảng cáo (%max%h)!',
+      'ad_free_loading_ad': 'Đang tải video quảng cáo tặng thưởng...',
+      'ad_free_load_failed': 'Chưa thể tải video quảng cáo lúc này. Vui lòng thử lại sau giây lát!',
+      'ad_free_expired_toast': 'Vé miễn quảng cáo của bạn đã hết hạn.',
+      // Network & Player Errors
+      'network_timeout_desc': 'Kết nối mạng quá hạn hoặc máy chủ phản hồi chậm.',
+      'no_internet_desc': 'Không thể kết nối Internet. Vui lòng kiểm tra kết nối mạng!',
+      'server_error_desc': 'Máy chủ đang bận hoặc bảo trì tạm thời.',
+      'youtube_embed_error': 'Không thể phát video nhúng. Đang tự động chuyển vào xem phim...',
     },
     'en': {
       'preparing': 'Preparing...',
@@ -2253,10 +2281,40 @@ class TxaLanguage extends ChangeNotifier {
       'icon_countdown_prefix': 'Remaining: ',
       'loading_ad': 'Loading ad...',
       'maintenance_server_down': 'Website is under maintenance, please try again later.',
+      // Download Status Codes
+      'download_status_2311': 'Download completed successfully.',
+      'download_status_3667': 'Network connection error or request timed out. Please check Wi-Fi / 4G!',
+      'download_status_36': 'Insufficient device storage to save this episode.',
+      'download_status_403': 'Remote server forbidden access to download this episode.',
+      'download_status_404': 'Episode stream link not found or has been removed.',
+      'download_status_429': 'Too many requests. Please slow down and try again later.',
+      'download_status_500': 'Internal streaming server error.',
+      'download_status_unknown': 'An unknown error occurred during download.',
+      // Ad-Free Pass
+      'ad_free_title': '24h Ad-Free Pass',
+      'ad_free_subtitle': 'Ad-Free Experience',
+      'ad_free_desc': 'Watch %required% videos to enjoy %hours%h of completely ad-free streaming!',
+      'ad_free_btn_watch': 'Watch Video (%current%/%required%)',
+      'ad_free_btn_active': 'Active Pass',
+      'ad_free_badge_remaining': '%time% left',
+      'ad_free_badge_short': '🛡️ %time%',
+      'ad_free_activated_toast': '🎉 You have successfully unlocked 24h Ad-Free streaming!',
+      'ad_free_progress_toast': 'Watched %current%/%required% videos. Watch 1 more to activate your pass!',
+      'ad_free_max_stacked': 'You have reached the maximum stacked ad-free limit (%max%h)!',
+      'ad_free_loading_ad': 'Loading rewarded video ad...',
+      'ad_free_load_failed': 'Unable to load video ad right now. Please try again shortly!',
+      'ad_free_expired_toast': 'Your ad-free pass has expired.',
+      // Network & Player Errors
+      'network_timeout_desc': 'Connection timed out or server is responding slowly.',
+      'no_internet_desc': 'No internet connection. Please check your network!',
+      'server_error_desc': 'Streaming server is currently busy or under maintenance.',
+      'youtube_embed_error': 'Cannot embed video. Automatically playing movie...',
     },
   };
 
   static String get currentLang => _currentLang;
+  static bool get isVietnamese => _currentLang == 'vi';
+  static TxaLanguage get instance => _instance;
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -2299,5 +2357,28 @@ class TxaLanguage extends ChangeNotifier {
       });
     }
     return text;
+  }
+
+  static String get(String key, {Map<String, String>? params}) => t(key, replace: params);
+
+  static String getDownloadStatusMessage(int statusCode) {
+    switch (statusCode) {
+      case 2311:
+        return t('download_status_2311');
+      case 3667:
+        return t('download_status_3667');
+      case 36:
+        return t('download_status_36');
+      case 403:
+        return t('download_status_403');
+      case 404:
+        return t('download_status_404');
+      case 429:
+        return t('download_status_429');
+      case 500:
+        return t('download_status_500');
+      default:
+        return t('download_status_unknown');
+    }
   }
 }

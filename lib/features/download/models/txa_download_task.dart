@@ -14,6 +14,7 @@ class TxaDownloadTask {
   int totalSegments;
   int downloadedSegments;
   TxaDownloadStatus status;
+  int statusCode;
   String localPath; // final .mp4 or .ts file path
   String localBaseDir; // directory containing segments and metadata
   double speed; // bytes per second
@@ -36,6 +37,7 @@ class TxaDownloadTask {
     this.totalSegments = 0,
     this.downloadedSegments = 0,
     this.status = TxaDownloadStatus.queued,
+    this.statusCode = 0,
     this.localPath = '',
     this.localBaseDir = '',
     this.speed = 0.0,
@@ -55,6 +57,69 @@ class TxaDownloadTask {
     return 0.0;
   }
 
+  bool get isCompleted => status == TxaDownloadStatus.completed || statusCode == TxaDownloadStatusCode.success;
+  bool get isFailed => status == TxaDownloadStatus.failed;
+  bool get isDownloading => status == TxaDownloadStatus.downloading || status == TxaDownloadStatus.merging;
+  String get localFilePath => localPath;
+
+  String get localizedStatusMessage {
+    if (isCompleted) {
+      return TxaDownloadStatusCode.getErrorMessage(TxaDownloadStatusCode.success);
+    }
+    if (isFailed) {
+      return TxaDownloadStatusCode.getErrorMessage(statusCode != 0 ? statusCode : TxaDownloadStatusCode.unknown);
+    }
+    return '';
+  }
+
+  TxaDownloadTask copyWith({
+    String? id,
+    String? filmSlug,
+    String? filmTitle,
+    String? filmPoster,
+    String? serverName,
+    String? episodeId,
+    String? episodeName,
+    String? m3u8Url,
+    int? totalBytes,
+    int? downloadedBytes,
+    int? totalSegments,
+    int? downloadedSegments,
+    TxaDownloadStatus? status,
+    int? statusCode,
+    String? localPath,
+    String? localBaseDir,
+    double? speed,
+    int? eta,
+    String? errorMessage,
+    DateTime? createdAt,
+    DateTime? completedAt,
+  }) {
+    return TxaDownloadTask(
+      id: id ?? this.id,
+      filmSlug: filmSlug ?? this.filmSlug,
+      filmTitle: filmTitle ?? this.filmTitle,
+      filmPoster: filmPoster ?? this.filmPoster,
+      serverName: serverName ?? this.serverName,
+      episodeId: episodeId ?? this.episodeId,
+      episodeName: episodeName ?? this.episodeName,
+      m3u8Url: m3u8Url ?? this.m3u8Url,
+      totalBytes: totalBytes ?? this.totalBytes,
+      downloadedBytes: downloadedBytes ?? this.downloadedBytes,
+      totalSegments: totalSegments ?? this.totalSegments,
+      downloadedSegments: downloadedSegments ?? this.downloadedSegments,
+      status: status ?? this.status,
+      statusCode: statusCode ?? this.statusCode,
+      localPath: localPath ?? this.localPath,
+      localBaseDir: localBaseDir ?? this.localBaseDir,
+      speed: speed ?? this.speed,
+      eta: eta ?? this.eta,
+      errorMessage: errorMessage ?? this.errorMessage,
+      createdAt: createdAt ?? this.createdAt,
+      completedAt: completedAt ?? this.completedAt,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -70,6 +135,7 @@ class TxaDownloadTask {
       'totalSegments': totalSegments,
       'downloadedSegments': downloadedSegments,
       'status': status.toDbString(),
+      'statusCode': statusCode,
       'localPath': localPath,
       'localBaseDir': localBaseDir,
       'errorMessage': errorMessage,
@@ -93,6 +159,7 @@ class TxaDownloadTask {
       totalSegments: int.tryParse(map['totalSegments']?.toString() ?? '0') ?? 0,
       downloadedSegments: int.tryParse(map['downloadedSegments']?.toString() ?? '0') ?? 0,
       status: TxaDownloadStatus.fromDbString(map['status']?.toString()),
+      statusCode: int.tryParse(map['statusCode']?.toString() ?? '0') ?? 0,
       localPath: map['localPath']?.toString() ?? '',
       localBaseDir: map['localBaseDir']?.toString() ?? '',
       errorMessage: map['errorMessage']?.toString(),

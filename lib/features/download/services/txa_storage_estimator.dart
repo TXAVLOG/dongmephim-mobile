@@ -48,11 +48,11 @@ class TxaStorageEstimator {
             targetPlaylistUrl = variantUrl;
           }
           final variantRes = await _dio.get(targetPlaylistUrl);
-          return _parseAndEstimateSegments(targetPlaylistUrl, variantRes.data.toString());
+          return await _parseAndEstimateSegments(targetPlaylistUrl, variantRes.data.toString());
         }
       }
 
-      return _parseAndEstimateSegments(targetPlaylistUrl, content);
+      return await _parseAndEstimateSegments(targetPlaylistUrl, content);
     } catch (e) {
       TxaLogger.log('Estimate episode size error: $e', type: 'app');
       // Fallback default ~ 250 MB

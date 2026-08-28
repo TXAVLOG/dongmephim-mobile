@@ -6,7 +6,7 @@ import '../../../services/txa_language.dart';
 class TxaAdFreeCard extends StatelessWidget {
   final VoidCallback? onActivated;
 
-  const TxaAdFreeCard({Key? key, this.onActivated}) : super(key: key);
+  const TxaAdFreeCard({super.key, this.onActivated});
 
   @override
   Widget build(BuildContext context) {
@@ -27,42 +27,42 @@ class TxaAdFreeCard extends StatelessWidget {
             gradient: LinearGradient(
               colors: isActive
                   ? [
-                      const Color(0xFF1E1B4B).withOpacity(0.85),
-                      const Color(0xFF312E81).withOpacity(0.65),
+                      const Color(0xFF1E1B4B).withValues(alpha: 0.85),
+                      const Color(0xFF312E81).withValues(alpha: 0.65),
                     ]
                   : [
-                      const Color(0xFF0F172A).withOpacity(0.85),
-                      const Color(0xFF1E1B4B).withOpacity(0.55),
+                      const Color(0xFF0F172A).withValues(alpha: 0.85),
+                      const Color(0xFF1E1B4B).withValues(alpha: 0.55),
                     ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             border: Border.all(
               color: isActive
-                  ? const Color(0xFFA78BFA).withOpacity(0.5)
-                  : const Color(0xFFA78BFA).withOpacity(0.2),
+                  ? const Color(0xFFA78BFA).withValues(alpha: 0.5)
+                  : const Color(0xFFA78BFA).withValues(alpha: 0.2),
               width: isActive ? 1.5 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFA78BFA).withOpacity(isActive ? 0.15 : 0.05),
+                color: const Color(0xFFA78BFA).withValues(alpha: isActive ? 0.15 : 0.05),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               )
             ],
           ),
           child: Column(
-            crossAxisAlignment: CrossCrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossCrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFA78BFA).withOpacity(0.15),
+                      color: const Color(0xFFA78BFA).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFA78BFA).withOpacity(0.3)),
+                      border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.3)),
                     ),
                     child: const Icon(
                       Icons.shield_rounded,
@@ -73,7 +73,7 @@ class TxaAdFreeCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossCrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           TxaLanguage.get('ad_free_title'),
@@ -111,7 +111,7 @@ class TxaAdFreeCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   child: LinearProgressIndicator(
                     value: required > 0 ? watched / required : 0.0,
-                    backgroundColor: Colors.white.withOpacity(0.06),
+                    backgroundColor: Colors.white.withValues(alpha: 0.06),
                     valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFA78BFA)),
                     minHeight: 6,
                   ),
@@ -203,7 +203,7 @@ class TxaAdFreeCard extends StatelessWidget {
                       style: const TextStyle(color: Color(0xFFA78BFA), fontWeight: FontWeight.w700, fontSize: 12),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: const Color(0xFFA78BFA).withOpacity(0.4)),
+                      side: BorderSide(color: const Color(0xFFA78BFA).withValues(alpha: 0.4)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),

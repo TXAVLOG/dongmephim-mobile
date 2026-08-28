@@ -52,7 +52,7 @@ class TxaAdFreeService extends ChangeNotifier {
     final sStr = seconds.toString().padLeft(2, '0');
 
     if (days > 0) {
-      return '$days ${TxaLanguage.instance.isVietnamese ? "ngày" : "d"} $hStr:$mStr:$sStr';
+      return '$days ${TxaLanguage.isVietnamese ? "ngày" : "d"} $hStr:$mStr:$sStr';
     }
     return '$hStr:$mStr:$sStr';
   }
@@ -125,7 +125,7 @@ class TxaAdFreeService extends ChangeNotifier {
   }) async {
     // 1. Kiểm tra giới hạn cộng dồn tối đa (Max Stack Hours)
     final maxStackHours = TxaAdsService.instance.adFreeConfig.maxStackHours;
-    final maxStackMs = DateTime.now().millisecondsSinceEpoch + (maxStackHours * 3600 * 1000);
+    final maxStackMs = DateTime.now().millisecondsSinceEpoch + (maxStackHours * 3600 * 1000).toInt();
     if (_expiryMs >= maxStackMs) {
       final msg = TxaLanguage.get('ad_free_max_stacked', params: {'max': maxStackHours.toString()});
       onError?.call(msg);
@@ -172,7 +172,7 @@ class TxaAdFreeService extends ChangeNotifier {
       // Đã xem đủ số lượng video -> Kích hoạt vé
       _watchedCount = 0;
       final durationHours = TxaAdsService.instance.adFreeConfig.durationHours;
-      final durationMs = durationHours * 3600 * 1000;
+      final durationMs = (durationHours * 3600 * 1000).toInt();
 
       final now = DateTime.now().millisecondsSinceEpoch;
       if (_expiryMs > now) {

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/txa_download_status.dart';
 import '../../models/txa_download_task.dart';
-import '../../services/txa_download_service.dart';
 
 class TxaDownloadItemCard extends StatelessWidget {
   final TxaDownloadTask task;
@@ -9,11 +7,11 @@ class TxaDownloadItemCard extends StatelessWidget {
   final VoidCallback? onCancel;
 
   const TxaDownloadItemCard({
-    Key? key,
+    super.key,
     required this.task,
     this.onRetry,
     this.onCancel,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,25 +23,25 @@ class TxaDownloadItemCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withOpacity(0.9),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isFailed
-              ? const Color(0xFFEF4444).withOpacity(0.4)
+              ? const Color(0xFFEF4444).withValues(alpha: 0.4)
               : isCompleted
-                  ? const Color(0xFF10B981).withOpacity(0.4)
-                  : Colors.white.withOpacity(0.06),
+                  ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                  : Colors.white.withValues(alpha: 0.06),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           )
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossCrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -53,10 +51,10 @@ class TxaDownloadItemCard extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   color: isFailed
-                      ? const Color(0xFFEF4444).withOpacity(0.15)
+                      ? const Color(0xFFEF4444).withValues(alpha: 0.15)
                       : isCompleted
-                          ? const Color(0xFF10B981).withOpacity(0.15)
-                          : const Color(0xFFA78BFA).withOpacity(0.15),
+                          ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                          : const Color(0xFFA78BFA).withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -80,7 +78,7 @@ class TxaDownloadItemCard extends StatelessWidget {
               // Tên tập phim & Tên phim
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossCrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       task.episodeName.isNotEmpty ? task.episodeName : 'Tập Phim',
@@ -128,16 +126,16 @@ class TxaDownloadItemCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withOpacity(0.08),
+                color: const Color(0xFFEF4444).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
+                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withOpacity(0.2),
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -173,7 +171,7 @@ class TxaDownloadItemCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
                 value: task.progress,
-                backgroundColor: Colors.white.withOpacity(0.06),
+                backgroundColor: Colors.white.withValues(alpha: 0.06),
                 valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFA78BFA)),
                 minHeight: 4,
               ),

@@ -37,23 +37,26 @@ class TxaDownloadService extends ChangeNotifier {
     required String filmSlug,
     required String filmTitle,
     required String filmPoster,
-    required String episodeSlug,
+    required String serverName,
+    required String episodeId,
     required String episodeName,
     required String streamUrl,
     required String saveDirectoryPath,
   }) async {
-    final taskId = '${filmSlug}_$episodeSlug';
-    final saveFilePath = '$saveDirectoryPath/${filmSlug}_$episodeSlug.mp4';
+    final taskId = '${filmSlug}_${serverName}_$episodeName';
+    final saveFilePath = '$saveDirectoryPath/${filmSlug}_$episodeId.mp4';
 
     var task = TxaDownloadTask(
       id: taskId,
       filmSlug: filmSlug,
       filmTitle: filmTitle,
       filmPoster: filmPoster,
-      episodeSlug: episodeSlug,
+      serverName: serverName,
+      episodeId: episodeId,
       episodeName: episodeName,
-      streamUrl: streamUrl,
-      localFilePath: saveFilePath,
+      m3u8Url: streamUrl,
+      localPath: saveFilePath,
+      localBaseDir: saveDirectoryPath,
       status: TxaDownloadStatus.downloading,
       createdAt: DateTime.now(),
     );
@@ -86,11 +89,9 @@ class TxaDownloadService extends ChangeNotifier {
           deleteOnError: true,
           onReceiveProgress: (received, total) {
             if (total > 0) {
-              final progress = received / total;
               _tasks[taskId] = task.copyWith(
                 downloadedBytes: received,
                 totalBytes: total,
-                progress: progress,
                 status: TxaDownloadStatus.downloading,
               );
               notifyListeners();
@@ -117,7 +118,6 @@ class TxaDownloadService extends ChangeNotifier {
       _tasks[taskId] = task.copyWith(
         status: TxaDownloadStatus.completed,
         statusCode: TxaDownloadStatusCode.success,
-        progress: 1.0,
         completedAt: DateTime.now(),
       );
       notifyListeners();

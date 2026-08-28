@@ -2,19 +2,67 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../services/txa_ad_free_service.dart';
 import '../services/txa_api.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_language.dart';
 import '../utils/txa_logger.dart';
 
+class TxaAdFreeConfig {
+  final bool enabled;
+  final int requiredAds;
+  final int durationHours;
+  final int maxStackHours;
+
+  TxaAdFreeConfig({
+    this.enabled = true,
+    this.requiredAds = 2,
+    this.durationHours = 24,
+    this.maxStackHours = 48,
+  });
+
+  factory TxaAdFreeConfig.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return TxaAdFreeConfig();
+    return TxaAdFreeConfig(
+      enabled: map['enabled'] != false,
+      requiredAds: (map['required_ads'] as num?)?.toInt() ?? 2,
+      durationHours: (map['duration_hours'] as num?)?.toInt() ?? 24,
+      maxStackHours: (map['max_stack_hours'] as num?)?.toInt() ?? 48,
+    );
+  }
+}
+
 class TxaAdsService {
   static final TxaAdsService _instance = TxaAdsService._internal();
   factory TxaAdsService() => _instance;
+  static TxaAdsService get instance => _instance;
   TxaAdsService._internal();
 
   bool _initialized = false;
   bool _appStartAdShown = false;
   Map<String, dynamic>? _adSettings;
+
+  TxaAdFreeConfig get adFreeConfig {
+    final pass = _adSettings?['ad_free_pass'];
+    if (pass is Map<String, dynamic>) {
+      return TxaAdFreeConfig.fromMap(pass);
+    }
+    return TxaAdFreeConfig(
+      enabled: _adSettings?['admob_ad_free_enable'] != false,
+      requiredAds: int.tryParse(_adSettings?['admob_ad_free_required_ads']?.toString() ?? '2') ?? 2,
+      durationHours: int.tryParse(_adSettings?['admob_ad_free_duration_hours']?.toString() ?? '24') ?? 24,
+      maxStackHours: int.tryParse(_adSettings?['admob_ad_free_max_stack_hours']?.toString() ?? '48') ?? 48,
+    );
+  }
+
+  String get rewardedAdFreeAdUnitId {
+    if (Platform.isIOS) {
+      final id = (_adSettings?['admob_rewarded_ad_free_id_ios'] ?? _adSettings?['admob_rewarded_ad_id_ios'] ?? '').toString().trim();
+      return id.isNotEmpty ? id : 'ca-app-pub-1543189450912703/6552472614';
+    }
+    final id = (_adSettings?['admob_rewarded_ad_free_id_android'] ?? _adSettings?['admob_rewarded_ad_id_android'] ?? '').toString().trim();
+    return id.isNotEmpty ? id : 'ca-app-pub-1543189450912703/9254657575';
+  }
 
   /// Initialize MobileAds SDK once (Android & iOS)
   Future<void> init() async {
@@ -31,24 +79,26 @@ class TxaAdsService {
   }
 
   /// Build AdRequest với nonPersonalizedAds=true khi chạy trên iOS mà không có ATT consent
-  /// iOS 14+: Nếu không có IDFA (user chưa cho phép ATT), PHẢI dùng non-personalized
-  /// để AdMob có thể serve ads thay vì trả về code 1 "No ad to show"
   static AdRequest _buildAdRequest() {
     if (Platform.isIOS) {
-      // AdMob tự detect IDFA status. Khi set nonPersonalizedAds: null (default),
-      // nếu IDFA không available → AdMob cần được hướng dẫn serve non-personalized
-      // Keywords và content URL giúp contextual targeting khi không có IDFA
       return const AdRequest(
         keywords: ['phim', 'movie', 'entertainment', 'streaming', 'video'],
         contentUrl: 'https://dongmephim.online',
-        nonPersonalizedAds: null, // null = AdMob tự quyết dựa vào IDFA availability
+        nonPersonalizedAds: null,
       );
     }
     return const AdRequest();
   }
 
-  /// Check if the current logged-in user should bypass ads (VIP subscriber with bypass_ads permission)
+  /// Check if the current logged-in user should bypass ads (VIP subscriber with bypass_ads permission or active 24h pass)
   Future<bool> shouldBypassAds() async {
+    try {
+      if (TxaAdFreeService.instance.isAdFreeActive) {
+        TxaLogger.log('Ad-Free Pass is active: Bypassing ads.', type: 'app');
+        return true;
+      }
+    } catch (_) {}
+
     final auth = TxaAuthService();
     if (!auth.isLoggedIn || auth.user == null) return false;
 

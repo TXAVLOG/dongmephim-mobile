@@ -4,7 +4,7 @@ import '../../../services/txa_ad_free_service.dart';
 class TxaAdFreeBadge extends StatelessWidget {
   final VoidCallback? onTap;
 
-  const TxaAdFreeBadge({Key? key, this.onTap}) : super(key: key);
+  const TxaAdFreeBadge({super.key, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +27,7 @@ class TxaAdFreeBadge extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF7C3AED).withOpacity(0.35),
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 )
