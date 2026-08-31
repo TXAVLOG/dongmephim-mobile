@@ -15,6 +15,7 @@ class TxaApi {
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('txa_auth_token');
+    final fingerprint = prefs.getString('txa_device_fingerprint');
     
     final Map<String, String> headers = {
       'Accept': 'application/json',
@@ -27,6 +28,9 @@ class TxaApi {
     
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
+    }
+    if (fingerprint != null && fingerprint.isNotEmpty) {
+      headers['X-Device-Fingerprint'] = fingerprint;
     }
     return headers;
   }
@@ -665,13 +669,16 @@ class TxaApi {
     return null;
   }
 
-  Future<bool> registerSearchClick(String key, {int? movieId}) async {
+  Future<bool> registerSearchClick(String key, {dynamic movieId}) async {
     final url = Uri.parse('$baseUrl/api/app/search-click');
     final body = <String, dynamic>{
       'keyword': key,
     };
     if (movieId != null) {
-      body['movie_id'] = movieId;
+      final parsedId = int.tryParse(movieId.toString());
+      if (parsedId != null) {
+        body['movie_id'] = parsedId;
+      }
     }
     try {
       final response = await http.post(
@@ -693,6 +700,70 @@ class TxaApi {
       }
     } catch (e) {
       TxaLogger.log('TxaApi registerSearchClick error: $e', type: 'api');
+    }
+    return false;
+  }
+
+  // --- Search History ---
+
+  Future<List<String>> getSearchHistory() async {
+    final url = Uri.parse('$baseUrl/api/app/search-history');
+    try {
+      final response = await http.get(
+        url,
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map<String, dynamic> && decoded['success'] == true) {
+          final list = decoded['data'] as List<dynamic>? ?? [];
+          return list.map((e) => e.toString()).toList();
+        }
+      }
+    } catch (e) {
+      TxaLogger.log('TxaApi getSearchHistory error: $e', type: 'api');
+    }
+    return [];
+  }
+
+  Future<bool> saveSearchHistory(String keyword) async {
+    if (keyword.trim().isEmpty) return false;
+    final url = Uri.parse('$baseUrl/api/app/search-history');
+    try {
+      final response = await http.post(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'keyword': keyword.trim(),
+        }),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        return decoded is Map<String, dynamic> && decoded['success'] == true;
+      }
+    } catch (e) {
+      TxaLogger.log('TxaApi saveSearchHistory error: $e', type: 'api');
+    }
+    return false;
+  }
+
+  Future<bool> deleteSearchHistory({String? keyword, bool clearAll = false}) async {
+    final url = Uri.parse('$baseUrl/api/app/search-history');
+    try {
+      final response = await http.delete(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          if (keyword != null) 'keyword': keyword.trim(),
+          if (clearAll) 'clear_all': true,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        return decoded is Map<String, dynamic> && decoded['success'] == true;
+      }
+    } catch (e) {
+      TxaLogger.log('TxaApi deleteSearchHistory error: $e', type: 'api');
     }
     return false;
   }

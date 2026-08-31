@@ -229,15 +229,19 @@ class _TxaPlayerBannerAdState extends State<TxaPlayerBannerAd> {
 class _SafeAdWidget extends StatelessWidget {
   final BannerAd ad;
 
-  const _SafeAdWidget({required this.ad});
+  const _SafeAdWidget({required this.ad, super.key});
 
   @override
   Widget build(BuildContext context) {
     try {
-      return AdWidget(ad: ad);
+      return KeyedSubtree(
+        key: ValueKey<int>(ad.hashCode),
+        child: AdWidget(ad: ad),
+      );
     } catch (e) {
       TxaLogger.log('SafeAdWidget build exception: $e', type: 'app');
       return const SizedBox.shrink();
     }
   }
 }
+

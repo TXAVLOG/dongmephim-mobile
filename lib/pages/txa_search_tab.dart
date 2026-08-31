@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/txa_theme.dart';
 import '../services/txa_language.dart';
 import '../services/txa_api.dart';
@@ -42,6 +43,7 @@ class _SearchTabState extends State<SearchTab>
 
   // Metadata lists
   List<dynamic> _hotKeywords = [];
+  List<String> _searchHistory = [];
   List<dynamic> _categories = [];
   List<dynamic> _regions = [];
   List<String> _years = [];
@@ -53,9 +55,88 @@ class _SearchTabState extends State<SearchTab>
   @override
   void initState() {
     super.initState();
+    _loadSearchHistory();
     _fetchHotSearches();
     _fetchFilters();
     _scrollController.addListener(_onScroll);
+  }
+
+  // Load and sync search history (Instant Local Cache + Supabase Background Sync)
+  Future<void> _loadSearchHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final localHistory = prefs.getStringList('txa_search_history') ?? [];
+      if (mounted && localHistory.isNotEmpty) {
+        setState(() {
+          _searchHistory = localHistory;
+        });
+      }
+    } catch (_) {}
+
+    // Cloud sync with Supabase
+    try {
+      final cloudHistory = await _api.getSearchHistory();
+      if (mounted && cloudHistory.isNotEmpty) {
+        setState(() {
+          final merged = <String>[];
+          for (final kw in [...cloudHistory, ..._searchHistory]) {
+            if (kw.trim().isNotEmpty && !merged.contains(kw.trim())) {
+              merged.add(kw.trim());
+            }
+          }
+          _searchHistory = merged.take(15).toList();
+        });
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList('txa_search_history', _searchHistory);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveSearchHistory(String keyword) async {
+    final cleanKeyword = keyword.trim();
+    if (cleanKeyword.isEmpty) return;
+
+    setState(() {
+      _searchHistory.removeWhere((k) => k.toLowerCase() == cleanKeyword.toLowerCase());
+      _searchHistory.insert(0, cleanKeyword);
+      if (_searchHistory.length > 15) {
+        _searchHistory = _searchHistory.take(15).toList();
+      }
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('txa_search_history', _searchHistory);
+    } catch (_) {}
+
+    // Cloud sync to Supabase
+    _api.saveSearchHistory(cleanKeyword);
+  }
+
+  Future<void> _deleteSearchHistoryItem(String keyword) async {
+    setState(() {
+      _searchHistory.removeWhere((k) => k.toLowerCase() == keyword.toLowerCase());
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('txa_search_history', _searchHistory);
+    } catch (_) {}
+
+    _api.deleteSearchHistory(keyword: keyword);
+  }
+
+  Future<void> _clearSearchHistory() async {
+    setState(() {
+      _searchHistory.clear();
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('txa_search_history');
+    } catch (_) {}
+
+    _api.deleteSearchHistory(clearAll: true);
   }
 
   @override
@@ -174,10 +255,14 @@ class _SearchTabState extends State<SearchTab>
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
+        final q = value.trim();
         setState(() {
-          _query = value.trim();
+          _query = q;
         });
         _executeSearch(isNewSearch: true);
+        if (q.isNotEmpty) {
+          _saveSearchHistory(q);
+        }
       }
     });
   }
@@ -193,6 +278,7 @@ class _SearchTabState extends State<SearchTab>
     });
     _executeSearch(isNewSearch: true);
     if (cleanKeyword.isNotEmpty) {
+      _saveSearchHistory(cleanKeyword);
       _api.registerSearchClick(cleanKeyword);
     }
   }
@@ -552,29 +638,122 @@ class _SearchTabState extends State<SearchTab>
     );
   }
 
-  // Hot Searches / Trending List
+  // Hot Searches / Trending List & Search History
   Widget _buildTrendingSection() {
-    return Padding(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. Search History Section (if available)
+          if (_searchHistory.isNotEmpty) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.history_rounded,
+                        color: TxaTheme.accent, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      TxaLanguage.t('search_history_title'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+                GestureDetector(
+                  onTap: _clearSearchHistory,
+                  child: Text(
+                    TxaLanguage.t('search_history_clear'),
+                    style: TextStyle(
+                      color: Colors.redAccent.withValues(alpha: 0.9),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _searchHistory.map((kw) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _performImmediateSearch(kw),
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                              left: 12, top: 8, bottom: 8, right: 6),
+                          child: Text(
+                            kw,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _deleteSearchHistoryItem(kw),
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                              right: 8, top: 8, bottom: 8, left: 2),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 20),
+          ],
+
+          // 2. Hot Searches Section
           Row(
             children: [
               Text(
                 TxaLanguage.t('search_hot_title'),
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.3,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           if (_hotKeywords.isEmpty)
-            const Expanded(
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24.0),
               child: Center(
                 child: Text(
                   'Không có từ khóa hot nào',
@@ -583,70 +762,85 @@ class _SearchTabState extends State<SearchTab>
               ),
             )
           else
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _hotKeywords.map((item) {
-                    final kw = item['keyword'] as String;
-                    final clicks = item['clicks'] as int? ?? 0;
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _hotKeywords.map((item) {
+                final kw = item['keyword'] as String;
+                final clicks = item['clicks'] as int? ?? 0;
 
-                    return GestureDetector(
-                      onTap: () => _performImmediateSearch(kw),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          gradient: clicks > 50
-                              ? const LinearGradient(colors: [Colors.orange, Colors.red])
-                              : LinearGradient(colors: [TxaTheme.cardBg.withValues(alpha: 0.8), TxaTheme.cardBg]),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: clicks > 50 ? Colors.transparent : Colors.white.withValues(alpha: 0.1),
-                            width: 1,
-                          ),
-                          boxShadow: clicks > 50 ? [
-                            BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 8, spreadRadius: 1)
-                          ] : [],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              kw,
-                              style: TextStyle(
-                                  color: clicks > 50 ? Colors.white : Colors.white70,
-                                  fontSize: 13,
-                                  fontWeight: clicks > 50 ? FontWeight.bold : FontWeight.w500),
-                            ),
-                            if (clicks > 20) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: clicks > 50 ? Colors.white : Colors.redAccent.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'HOT',
-                                  style: TextStyle(
-                                    color: clicks > 50 ? Colors.red : Colors.redAccent[100],
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                            ]
-                          ],
-                        ),
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _performImmediateSearch(kw),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: clicks > 50
+                          ? const LinearGradient(
+                              colors: [Colors.orange, Colors.red])
+                          : LinearGradient(colors: [
+                              TxaTheme.cardBg.withValues(alpha: 0.8),
+                              TxaTheme.cardBg
+                            ]),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: clicks > 50
+                            ? Colors.transparent
+                            : Colors.white.withValues(alpha: 0.1),
+                        width: 1,
                       ),
-                    );
-                  }).toList(),
-                ),
-              ),
+                      boxShadow: clicks > 50
+                          ? [
+                              BoxShadow(
+                                  color: Colors.red.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  spreadRadius: 1)
+                            ]
+                          : [],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          kw,
+                          style: TextStyle(
+                              color: clicks > 50
+                                  ? Colors.white
+                                  : Colors.white70,
+                              fontSize: 12.5,
+                              fontWeight: clicks > 50
+                                  ? FontWeight.bold
+                                  : FontWeight.w500),
+                        ),
+                        if (clicks > 20) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: clicks > 50
+                                  ? Colors.white
+                                  : Colors.redAccent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'HOT',
+                              style: TextStyle(
+                                color: clicks > 50
+                                    ? Colors.red
+                                    : Colors.redAccent[100],
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ]
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
         ],
       ),
@@ -773,18 +967,22 @@ class _SearchTabState extends State<SearchTab>
     String imdbScore = (tmdbVote ?? imdbVote ?? '').toString();
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
-        // Track click on backend
+        // Track click on backend safely
         if (_query.isNotEmpty) {
           _api.registerSearchClick(_query, movieId: movie['id']);
         }
         
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (ctx) => MovieDetailScreen(slug: movie['slug'] ?? ''),
-          ),
-        );
+        final movieSlug = (movie['slug'] ?? movie['movie_slug'] ?? '').toString().trim();
+        if (movieSlug.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (ctx) => MovieDetailScreen(slug: movieSlug),
+            ),
+          );
+        }
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),

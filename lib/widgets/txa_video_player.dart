@@ -512,7 +512,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
         }
       }
       if (videoId != null && videoId.isNotEmpty) {
-        return 'https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&mute=0&controls=1&enablejsapi=1&origin=https://www.youtube.com';
+        return 'https://www.youtube.com/embed/$videoId?autoplay=1&mute=0&controls=1&playsinline=1&rel=0&enablejsapi=1';
       }
     } catch (_) {}
     return null;
@@ -557,23 +557,40 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       _startAdCountdown();
       return;
     }
+
+    final htmlContent = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; background-color: #000000; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    iframe { width: 100%; height: 100%; border: none; }
+  </style>
+</head>
+<body>
+  <iframe 
+    src="$embedUrl" 
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+    allowfullscreen>
+  </iframe>
+</body>
+</html>
+''';
+
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
+      ..setUserAgent('Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36')
+      ..setBackgroundColor(const Color(0xFF000000))
       ..setNavigationDelegate(
         NavigationDelegate(
           onWebResourceError: (WebResourceError error) {
-            debugPrint('WebView error: ${error.description}');
-            if (mounted) {
-              _adTimer?.cancel();
-              setState(() {
-                _adError = true;
-              });
-            }
+            debugPrint('Ad WebView error: ${error.description}');
           },
         ),
       )
-      ..loadRequest(Uri.parse(embedUrl), headers: const {'Referer': 'https://www.youtube.com'});
+      ..loadHtmlString(htmlContent, baseUrl: 'https://dongmephim.online');
   }
 
   Future<void> _checkAndInitAdFlow() async {

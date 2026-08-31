@@ -959,6 +959,7 @@ class _TvSearchTabState extends State<TvSearchTab> {
   final ScrollController _scrollController = ScrollController();
 
   List<dynamic> _hotKeywords = [];
+  List<String> _searchHistory = [];
   List<dynamic> _movies = [];
   bool _isLoading = false;
   bool _isMoreLoading = false;
@@ -970,6 +971,7 @@ class _TvSearchTabState extends State<TvSearchTab> {
   @override
   void initState() {
     super.initState();
+    _loadSearchHistory();
     _fetchHotSearches();
   }
 
@@ -980,6 +982,81 @@ class _TvSearchTabState extends State<TvSearchTab> {
     _debounceTimer?.cancel();
     TvFocusSystem.disposeScreen('search_');
     super.dispose();
+  }
+
+  Future<void> _loadSearchHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final local = prefs.getStringList('txa_search_history') ?? [];
+      if (mounted && local.isNotEmpty) {
+        setState(() {
+          _searchHistory = local;
+        });
+      }
+    } catch (_) {}
+
+    try {
+      final cloud = await TxaApi().getSearchHistory();
+      if (mounted && cloud.isNotEmpty) {
+        setState(() {
+          final merged = <String>[];
+          for (final kw in [...cloud, ..._searchHistory]) {
+            if (kw.trim().isNotEmpty && !merged.contains(kw.trim())) {
+              merged.add(kw.trim());
+            }
+          }
+          _searchHistory = merged.take(15).toList();
+        });
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList('txa_search_history', _searchHistory);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveSearchHistory(String keyword) async {
+    final cleanKeyword = keyword.trim();
+    if (cleanKeyword.isEmpty) return;
+
+    setState(() {
+      _searchHistory.removeWhere((k) => k.toLowerCase() == cleanKeyword.toLowerCase());
+      _searchHistory.insert(0, cleanKeyword);
+      if (_searchHistory.length > 15) {
+        _searchHistory = _searchHistory.take(15).toList();
+      }
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('txa_search_history', _searchHistory);
+    } catch (_) {}
+
+    TxaApi().saveSearchHistory(cleanKeyword);
+  }
+
+  Future<void> _deleteSearchHistoryItem(String keyword) async {
+    setState(() {
+      _searchHistory.removeWhere((k) => k.toLowerCase() == keyword.toLowerCase());
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('txa_search_history', _searchHistory);
+    } catch (_) {}
+
+    TxaApi().deleteSearchHistory(keyword: keyword);
+  }
+
+  Future<void> _clearSearchHistory() async {
+    setState(() {
+      _searchHistory.clear();
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('txa_search_history');
+    } catch (_) {}
+
+    TxaApi().deleteSearchHistory(clearAll: true);
   }
 
   Future<void> _fetchHotSearches() async {
@@ -1031,8 +1108,6 @@ class _TvSearchTabState extends State<TvSearchTab> {
             final pag = data['pagination'];
             if (pag != null) {
               _lastPage = int.tryParse(pag['last_page'].toString()) ?? 1;
-            } else {
-              _lastPage = 1;
             }
           }
         });
@@ -1051,10 +1126,14 @@ class _TvSearchTabState extends State<TvSearchTab> {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 600), () {
       if (mounted) {
+        final q = value.trim();
         setState(() {
-          _query = value.trim();
+          _query = q;
         });
         _executeSearch(isNewSearch: true);
+        if (q.isNotEmpty) {
+          _saveSearchHistory(q);
+        }
       }
     });
   }
@@ -1068,6 +1147,7 @@ class _TvSearchTabState extends State<TvSearchTab> {
     });
     _executeSearch(isNewSearch: true);
     if (cleanKeyword.isNotEmpty) {
+      _saveSearchHistory(cleanKeyword);
       TxaApi().registerSearchClick(cleanKeyword);
     }
   }
@@ -1099,18 +1179,9 @@ class _TvSearchTabState extends State<TvSearchTab> {
                     color: Colors.white.withValues(alpha: hasFocus ? 0.08 : 0.04),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: hasFocus ? const Color(0xFF737DFD) : Colors.white10,
-                      width: 2,
+                      color: hasFocus ? const Color(0xFF737DFD) : Colors.white.withValues(alpha: 0.08),
+                      width: hasFocus ? 1.5 : 1.0,
                     ),
-                    boxShadow: hasFocus
-                        ? [
-                            const BoxShadow(
-                              color: Color(0x3D737DFD),
-                              blurRadius: 12,
-                              spreadRadius: 1,
-                            )
-                          ]
-                        : [],
                   ),
                   child: Row(
                     children: [
@@ -1128,21 +1199,21 @@ class _TvSearchTabState extends State<TvSearchTab> {
                             hintText: TxaLanguage.t('search_hint'),
                             hintStyle: const TextStyle(color: Colors.white30, fontSize: 15),
                             border: InputBorder.none,
-                            isDense: true,
                           ),
                         ),
                       ),
                       if (_searchController.text.isNotEmpty)
                         IconButton(
-                          icon: const Icon(Icons.clear_rounded, color: Colors.white70, size: 18),
+                          icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
                           onPressed: () {
                             _searchController.clear();
                             setState(() {
                               _query = '';
-                              _movies.clear();
                             });
+                            _executeSearch(isNewSearch: true);
                           },
                         ),
+                      const SizedBox(width: 8),
                     ],
                   ),
                 );
@@ -1164,11 +1235,79 @@ class _TvSearchTabState extends State<TvSearchTab> {
   }
 
   Widget _buildTrendingSection() {
-    return Padding(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 36.0, vertical: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. Search History Section (if available)
+          if (_searchHistory.isNotEmpty) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.history_rounded, color: Color(0xFF737DFD), size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      TxaLanguage.t('search_history_title'),
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                GestureDetector(
+                  onTap: _clearSearchHistory,
+                  child: Text(
+                    TxaLanguage.t('search_history_clear'),
+                    style: TextStyle(color: Colors.redAccent.withValues(alpha: 0.9), fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: List.generate(_searchHistory.length, (index) {
+                final kw = _searchHistory[index];
+                final node = TvFocusSystem.getNode('search_history_tag_$index');
+
+                return TvFocusableCard(
+                  focusNode: node,
+                  onTap: () => _performImmediateSearch(kw),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          kw,
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _deleteSearchHistoryItem(kw),
+                          child: Icon(Icons.close_rounded, size: 14, color: Colors.white.withValues(alpha: 0.6)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 24),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 20),
+          ],
+
+          // 2. Hot Searches Section
           Text(
             TxaLanguage.t('search_hot_title'),
             style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold),
@@ -1180,33 +1319,28 @@ class _TvSearchTabState extends State<TvSearchTab> {
               style: TextStyle(color: Colors.white30, fontSize: 14),
             )
           else
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: List.generate(_hotKeywords.length, (index) {
-                    final item = _hotKeywords[index];
-                    final kw = item['keyword'] as String;
-                    final node = TvFocusSystem.getNode('search_hot_tag_$index');
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: List.generate(_hotKeywords.length, (index) {
+                final item = _hotKeywords[index];
+                final kw = item['keyword'] as String;
+                final node = TvFocusSystem.getNode('search_hot_tag_$index');
 
-                    return TvFocusableCard(
-                      focusNode: node,
-                      onTap: () => _performImmediateSearch(kw),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        color: Colors.white.withValues(alpha: 0.05),
-                        child: Text(
-                          kw,
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
+                return TvFocusableCard(
+                  focusNode: node,
+                  onTap: () => _performImmediateSearch(kw),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    color: Colors.white.withValues(alpha: 0.05),
+                    child: Text(
+                      kw,
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                );
+              }),
             ),
         ],
       ),
@@ -1270,12 +1404,15 @@ class _TvSearchTabState extends State<TvSearchTab> {
           focusNode: node,
           onTap: () {
             TxaApi().registerSearchClick(_query, movieId: movie['id']);
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TvMovieDetailScreen(slug: movie['slug'] ?? ''),
-              ),
-            );
+            final movieSlug = (movie['slug'] ?? movie['movie_slug'] ?? '').toString().trim();
+            if (movieSlug.isNotEmpty) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TvMovieDetailScreen(slug: movieSlug),
+                ),
+              );
+            }
           },
           borderRadius: BorderRadius.circular(12),
           child: Column(
