@@ -23,8 +23,8 @@ subprojects {
     val configureProject: Project.() -> Unit = {
         if (plugins.hasPlugin("com.android.application") || plugins.hasPlugin("com.android.library")) {
             val android = extensions.findByName("android")
-            if (android != null) {
-                // Set compileSdk to 36
+            if (android != null && name != "app") {
+                // Set compileSdk to 36 for plugin libraries
                 try {
                     val setCompileSdk = android.javaClass.getMethod("setCompileSdk", java.lang.Integer::class.java)
                     setCompileSdk.invoke(android, 36)
@@ -33,7 +33,7 @@ subprojects {
                         val compileSdkVersion = android.javaClass.getMethod("compileSdkVersion", Int::class.javaPrimitiveType)
                         compileSdkVersion.invoke(android, 36)
                     } catch (e2: Exception) {
-                        println("Không thể ép compileSdk cho $name: ${e2.message}")
+                        // ignore
                     }
                 }
 
@@ -52,13 +52,10 @@ subprojects {
                         if (manifestText.contains("package=")) {
                             val updatedText = manifestText.replace(Regex("""package="[^"]+""""), "")
                             manifestFile.writeText(updatedText)
-                            println("[Namespace-Fix] Stripped package attribute from ${name}'s AndroidManifest.xml")
                         }
                     }
                 } catch (manifestErr: Exception) {
-                    println("[Namespace-Fix] Failed to process AndroidManifest.xml for $name: ${manifestErr.message}")
                 }
-
 
                 // Automatic namespace injector for older plugins to prevent AGP 8+ namespace failures
                 try {
@@ -73,11 +70,9 @@ subprojects {
                             val cleanName = name.replace(Regex("[^a-zA-Z0-9_]"), "")
                             val fallbackNamespace = manifestPackage ?: "com.txa.$cleanName"
                             setNamespace.invoke(android, fallbackNamespace)
-                            println("[Namespace-Fix] Set namespace for $name to $fallbackNamespace")
                         }
                     }
                 } catch (nsErr: Exception) {
-                    println("[Namespace-Fix] Failed to adjust namespace for $name: ${nsErr.message}")
                 }
             }
         }
@@ -91,8 +86,6 @@ subprojects {
         }
     }
 }
-
-
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
