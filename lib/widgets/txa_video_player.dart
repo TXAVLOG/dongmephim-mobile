@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:http/http.dart' as http;
 import '../services/txa_language.dart';
 import '../services/txa_auth_service.dart';
@@ -16,6 +15,7 @@ import '../utils/txa_toast.dart';
 import '../utils/txa_logger.dart';
 import '../utils/txa_format.dart';
 import 'txa_player_coachmark.dart';
+import 'txa_player_banner_ad.dart';
 import '../services/txa_stream_policy_service.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
@@ -205,8 +205,6 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   String? _adUrl;
   bool _adError = false;
   WebViewController? _webViewController;
-  BannerAd? _bannerAd;
-  bool _isBannerAdLoaded = false;
 
   // Mobile Gestures & States
   bool _isLocked = false;
@@ -324,7 +322,6 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       _loadStoryboard(widget.storyboardUrl!);
     }
     _checkAndInitAdFlow();
-    _initBannerAd();
 
     // Battery monitoring & system brightness/volume (mobile only)
     if (TxaPlatform.isMobile) {
@@ -395,7 +392,6 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
 
     _controller?.dispose();
     _adController?.dispose();
-    _bannerAd?.dispose();
     _adTimer?.cancel();
     _positionSyncTimer?.cancel();
     _hideControlsTimer?.cancel();
@@ -578,40 +574,6 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
         ),
       )
       ..loadRequest(Uri.parse(embedUrl), headers: const {'Referer': 'https://www.youtube.com'});
-  }
-
-  void _initBannerAd() async {
-    if (TxaPlatform.isTV || TxaPlatform.isWeb) return;
-    if (_hasPaidPackage) return;
-    if (_bannerAd != null) return; // Prevent duplicate concurrent loads
-
-    try {
-      final ad = await TxaAdsService().loadBannerAd(
-        adSize: AdSize.banner,
-        onAdLoaded: (loadedAd) {
-          if (mounted) {
-            setState(() {
-              _bannerAd = loadedAd as BannerAd;
-              _isBannerAdLoaded = true;
-            });
-          }
-        },
-        onAdFailedToLoad: (failedAd, error) {
-          if (mounted) {
-            setState(() {
-              _isBannerAdLoaded = false;
-            });
-          }
-        },
-      );
-      if (ad != null && mounted && _bannerAd == null) {
-        setState(() {
-          _bannerAd = ad;
-        });
-      }
-    } catch (e) {
-      TxaLogger.log('Player banner ad init error: $e', type: 'app');
-    }
   }
 
   Future<void> _checkAndInitAdFlow() async {
@@ -3542,39 +3504,13 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
                       ),
                     ),
 
-                  // 5.8 FREE/GUEST BANNER AD (Positioned at bottom above timeline to NEVER overlap top bar title & info)
-                  if (TxaPlatform.isMobile && !_hasPaidPackage && _isBannerAdLoaded && _bannerAd != null && !_isInPiPMode)
-                    Positioned(
-                      bottom: _showControls ? 82 : 16,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          key: ValueKey<int>(_bannerAd.hashCode),
-                          width: _bannerAd!.size.width.toDouble(),
-                          height: _bannerAd!.size.height.toDouble(),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.65),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white24, width: 0.8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.5),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: AdWidget(
-                              key: ValueKey<String>('player_ad_${_bannerAd.hashCode}'),
-                              ad: _bannerAd!,
-                            ),
-                          ),
-                        ),
-                      ),
+                  // 5.8 FREE/GUEST BANNER AD (Isolated & self-managed to prevent widget tree conflicts)
+                  if (TxaPlatform.isMobile && !_hasPaidPackage && !_isInPiPMode)
+                    TxaPlayerBannerAd(
+                      showControls: _showControls,
+                      hasPaidPackage: _hasPaidPackage,
+                      isInPiPMode: _isInPiPMode,
+                      adSettings: widget.adSettings,
                     ),
 
                   // 6. BOTTOM CONTROLS & TIMELINE

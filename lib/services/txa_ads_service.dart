@@ -349,6 +349,7 @@ class TxaAdsService {
     required Function(Ad ad) onAdLoaded,
     required Function(Ad ad, LoadAdError error) onAdFailedToLoad,
     AdSize adSize = AdSize.banner,
+    Map<String, dynamic>? adSettings,
   }) async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return null;
 
@@ -358,7 +359,7 @@ class TxaAdsService {
       return null;
     }
 
-    final adsConfig = await _getAdSettings();
+    final adsConfig = adSettings ?? await _getAdSettings();
     final admobEnable = adsConfig?['admob_enable'] == true;
     if (!admobEnable) return null;
 
@@ -384,7 +385,9 @@ class TxaAdsService {
           },
           onAdFailedToLoad: (ad, error) {
             TxaLogger.log('Banner Ad failed to load: $error', type: 'app');
-            ad.dispose();
+            try {
+              ad.dispose();
+            } catch (_) {}
             onAdFailedToLoad(ad, error);
           },
         ),

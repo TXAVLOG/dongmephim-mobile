@@ -33,6 +33,57 @@ class TxaErrorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // If rendered inside a tiny/constrained area (e.g. ad container or small card), render a safe compact fallback
+        if (constraints.maxHeight < 220 || constraints.maxWidth < 260) {
+          return _buildCompactError(context);
+        }
+        return _buildFullScreenError(context);
+      },
+    );
+  }
+
+  Widget _buildCompactError(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.all(4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2235),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4), width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 16),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  TxaLanguage.t('app_crash_title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+              ),
+              if (onRetry != null) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onRetry,
+                  child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFullScreenError(BuildContext context) {
     return Material(
       color: TxaTheme.primaryBg,
       child: SafeArea(

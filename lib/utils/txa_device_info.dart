@@ -175,7 +175,7 @@ class TxaDeviceInfo {
 
     sb.writeln('\n📦 THÔNG TIN ỨNG DỤNG & MÔI TRƯỜNG (APP & RUNTIME):');
     sb.writeln('• ${'Tên Ứng Dụng'.padRight(24)}: DongMePhim Mobile Premium');
-    sb.writeln('• ${'Phiên Bản App'.padRight(24)}: ${TxaVersion.version} (Build 533)');
+    sb.writeln('• ${'Phiên Bản App'.padRight(24)}: ${TxaVersion.version} (Build 580)');
     sb.writeln('• ${'Dart / Flutter Runtime'.padRight(24)}: ${Platform.version.split(' ').first}');
     sb.writeln('• ${'Nền Tảng HĐH'.padRight(24)}: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}');
 
