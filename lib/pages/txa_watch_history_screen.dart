@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/txa_api.dart';
 import '../services/txa_language.dart';
+import '../services/txa_offline_history_service.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
 import 'txa_movie_detail_screen.dart';
@@ -48,6 +49,7 @@ class _TxaWatchHistoryScreenState extends State<TxaWatchHistoryScreen> {
     });
 
     try {
+      await TxaOfflineHistoryService.syncPendingHistory();
       final res = await TxaApi().getWatchHistory();
       setState(() {
         _allHistory = res;

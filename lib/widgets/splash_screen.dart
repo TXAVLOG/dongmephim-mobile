@@ -18,6 +18,8 @@ import '../widgets/txa_block_screen.dart';
 import '../services/txa_device_fingerprint_service.dart';
 import '../services/txa_version.dart';
 import '../utils/txa_toast.dart';
+import '../features/download/ui/downloaded_films_screen.dart';
+import '../services/txa_offline_history_service.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onFinish;
@@ -200,6 +202,8 @@ class _SplashScreenState extends State<SplashScreen>
           }
         },
       );
+      // Asynchronously sync any offline watch history recorded while offline
+      TxaOfflineHistoryService.syncPendingHistory();
     }
 
     // 6. Device fingerprint log + block check
@@ -249,6 +253,14 @@ class _SplashScreenState extends State<SplashScreen>
         body: TxaErrorWidget(
           error: _errorMessage.isNotEmpty ? _errorMessage : null,
           onRetry: _startInitialization,
+          onOpenOffline: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const DownloadedFilmsScreen(),
+              ),
+            );
+          },
         ),
       );
     }

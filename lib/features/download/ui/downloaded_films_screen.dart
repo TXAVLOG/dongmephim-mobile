@@ -33,7 +33,7 @@ class DownloadedFilmsScreen extends StatelessWidget {
       body: FutureBuilder<List<TxaLocalFilm>>(
         future: manager.getAllLocalFilms(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator(color: TxaTheme.accent));
           }
 

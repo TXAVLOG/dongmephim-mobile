@@ -152,7 +152,7 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
       body: FutureBuilder<List<TxaDownloadTask>>(
         future: manager.getTasksForFilm(widget.film.filmSlug),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator(color: TxaTheme.accent));
           }
 

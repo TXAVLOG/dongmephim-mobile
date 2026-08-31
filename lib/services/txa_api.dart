@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/txa_logger.dart';
+import '../utils/txa_format.dart';
 import 'txa_language.dart';
 import 'txa_version.dart';
 
@@ -815,20 +816,84 @@ class TxaApi {
           'server_index': serverIndex,
         }),
       );
-      TxaLogger.logApi(
+      final resBody = utf8.decode(response.bodyBytes);
+      await TxaLogger.logApi(
         method: 'POST',
         path: url.toString(),
         statusCode: response.statusCode,
-        responseBody: utf8.decode(response.bodyBytes),
+        responseBody: resBody,
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        return decoded != null && decoded['success'] == true;
+        final decoded = jsonDecode(resBody);
+        if (decoded != null && decoded['success'] == true) {
+          final data = decoded['data'];
+          final added = (data is Map ? data['watch_time_added'] : 0) as num? ?? 0;
+          final oldTime = (data is Map ? data['old_time'] : 0) as num? ?? 0;
+          final newTime = (data is Map ? data['new_time'] : currentTime) as num? ?? currentTime;
+          final dur = (data is Map ? data['duration'] : duration) as num? ?? duration;
+          final title = (data is Map ? data['movie_title'] : null)?.toString() ?? movieId.toString();
+          final epName = TxaFormat.formatEpisodeName((data is Map ? data['episode_name'] : null)?.toString() ?? episodeId);
+
+          final addedHuman = TxaFormat.formatDuration(added.toInt());
+          final oldTimeStr = TxaFormat.formatTime(oldTime.toInt());
+          final newTimeStr = TxaFormat.formatTime(newTime.toInt());
+          final durStr = TxaFormat.formatTime(dur.toInt());
+
+          await TxaLogger.log(
+            '🎬 [Lịch Sử Xem & Giờ Xem] Cập nhật CSDL thành công: Phim "$title" - $epName | Tiến độ: $oldTimeStr (${oldTime.toInt()}s) ➔ $newTimeStr (${newTime.toInt()}s) / $durStr (${dur.toInt()}s) | Đã cộng dồn: +${added.toInt()}s (~$addedHuman)',
+            type: 'api',
+          );
+          return true;
+        }
+      } else {
+        await TxaLogger.log('❌ [Lịch Sử Xem] API trả về lỗi status ${response.statusCode}: $resBody', type: 'crash');
       }
     } catch (e) {
-      TxaLogger.log('TxaApi updateWatchHistory error: $e', type: 'api');
+      await TxaLogger.log('❌ [Lịch Sử Xem] Exception khi updateWatchHistory: $e', type: 'crash');
     }
     return false;
+  }
+
+  // --- Discord Watch Status Webhook ---
+
+  Future<Map<String, dynamic>?> sendDiscordWatchStatus({
+    required String movieTitle,
+    required String movieSlug,
+    required String episodeName,
+    String? episodeSlug,
+    String? lastMessageId,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/discord/watch-status');
+    try {
+      final response = await http.post(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'movieTitle': movieTitle,
+          'movieSlug': movieSlug,
+          'episodeName': episodeName,
+          'episodeSlug': episodeSlug ?? episodeName,
+          if (lastMessageId != null) 'lastMessageId': lastMessageId,
+        }),
+      );
+      final resBody = utf8.decode(response.bodyBytes);
+      await TxaLogger.logApi(
+        method: 'POST',
+        path: url.toString(),
+        statusCode: response.statusCode,
+        responseBody: resBody,
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(resBody);
+        await TxaLogger.log('📢 [Discord Watch Status] Đã bắn thông báo "Đang xem phim" lên kênh Discord: "$movieTitle" - "$episodeName"', type: 'api');
+        return decoded;
+      } else {
+        await TxaLogger.log('⚠️ [Discord Watch Status] Không thể gửi trạng thái xem tới Discord (${response.statusCode}): $resBody', type: 'api');
+      }
+    } catch (e) {
+      await TxaLogger.log('❌ [Discord Watch Status] Exception: $e', type: 'crash');
+    }
+    return null;
   }
 
   Future<bool> clearWatchHistory() async {

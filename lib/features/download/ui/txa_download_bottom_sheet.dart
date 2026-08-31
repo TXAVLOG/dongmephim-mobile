@@ -297,6 +297,9 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                 final Map<String, TxaDownloadTask> taskMap = {};
                 for (final t in existingTasks) {
                   taskMap['${t.serverName}_${t.episodeName}'] = t;
+                  taskMap['${t.serverName}_${t.episodeId}'] = t;
+                  taskMap[t.episodeId] = t;
+                  taskMap[t.episodeName] = t;
                 }
 
                 return ListView.builder(
@@ -306,7 +309,10 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                     final epId = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
                     final epName = ep['name']?.toString() ?? 'Tập ${idx + 1}';
                     final isSelected = _selectedEpisodeIds.contains(epId);
-                    final task = taskMap['${_currentServerName}_$epName'];
+                    final task = taskMap['${_currentServerName}_$epName'] ??
+                        taskMap['${_currentServerName}_$epId'] ??
+                        taskMap[epId] ??
+                        taskMap[epName];
 
                     final estBytes = _estimatedSizes[epId];
                     final estSizeStr = estBytes != null ? TxaFormat.formatFileSize(estBytes) : null;

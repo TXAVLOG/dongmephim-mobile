@@ -14,6 +14,7 @@ import 'txa_merge_engine.dart';
 import '../../../utils/txa_logger.dart';
 import '../../../utils/txa_format.dart';
 import '../../../services/txa_language.dart';
+import '../../../services/txa_offline_history_service.dart';
 
 class TxaDownloadManager extends ChangeNotifier {
   static final TxaDownloadManager _instance = TxaDownloadManager._internal();
@@ -50,6 +51,9 @@ class TxaDownloadManager extends ChangeNotifier {
         if (_currentRunningTask != null && _currentRunningTask!.status == TxaDownloadStatus.downloading) {
           pauseTask(_currentRunningTask!.id);
         }
+      } else {
+        // Network back online -> trigger auto sync of offline watch history
+        TxaOfflineHistoryService.syncPendingHistory();
       }
     });
 
@@ -173,16 +177,39 @@ class TxaDownloadManager extends ChangeNotifier {
   /// Get tasks for a film
   Future<List<TxaDownloadTask>> getTasksForFilm(String filmSlug) async {
     await init();
-    return await _repo.getTasksByFilm(filmSlug);
+    final dbTasks = await _repo.getTasksByFilm(filmSlug);
+    final Map<String, TxaDownloadTask> taskMap = {for (var t in dbTasks) t.id: t};
+
+    // Overlay queued tasks
+    for (final q in _queue) {
+      if (q.filmSlug == filmSlug) {
+        taskMap[q.id] = q;
+      }
+    }
+    // Overlay currently running task with real-time progress
+    if (_currentRunningTask != null && _currentRunningTask!.filmSlug == filmSlug) {
+      taskMap[_currentRunningTask!.id] = _currentRunningTask!;
+    }
+
+    return taskMap.values.toList();
   }
 
   /// Get all downloaded films summary
   Future<List<TxaLocalFilm>> getAllLocalFilms() async {
     await init();
     final allTasks = await _repo.getAllTasks();
-    final Map<String, List<TxaDownloadTask>> grouped = {};
+    final Map<String, TxaDownloadTask> taskMap = {for (var t in allTasks) t.id: t};
 
-    for (final task in allTasks) {
+    // Overlay queued & running tasks
+    for (final q in _queue) {
+      taskMap[q.id] = q;
+    }
+    if (_currentRunningTask != null) {
+      taskMap[_currentRunningTask!.id] = _currentRunningTask!;
+    }
+
+    final Map<String, List<TxaDownloadTask>> grouped = {};
+    for (final task in taskMap.values) {
       grouped.putIfAbsent(task.filmSlug, () => []).add(task);
     }
 
@@ -226,6 +253,7 @@ class TxaDownloadManager extends ChangeNotifier {
       final downloader = TxaHlsDownloader();
       _activeDownloaders[task.id] = downloader;
 
+      int lastNotifyTime = 0;
       final success = await downloader.download(
         m3u8Url: task.m3u8Url,
         baseDir: baseDir,
@@ -237,11 +265,15 @@ class TxaDownloadManager extends ChangeNotifier {
           task.speed = prog.speed;
           task.eta = prog.eta;
 
-          _updateNotificationProgress(
-            task,
-            '${TxaFormat.formatSpeed(prog.speed)['display']} • ETA: ${TxaFormat.formatDuration(prog.eta)}',
-          );
-          notifyListeners();
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (now - lastNotifyTime >= 300 || prog.downloadedSegments == prog.totalSegments) {
+            lastNotifyTime = now;
+            _updateNotificationProgress(
+              task,
+              '${TxaFormat.formatSpeed(prog.speed)['display']} • ETA: ${TxaFormat.formatDuration(prog.eta)}',
+            );
+            notifyListeners();
+          }
         },
       );
 

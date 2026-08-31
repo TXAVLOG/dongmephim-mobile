@@ -13,6 +13,7 @@ import '../../widgets/txa_maintenance_screen.dart';
 import '../../widgets/txa_force_update_screen.dart';
 import '../../services/txa_version.dart';
 import '../../services/txa_play_update_service.dart';
+import '../../features/download/ui/downloaded_films_screen.dart';
 import 'tv_home_screen.dart';
 
 class TvSplashScreen extends StatefulWidget {
@@ -239,6 +240,14 @@ class _TvSplashScreenState extends State<TvSplashScreen>
         body: TxaErrorWidget(
           error: _errorMessage.isNotEmpty ? _errorMessage : null,
           onRetry: _startTvInit,
+          onOpenOffline: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const DownloadedFilmsScreen(),
+              ),
+            );
+          },
         ),
       );
     }

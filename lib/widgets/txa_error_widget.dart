@@ -12,6 +12,7 @@ class TxaErrorWidget extends StatelessWidget {
   final Object? error;
   final StackTrace? stackTrace;
   final VoidCallback? onRetry;
+  final VoidCallback? onOpenOffline;
 
   const TxaErrorWidget({
     super.key,
@@ -19,6 +20,7 @@ class TxaErrorWidget extends StatelessWidget {
     this.error,
     this.stackTrace,
     this.onRetry,
+    this.onOpenOffline,
   });
 
   String get _errorString {
@@ -235,6 +237,29 @@ $_errorString
                     ],
                   ),
                   const SizedBox(height: 10),
+
+                  if (onOpenOffline != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: onOpenOffline,
+                        icon: const Icon(Icons.download_for_offline_rounded, size: 20, color: Colors.black),
+                        label: Text(
+                          TxaLanguage.t('watch_offline_btn'),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: TxaTheme.accent,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
 
                   // Restart App / Retry Button
                   SizedBox(

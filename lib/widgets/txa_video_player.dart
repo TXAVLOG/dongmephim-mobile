@@ -17,6 +17,7 @@ import '../utils/txa_format.dart';
 import 'txa_player_coachmark.dart';
 import 'txa_player_banner_ad.dart';
 import '../services/txa_stream_policy_service.dart';
+import '../services/txa_offline_history_service.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -222,6 +223,8 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
   String _currentUrl = '';
   String _currentServerName = '';
   bool _showPlaylistPanel = false;
+  String? _lastDiscordWatchKey;
+  String? _lastDiscordMessageId;
   
   // TV Playlist Selection States
   int _playlistServerSelectedIndex = 0;
@@ -818,6 +821,12 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       if (targetStart == null && _currentEpisodeId == widget.currentEpisodeId && widget.startTime > 0) {
         targetStart = Duration(seconds: widget.startTime);
       }
+      if (targetStart == null && widget.movieId.isNotEmpty) {
+        final localSec = await TxaOfflineHistoryService.getLocalProgress(widget.movieId, _currentEpisodeId);
+        if (localSec != null && localSec > 0) {
+          targetStart = Duration(seconds: localSec.toInt());
+        }
+      }
 
       if (targetStart != null) {
         await _controller!.seekTo(targetStart);
@@ -827,6 +836,7 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
       setState(() {
         _isPlaying = true;
       });
+      _notifyDiscordWatchStatus();
 
       _controller!.addListener(() {
         if (!mounted || _controller == null) return;
@@ -947,18 +957,68 @@ class _TxaVideoPlayerState extends State<TxaVideoPlayer> with WidgetsBindingObse
 
   void _saveWatchProgress() async {
     final auth = TxaAuthService();
-    if (!auth.isLoggedIn || widget.movieId.isEmpty) return;
+    if (widget.movieId.isEmpty) return;
 
     final pos = _position.inSeconds.toDouble();
     final dur = _duration.inSeconds.toDouble();
     if (pos > 0 && dur > 0) {
-      await TxaApi().updateWatchHistory(
-        widget.movieId,
-        _currentEpisodeId,
-        pos,
-        dur,
-        _currentServerIndex,
+      // 1. Luôn lưu tiến độ vào bộ nhớ cục bộ trước (offline playback & sync queue)
+      await TxaOfflineHistoryService.saveLocalProgress(
+        movieId: widget.movieId,
+        episodeId: _currentEpisodeId,
+        currentTime: pos,
+        duration: dur,
+        serverIndex: _currentServerIndex,
+        synced: false,
       );
+
+      // 2. Nếu đã đăng nhập, gửi API lên máy chủ để tính giờ xem & đồng bộ CSDL
+      if (auth.isLoggedIn) {
+        final success = await TxaApi().updateWatchHistory(
+          widget.movieId,
+          _currentEpisodeId,
+          pos,
+          dur,
+          _currentServerIndex,
+        );
+        if (success) {
+          await TxaOfflineHistoryService.saveLocalProgress(
+            movieId: widget.movieId,
+            episodeId: _currentEpisodeId,
+            currentTime: pos,
+            duration: dur,
+            serverIndex: _currentServerIndex,
+            synced: true,
+          );
+        }
+      }
+    }
+  }
+
+  void _notifyDiscordWatchStatus() async {
+    final auth = TxaAuthService();
+    if (!auth.isLoggedIn || widget.movieId.isEmpty) return;
+
+    final currentKey = '${widget.movieId}:$_currentEpisodeId';
+    if (_lastDiscordWatchKey == currentKey) return;
+    _lastDiscordWatchKey = currentKey;
+
+    try {
+      final res = await TxaApi().sendDiscordWatchStatus(
+        movieTitle: widget.movieName,
+        movieSlug: widget.movieId,
+        episodeName: _currentEpisodeName.isNotEmpty ? _currentEpisodeName : _currentEpisodeId,
+        episodeSlug: _currentEpisodeId,
+        lastMessageId: _lastDiscordMessageId,
+      );
+      if (res != null && res['data'] != null) {
+        final data = res['data'];
+        if (data is Map && data['messageId'] != null) {
+          _lastDiscordMessageId = data['messageId']?.toString();
+        }
+      }
+    } catch (e) {
+      TxaLogger.log('❌ Lỗi khi gửi Discord watch-status từ Player: $e', type: 'api');
     }
   }
 
