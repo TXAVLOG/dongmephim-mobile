@@ -7,6 +7,7 @@ import '../utils/txa_logger.dart';
 import '../utils/txa_format.dart';
 import 'txa_language.dart';
 import 'txa_version.dart';
+import 'txa_offline_history_service.dart';
 
 class TxaApi {
   static const String baseUrl = 'https://dongmephim.online';
@@ -843,14 +844,40 @@ class TxaApi {
             '🎬 [Lịch Sử Xem & Giờ Xem] Cập nhật CSDL thành công: Phim "$title" - $epName | Tiến độ: $oldTimeStr (${oldTime.toInt()}s) ➔ $newTimeStr (${newTime.toInt()}s) / $durStr (${dur.toInt()}s) | Đã cộng dồn: +${added.toInt()}s (~$addedHuman)',
             type: 'api',
           );
+
+          // Luôn lưu đồng bộ vào SharedPreferences (vừa database vừa SharedPreferences)
+          try {
+            await TxaOfflineHistoryService.saveLocalProgress(
+              movieId: movieId.toString(),
+              episodeId: episodeId,
+              currentTime: currentTime,
+              duration: duration,
+              serverIndex: serverIndex,
+              synced: true,
+            );
+          } catch (_) {}
+
           return true;
         }
       } else {
-        await TxaLogger.log('❌ [Lịch Sử Xem] API trả về lỗi status ${response.statusCode}: $resBody', type: 'crash');
+        await TxaLogger.log('❌ [Lịch Sử Xem] API trả về lỗi status ${response.statusCode}: $resBody', type: 'api');
       }
     } catch (e) {
       await TxaLogger.log('❌ [Lịch Sử Xem] Exception khi updateWatchHistory: $e', type: 'crash');
     }
+
+    // Khi lỗi mạng hoặc API fail, vẫn luôn lưu vào SharedPreferences để dùng offline
+    try {
+      await TxaOfflineHistoryService.saveLocalProgress(
+        movieId: movieId.toString(),
+        episodeId: episodeId,
+        currentTime: currentTime,
+        duration: duration,
+        serverIndex: serverIndex,
+        synced: false,
+      );
+    } catch (_) {}
+
     return false;
   }
 

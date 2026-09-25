@@ -108,7 +108,54 @@ class TxaOfflineHistoryService {
     return null;
   }
 
+  /// Lưu danh sách lịch sử online từ server vào SharedPreferences để dùng khi offline
+  static Future<void> cacheServerHistory(List<dynamic> serverHistory) async {
+    if (serverHistory.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefKey);
+      Map<String, dynamic> map = {};
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          map = jsonDecode(raw) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      for (var item in serverHistory) {
+        final movieId = (item['movie_id'] ?? item['movie_slug'] ?? '').toString();
+        final episodeId = (item['episode_id'] ?? item['episode_name'] ?? '').toString();
+        final currentTime = double.tryParse(item['current_time']?.toString() ?? '0') ?? 0.0;
+        final duration = double.tryParse(item['duration']?.toString() ?? '0') ?? 0.0;
+        final serverIndex = int.tryParse(item['server_index']?.toString() ?? '0') ?? 0;
+
+        if (movieId.isEmpty || episodeId.isEmpty) continue;
+
+        final key = '${movieId}_$episodeId';
+        // Nếu cục bộ đang có tiến độ mới hơn chưa đồng bộ, không ghi đè
+        if (map.containsKey(key)) {
+          final local = TxaOfflineHistoryItem.fromJson(map[key] as Map<String, dynamic>);
+          if (!local.synced && local.currentTime > currentTime) {
+            continue;
+          }
+        }
+
+        map[key] = TxaOfflineHistoryItem(
+          movieId: movieId,
+          episodeId: episodeId,
+          currentTime: currentTime,
+          duration: duration,
+          serverIndex: serverIndex,
+          updatedAt: item['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
+          synced: true,
+        ).toJson();
+      }
+
+      await prefs.setString(_prefKey, jsonEncode(map));
+    } catch (_) {}
+  }
+
   /// Đồng bộ toàn bộ lịch sử xem offline lên CSDL máy chủ khi có mạng
+  /// QUY TẮC: Chỉ đồng bộ lên nếu tiến độ cục bộ lớn hơn tiến độ trên database
   static Future<void> syncPendingHistory() async {
     final auth = TxaAuthService();
     if (!auth.isLoggedIn || _isSyncing) return;
@@ -141,11 +188,45 @@ class TxaOfflineHistoryService {
         return;
       }
 
-      TxaLogger.log('🔄 Bắt đầu đồng bộ ${pendingItems.length} bản ghi lịch sử xem Offline lên máy chủ...', type: 'api');
+      // Lấy lịch sử hiện tại trên máy chủ để so sánh tiến độ
+      Map<String, double> serverTimes = {};
+      try {
+        final serverList = await TxaApi().getWatchHistory();
+        for (var s in serverList) {
+          final mId = (s['movie_id'] ?? s['movie_slug'] ?? '').toString();
+          final epId = (s['episode_id'] ?? s['episode_name'] ?? '').toString();
+          final sTime = double.tryParse(s['current_time']?.toString() ?? '0') ?? 0.0;
+          if (mId.isNotEmpty && epId.isNotEmpty) {
+            serverTimes['${mId}_$epId'] = sTime;
+          }
+        }
+      } catch (_) {}
+
+      TxaLogger.log('🔄 Bắt đầu kiểm tra và đồng bộ ${pendingItems.length} bản ghi lịch sử xem Offline lên máy chủ...', type: 'api');
 
       for (int i = 0; i < pendingItems.length; i++) {
         final item = pendingItems[i];
         final key = keysToUpdate[i];
+
+        final serverTime = serverTimes[key] ??
+            serverTimes['${item.movieId}_${item.episodeId}'] ?? 0.0;
+
+        // ĐIỀU KIỆN QUAN TRỌNG: Chỉ gửi lên database nếu tiến độ cục bộ > tiến độ trên database
+        if (item.currentTime <= serverTime) {
+          // Tiến độ trên server đã lớn hơn hoặc bằng, đánh dấu synced để không ghi đè lùi
+          final updatedItem = TxaOfflineHistoryItem(
+            movieId: item.movieId,
+            episodeId: item.episodeId,
+            currentTime: serverTime > 0 ? serverTime : item.currentTime,
+            duration: item.duration,
+            serverIndex: item.serverIndex,
+            updatedAt: item.updatedAt,
+            synced: true,
+          );
+          map[key] = updatedItem.toJson();
+          TxaLogger.log('⏩ Bỏ qua đồng bộ lùi: Cục bộ (${item.currentTime}s) <= Server (${serverTime}s) cho ${item.movieId}', type: 'api');
+          continue;
+        }
 
         try {
           final success = await TxaApi().updateWatchHistory(
@@ -167,10 +248,10 @@ class TxaOfflineHistoryService {
               synced: true,
             );
             map[key] = updatedItem.toJson();
-            TxaLogger.log('✅ Đã đồng bộ lịch sử offline: ${item.movieId} - ${item.episodeId} (${item.currentTime.toInt()}s)', type: 'api');
+            TxaLogger.log('✅ Đã đồng bộ tiến độ offline lên server: ${item.movieId} - ${item.episodeId} (${item.currentTime.toInt()}s > Server ${serverTime.toInt()}s)', type: 'api');
           }
         } catch (err) {
-          TxaLogger.log('❌ Lỗi khi đồng bộ item ${item.movieId}: $err', type: 'crash');
+          TxaLogger.log('❌ Lỗi khi đồng bộ item ${item.movieId}: $err', type: 'api');
         }
       }
 

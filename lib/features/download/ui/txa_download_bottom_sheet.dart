@@ -34,6 +34,7 @@ class TxaDownloadBottomSheet extends StatefulWidget {
 class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
   int _selectedServerIndex = 0;
   final Set<String> _selectedEpisodeIds = {};
+  Set<String> _completedEpisodeIds = {};
   Map<String, int> _estimatedSizes = {};
   bool _isEstimating = false;
 
@@ -51,6 +52,17 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
   String get _currentServerName {
     if (_servers.isEmpty) return 'Default';
     return _servers[_selectedServerIndex.clamp(0, _servers.length - 1)]['server_name']?.toString() ?? 'Default';
+  }
+
+  List<dynamic> get _selectableEpisodes {
+    return _currentEpisodes.where((ep) {
+      final epId = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
+      final epName = ep['name']?.toString() ?? '';
+      return !_completedEpisodeIds.contains(epId) &&
+          !_completedEpisodeIds.contains(epName) &&
+          !_completedEpisodeIds.contains('${_currentServerName}_$epId') &&
+          !_completedEpisodeIds.contains('${_currentServerName}_$epName');
+    }).toList();
   }
 
   @override
@@ -82,7 +94,7 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
     if (mounted) setState(() => _isEstimating = false);
   }
 
-  String? _resolveStreamUrl(Map<String, dynamic> ep) {
+  String? _resolveStreamUrl(Map ep) {
     for (final key in ['link_m3u8', 'stream_m3u8', 'stream_v6']) {
       final val = ep[key]?.toString();
       if (val != null && val.trim().isNotEmpty) {
@@ -110,14 +122,39 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
   }
 
   void _toggleSelectAll() {
+    final selectable = _selectableEpisodes;
+    if (selectable.isEmpty) return;
+
     setState(() {
-      if (_selectedEpisodeIds.length == _currentEpisodes.length) {
+      final isAllSelected = selectable.every((ep) {
+        final id = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
+        return _selectedEpisodeIds.contains(id);
+      });
+
+      if (isAllSelected) {
         _selectedEpisodeIds.clear();
       } else {
         _selectedEpisodeIds.clear();
-        for (final ep in _currentEpisodes) {
+        for (final ep in selectable) {
           final id = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
           _selectedEpisodeIds.add(id);
+        }
+      }
+    });
+  }
+
+  void _selectNextN(int count) {
+    final selectable = _selectableEpisodes;
+    if (selectable.isEmpty) return;
+
+    setState(() {
+      int added = 0;
+      for (final ep in selectable) {
+        final id = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
+        if (!_selectedEpisodeIds.contains(id)) {
+          _selectedEpisodeIds.add(id);
+          added++;
+          if (added >= count) break;
         }
       }
     });
@@ -130,6 +167,8 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
     for (final ep in _currentEpisodes) {
       final epId = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
       if (_selectedEpisodeIds.contains(epId)) {
+        if (_completedEpisodeIds.contains(epId)) continue;
+
         final m3u8Url = _resolveStreamUrl(ep);
         if (m3u8Url != null && m3u8Url.isNotEmpty) {
           final epName = ep['name']?.toString() ?? 'Tập $epId';
@@ -229,17 +268,119 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                     ],
                   ),
                 ),
-                TextButton(
-                  onPressed: _toggleSelectAll,
-                  style: TextButton.styleFrom(
-                    foregroundColor: TxaTheme.accent,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  ),
-                  child: Text(
-                    _selectedEpisodeIds.length == episodes.length
-                        ? TxaLanguage.t('clear')
-                        : TxaLanguage.t('all_episodes'),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                Builder(
+                  builder: (context) {
+                    final selectable = _selectableEpisodes;
+                    final isAllSelected = selectable.isNotEmpty && selectable.every((ep) {
+                      final id = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
+                      return _selectedEpisodeIds.contains(id);
+                    });
+
+                    return TextButton(
+                      onPressed: selectable.isEmpty ? null : _toggleSelectAll,
+                      style: TextButton.styleFrom(
+                        foregroundColor: TxaTheme.accent,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                      child: Text(
+                        isAllSelected
+                            ? TxaLanguage.t('deselect_all')
+                            : TxaLanguage.t('select_all'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // Quick selection toolbar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                Builder(
+                  builder: (context) {
+                    final selectable = _selectableEpisodes;
+                    final isAllSelected = selectable.isNotEmpty &&
+                        selectable.every((ep) {
+                          final id = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
+                          return _selectedEpisodeIds.contains(id);
+                        });
+
+                    return ActionChip(
+                      avatar: Icon(
+                        isAllSelected ? Icons.remove_done_rounded : Icons.done_all_rounded,
+                        size: 16,
+                        color: selectable.isEmpty ? Colors.white24 : TxaTheme.accent,
+                      ),
+                      label: Text(
+                        isAllSelected
+                            ? TxaLanguage.t('deselect_all')
+                            : TxaLanguage.t('select_all'),
+                      ),
+                      onPressed: selectable.isEmpty ? null : _toggleSelectAll,
+                      backgroundColor: isAllSelected
+                          ? TxaTheme.accent.withValues(alpha: 0.15)
+                          : TxaTheme.cardBg,
+                      labelStyle: TextStyle(
+                        color: selectable.isEmpty
+                            ? Colors.white24
+                            : (isAllSelected ? TxaTheme.accent : Colors.white70),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: isAllSelected
+                              ? TxaTheme.accent.withValues(alpha: 0.4)
+                              : Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+                Builder(
+                  builder: (context) {
+                    final selectable = _selectableEpisodes;
+                    final unselected = selectable.where((ep) {
+                      final id = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
+                      return !_selectedEpisodeIds.contains(id);
+                    }).toList();
+
+                    return ActionChip(
+                      avatar: Icon(
+                        Icons.playlist_add_rounded,
+                        size: 16,
+                        color: unselected.isEmpty ? Colors.white24 : TxaTheme.accent,
+                      ),
+                      label: Text(TxaLanguage.t('select_next_5')),
+                      onPressed: unselected.isEmpty ? null : () => _selectNextN(5),
+                      backgroundColor: TxaTheme.cardBg,
+                      labelStyle: TextStyle(
+                        color: unselected.isEmpty ? Colors.white24 : Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    );
+                  },
+                ),
+                const Spacer(),
+                Text(
+                  '${_selectedEpisodeIds.length}/${_selectableEpisodes.length}',
+                  style: const TextStyle(
+                    color: TxaTheme.accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -295,11 +436,30 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
               builder: (context, snapshot) {
                 final existingTasks = snapshot.data ?? [];
                 final Map<String, TxaDownloadTask> taskMap = {};
+                final Set<String> completedIds = {};
+
                 for (final t in existingTasks) {
                   taskMap['${t.serverName}_${t.episodeName}'] = t;
                   taskMap['${t.serverName}_${t.episodeId}'] = t;
                   taskMap[t.episodeId] = t;
                   taskMap[t.episodeName] = t;
+                  if (t.isCompleted) {
+                    completedIds.add(t.episodeId);
+                    completedIds.add(t.episodeName);
+                    completedIds.add('${t.serverName}_${t.episodeId}');
+                    completedIds.add('${t.serverName}_${t.episodeName}');
+                  }
+                }
+
+                if (_completedEpisodeIds.length != completedIds.length || !_completedEpisodeIds.containsAll(completedIds)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() {
+                        _completedEpisodeIds = completedIds;
+                        _selectedEpisodeIds.removeWhere((id) => completedIds.contains(id));
+                      });
+                    }
+                  });
                 }
 
                 return ListView.builder(
@@ -322,7 +482,7 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                       estimatedSizeStr: estSizeStr,
                       isSelected: isSelected,
                       task: task,
-                      onSelectedChanged: task?.status == TxaDownloadStatus.completed
+                      onSelectedChanged: (task?.isCompleted ?? false)
                           ? null
                           : (val) {
                               setState(() {
@@ -358,7 +518,9 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${_selectedEpisodeIds.length} ${TxaLanguage.t('episode_label', replace: {'n': ''}).trim()} ${TxaLanguage.t('downloaded').toLowerCase()}',
+                        _selectedEpisodeIds.isEmpty
+                            ? TxaLanguage.t('no_episode_selected')
+                            : TxaLanguage.t('episodes_selected', replace: {'n': '${_selectedEpisodeIds.length}'}),
                         style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                       Text(
@@ -380,9 +542,11 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                   onPressed: _selectedEpisodeIds.isEmpty ? null : _startDownloadSelected,
                   icon: const Icon(Icons.download_rounded, size: 18),
                   label: Text(
-                    _selectedEpisodeIds.length == episodes.length
-                        ? TxaLanguage.t('download_all_started', replace: {'n': '${episodes.length}'})
-                        : TxaLanguage.t('download_completed'),
+                    _selectedEpisodeIds.isEmpty
+                        ? TxaLanguage.t('download')
+                        : (_selectableEpisodes.isNotEmpty && _selectedEpisodeIds.length == _selectableEpisodes.length
+                            ? TxaLanguage.t('download_all_episodes', replace: {'n': '${_selectedEpisodeIds.length}'})
+                            : TxaLanguage.t('download_selected_episodes', replace: {'n': '${_selectedEpisodeIds.length}'})),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: TxaTheme.accent,

@@ -72,19 +72,41 @@ class _TxaWatchHistoryScreenState extends State<TxaWatchHistoryScreen> {
     }
   }
 
+  int _filterIndex = 0; // 0: All, 1: In progress, 2: Completed
+
+  List<dynamic> get _filteredHistory {
+    if (_filterIndex == 1) {
+      return _allHistory.where((item) {
+        final cur = double.tryParse(item['current_time']?.toString() ?? '0') ?? 0;
+        final dur = double.tryParse(item['duration']?.toString() ?? '0') ?? 0;
+        final prog = dur > 0 ? cur / dur : 0.0;
+        return prog < 0.95 && cur > 10;
+      }).toList();
+    } else if (_filterIndex == 2) {
+      return _allHistory.where((item) {
+        final cur = double.tryParse(item['current_time']?.toString() ?? '0') ?? 0;
+        final dur = double.tryParse(item['duration']?.toString() ?? '0') ?? 0;
+        final prog = dur > 0 ? cur / dur : 0.0;
+        return prog >= 0.95;
+      }).toList();
+    }
+    return _allHistory;
+  }
+
   void _loadMore() {
     setState(() {
-      _displayCount = (_displayCount + 15).clamp(0, _allHistory.length);
+      _displayCount = (_displayCount + 15).clamp(0, _filteredHistory.length);
       _updateDisplayList();
     });
   }
 
   void _updateDisplayList() {
-    if (_allHistory.isEmpty) {
+    final list = _filteredHistory;
+    if (list.isEmpty) {
       _displayHistory = [];
     } else {
-      final end = _displayCount.clamp(0, _allHistory.length);
-      _displayHistory = _allHistory.sublist(0, end);
+      final end = _displayCount.clamp(0, list.length);
+      _displayHistory = list.sublist(0, end);
     }
   }
 
@@ -153,6 +175,34 @@ class _TxaWatchHistoryScreenState extends State<TxaWatchHistoryScreen> {
     return '${formatSeconds(current)} / ${formatSeconds(duration)}';
   }
 
+  Widget _buildFilterChip(int index, String label) {
+    final isSelected = _filterIndex == index;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: TxaTheme.accent,
+      backgroundColor: TxaTheme.cardBg,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.black : Colors.white70,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 12,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: isSelected ? TxaTheme.accent : Colors.white10),
+      ),
+      onSelected: (val) {
+        if (val) {
+          setState(() {
+            _filterIndex = index;
+            _displayCount = 15;
+            _updateDisplayList();
+          });
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -178,14 +228,32 @@ class _TxaWatchHistoryScreenState extends State<TxaWatchHistoryScreen> {
             ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        color: TxaTheme.accent,
-        backgroundColor: TxaTheme.cardBg,
-        child: _displayHistory.isEmpty && _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: TxaTheme.accent),
-              )
+      body: Column(
+        children: [
+          if (_allHistory.isNotEmpty)
+            Container(
+              height: 38,
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _buildFilterChip(0, '${TxaLanguage.t('all')} (${_allHistory.length})'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(1, 'Đang xem dở'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(2, 'Đã hoàn tất'),
+                ],
+              ),
+            ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadData,
+              color: TxaTheme.accent,
+              backgroundColor: TxaTheme.cardBg,
+              child: _displayHistory.isEmpty && _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: TxaTheme.accent),
+                    )
             : _error != null && _displayHistory.isEmpty
                 ? Center(
                     child: Column(

@@ -1,6 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'txa_path_resolver.dart';
 import '../../../utils/txa_logger.dart';
+
+class TxaStorageInfo {
+  final int totalBytes;
+  final int usedBytes;
+  final int freeBytes;
+  final int appBytes;
+
+  TxaStorageInfo({
+    required this.totalBytes,
+    required this.usedBytes,
+    required this.freeBytes,
+    required this.appBytes,
+  });
+
+  double get usedRatio => totalBytes > 0 ? (usedBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
+  double get appRatio => totalBytes > 0 ? (appBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
+}
 
 class TxaStorageEstimator {
   static final Dio _dio = Dio(
@@ -13,6 +33,58 @@ class TxaStorageEstimator {
       },
     ),
   );
+
+  /// Lấy thông tin dung lượng hệ thống và dung lượng tải thực tế của ứng dụng
+  static Future<TxaStorageInfo> getStorageInfo(int appBytes) async {
+    int totalBytes = 128 * 1024 * 1024 * 1024; // 128 GB fallback
+    int freeBytes = 64 * 1024 * 1024 * 1024;   // 64 GB fallback
+
+    try {
+      if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS) {
+        final rootDir = await TxaPathResolver.getDownloadsRootDir();
+        final res = await Process.run('df', ['-k', rootDir.path]);
+        if (res.exitCode == 0) {
+          final lines = res.stdout.toString().trim().split('\n');
+          if (lines.length > 1) {
+            final parts = lines.last.split(RegExp(r'\s+'));
+            if (parts.length >= 4) {
+              final totalK = int.tryParse(parts[1]) ?? 0;
+              final freeK = int.tryParse(parts[3]) ?? 0;
+              if (totalK > 0) {
+                totalBytes = totalK * 1024;
+                freeBytes = freeK * 1024;
+              }
+            }
+          }
+        }
+      } else if (Platform.isWindows) {
+        final res = await Process.run('powershell', [
+          '-NoProfile',
+          '-Command',
+          'Get-PSDrive -PSProvider FileSystem | Select-Object -First 1 Used,Free | ConvertTo-Json',
+        ]);
+        if (res.exitCode == 0) {
+          final data = jsonDecode(res.stdout.toString());
+          final used = (data['Used'] as num?)?.toInt() ?? 0;
+          final free = (data['Free'] as num?)?.toInt() ?? 0;
+          if (used + free > 0) {
+            totalBytes = used + free;
+            freeBytes = free;
+          }
+        }
+      }
+    } catch (_) {}
+
+    int usedBytes = totalBytes - freeBytes;
+    if (usedBytes < appBytes) usedBytes = appBytes;
+
+    return TxaStorageInfo(
+      totalBytes: totalBytes,
+      usedBytes: usedBytes,
+      freeBytes: freeBytes,
+      appBytes: appBytes,
+    );
+  }
 
   /// Estimates the size of an HLS episode in bytes
   static Future<int> estimateEpisodeSize(String m3u8Url) async {

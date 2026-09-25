@@ -24,7 +24,7 @@ class TxaDownloadRepository {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE download_tasks (
@@ -41,6 +41,7 @@ class TxaDownloadRepository {
             totalSegments INTEGER,
             downloadedSegments INTEGER,
             status TEXT NOT NULL,
+            statusCode INTEGER DEFAULT 0,
             localPath TEXT,
             localBaseDir TEXT,
             errorMessage TEXT,
@@ -49,6 +50,27 @@ class TxaDownloadRepository {
           )
         ''');
         TxaLogger.log('TxaDownloadRepository database initialized.', type: 'app');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          try {
+            await db.execute('ALTER TABLE download_tasks ADD COLUMN statusCode INTEGER DEFAULT 0');
+          } catch (e) {
+            TxaLogger.log('Error adding statusCode column in onUpgrade: $e', type: 'app');
+          }
+        }
+      },
+      onOpen: (db) async {
+        try {
+          final columns = await db.rawQuery('PRAGMA table_info(download_tasks)');
+          final hasStatusCode = columns.any((col) => col['name']?.toString() == 'statusCode');
+          if (!hasStatusCode) {
+            await db.execute('ALTER TABLE download_tasks ADD COLUMN statusCode INTEGER DEFAULT 0');
+            TxaLogger.log('Added missing statusCode column in onOpen', type: 'app');
+          }
+        } catch (e) {
+          TxaLogger.log('Error verifying statusCode column in onOpen: $e', type: 'app');
+        }
       },
     );
   }

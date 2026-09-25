@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/txa_local_film.dart';
 import '../models/txa_download_task.dart';
 import '../models/txa_download_status.dart';
@@ -9,6 +10,7 @@ import '../../../../theme/txa_theme.dart';
 import '../../../../utils/txa_format.dart';
 import '../../../../utils/txa_toast.dart';
 import '../../../../services/txa_language.dart';
+import '../../../../services/txa_offline_history_service.dart';
 import '../../../../widgets/txa_video_player.dart';
 
 class DownloadedEpisodesScreen extends StatefulWidget {
@@ -24,11 +26,14 @@ class DownloadedEpisodesScreen extends StatefulWidget {
 }
 
 class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
-  void _playOffline(TxaDownloadTask task) {
+  void _playOffline(TxaDownloadTask task) async {
     if (task.localPath.isEmpty || !File(task.localPath).existsSync()) {
       TxaToast.show(context, TxaLanguage.t('local_playback_error'));
       return;
     }
+
+    final savedProgress = await TxaOfflineHistoryService.getLocalProgress(task.filmSlug, task.episodeId);
+    if (!mounted) return;
 
     Navigator.push(
       context,
@@ -40,6 +45,7 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
           serverName: task.serverName,
           movieId: task.filmSlug,
           currentEpisodeId: task.episodeId,
+          startTime: (savedProgress ?? 0).toInt(),
         ),
       ),
     );
@@ -166,65 +172,190 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
             );
           }
 
+          final completedTasks = tasks.where((t) => t.isCompleted).toList();
+          final firstPlayable = completedTasks.isNotEmpty ? completedTasks.first : null;
+
           return ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: tasks.length,
+            itemCount: tasks.length + 1,
             itemBuilder: (ctx, idx) {
-              final task = tasks[idx];
+              if (idx == 0) {
+                // Hero Banner
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        TxaTheme.cardBg,
+                        TxaTheme.cardBg.withValues(alpha: 0.8),
+                        TxaTheme.accent.withValues(alpha: 0.12),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: TxaTheme.accent.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: widget.film.filmPoster.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: widget.film.filmPoster,
+                                width: 56,
+                                height: 78,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(color: Colors.white10),
+                                errorWidget: (_, __, ___) => Container(
+                                  width: 56,
+                                  height: 78,
+                                  color: Colors.white10,
+                                  child: const Icon(Icons.movie_rounded, color: Colors.white38),
+                                ),
+                              )
+                            : Container(
+                                width: 56,
+                                height: 78,
+                                color: Colors.white10,
+                                child: const Icon(Icons.movie_rounded, color: Colors.white38),
+                              ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.film.filmTitle,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${completedTasks.length}/${tasks.length} ${TxaLanguage.t('all_episodes')}',
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                            const SizedBox(height: 8),
+                            if (firstPlayable != null)
+                              SizedBox(
+                                height: 34,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _playOffline(firstPlayable),
+                                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                                  label: Text(
+                                    TxaLanguage.t('play_now'),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: TxaTheme.accent,
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final task = tasks[idx - 1];
               final isCompleted = task.status == TxaDownloadStatus.completed;
-              final sizeStr = TxaFormat.formatFileSize(task.downloadedBytes > 0 ? task.downloadedBytes : task.totalBytes);
+              final sizeStr = TxaFormat.formatFileSize(
+                task.downloadedBytes > 0 ? task.downloadedBytes : task.totalBytes,
+              );
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 decoration: BoxDecoration(
                   color: TxaTheme.cardBg,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  border: Border.all(
+                    color: isCompleted
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : TxaTheme.accent.withValues(alpha: 0.2),
+                  ),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  leading: CircleAvatar(
-                    backgroundColor: isCompleted ? TxaTheme.accent.withValues(alpha: 0.2) : Colors.white10,
-                    child: Icon(
-                      isCompleted ? Icons.play_arrow_rounded : Icons.downloading_rounded,
-                      color: isCompleted ? TxaTheme.accent : Colors.white70,
-                      size: 24,
-                    ),
-                  ),
-                  title: Text(
-                    TxaFormat.formatEpisodeName(task.episodeName),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(
-                      children: [
-                        Text(
-                          '${task.serverName} • $sizeStr',
-                          style: const TextStyle(color: Colors.white54, fontSize: 11),
-                        ),
-                        if (isCompleted) ...[
-                          const SizedBox(width: 8),
-                          const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 14),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: isCompleted ? () => _playOffline(task) : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? TxaTheme.accent.withValues(alpha: 0.15)
+                                  : Colors.white10,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isCompleted ? Icons.play_arrow_rounded : Icons.downloading_rounded,
+                              color: isCompleted ? TxaTheme.accent : Colors.white70,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  TxaFormat.formatEpisodeName(task.episodeName),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '${task.serverName} • $sizeStr',
+                                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                    ),
+                                    if (isCompleted) ...[
+                                      const SizedBox(width: 6),
+                                      const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 13),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isCompleted)
+                            IconButton(
+                              icon: const Icon(Icons.play_circle_fill_rounded, color: TxaTheme.accent, size: 30),
+                              onPressed: () => _playOffline(task),
+                              tooltip: TxaLanguage.t('play_now'),
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white38, size: 20),
+                            onPressed: () => _confirmDeleteTask(task),
+                            tooltip: TxaLanguage.t('delete'),
+                          ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isCompleted)
-                        IconButton(
-                          icon: const Icon(Icons.play_circle_fill_rounded, color: TxaTheme.accent, size: 30),
-                          onPressed: () => _playOffline(task),
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.white38, size: 20),
-                        onPressed: () => _confirmDeleteTask(task),
-                      ),
-                    ],
-                  ),
-                  onTap: isCompleted ? () => _playOffline(task) : null,
                 ),
               );
             },

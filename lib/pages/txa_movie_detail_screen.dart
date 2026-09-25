@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
@@ -7,11 +8,13 @@ import '../services/txa_api.dart';
 import '../services/txa_language.dart';
 import '../services/txa_auth_service.dart';
 import '../services/txa_favorite_manager.dart';
+import '../services/txa_offline_history_service.dart';
 import '../theme/txa_theme.dart';
 import '../utils/txa_toast.dart';
 import '../widgets/txa_video_player.dart';
 import '../utils/txa_schedule.dart';
 import '../features/download/ui/txa_download_bottom_sheet.dart';
+import '../features/download/services/txa_download_manager.dart';
 import 'txa_profile_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -387,12 +390,40 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
       }
     }
 
+    // Kiểm tra xem tập này đã được tải về máy trước đó chưa (phục vụ cả xem offline khi mất mạng)
+    try {
+      final downloadMgr = Provider.of<TxaDownloadManager>(context, listen: false);
+      final filmSlug = _data?['movie']?['slug']?.toString() ?? widget.slug;
+      final localTasks = await downloadMgr.getTasksForFilm(filmSlug);
+      for (final t in localTasks) {
+        if ((t.episodeId == episodeId || t.episodeName == episodeName || t.id.contains(episodeId)) &&
+            t.isCompleted &&
+            t.localPath.isNotEmpty &&
+            File(t.localPath).existsSync()) {
+          if (resolvedUrl == null || resolvedUrl.isEmpty) {
+            resolvedUrl = t.localPath;
+            resolvedServer = '${t.serverName} (${TxaLanguage.t('offline_badge')})';
+          }
+          break;
+        }
+      }
+    } catch (_) {}
+
     if (resolvedUrl == null || resolvedUrl.isEmpty) {
       TxaToast.show(context, TxaLanguage.t('no_stream_found'), isError: true);
       return;
     }
 
-    final movieId = _data?['movie']?['id']?.toString() ?? '';
+    final movieId = _data?['movie']?['id']?.toString() ?? _data?['movie']?['slug']?.toString() ?? widget.slug;
+
+    // Tự động khôi phục giây xem dở từ SharedPreferences (dù xem online hay offline)
+    if (startTime <= 0) {
+      final localProgress = await TxaOfflineHistoryService.getLocalProgress(movieId, episodeId) ??
+          await TxaOfflineHistoryService.getLocalProgress(widget.slug, episodeId);
+      if (localProgress != null && localProgress > 0) {
+        startTime = localProgress.toInt();
+      }
+    }
 
     if (auth.isLoggedIn && _data?['movie'] != null) {
       await TxaApi().updateWatchHistory(
