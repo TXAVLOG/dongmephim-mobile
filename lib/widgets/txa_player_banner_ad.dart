@@ -229,7 +229,7 @@ class _TxaPlayerBannerAdState extends State<TxaPlayerBannerAd> {
 class _SafeAdWidget extends StatelessWidget {
   final BannerAd ad;
 
-  const _SafeAdWidget({required this.ad, super.key});
+  const _SafeAdWidget({required this.ad});
 
   @override
   Widget build(BuildContext context) {

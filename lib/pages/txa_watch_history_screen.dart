@@ -412,6 +412,9 @@ class _TxaWatchHistoryScreenState extends State<TxaWatchHistoryScreen> {
                           );
                         },
                       ),
+            ),
+          ),
+        ],
       ),
     );
   }

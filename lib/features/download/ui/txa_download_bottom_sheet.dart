@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/txa_download_task.dart';
-import '../models/txa_download_status.dart';
 import '../services/txa_download_manager.dart';
 import '../services/txa_storage_estimator.dart';
 import 'widgets/txa_download_row.dart';

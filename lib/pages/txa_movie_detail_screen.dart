@@ -409,6 +409,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
       }
     } catch (_) {}
 
+    if (!mounted) return;
+
     if (resolvedUrl == null || resolvedUrl.isEmpty) {
       TxaToast.show(context, TxaLanguage.t('no_stream_found'), isError: true);
       return;
