@@ -135,9 +135,14 @@ class TxaStorageEstimator {
   static Future<int> _parseAndEstimateSegments(String baseUrl, String playlistContent) async {
     final lines = playlistContent.split('\n').map((l) => l.trim()).toList();
     final List<String> segmentUrls = [];
+    double totalDurationSec = 0.0;
 
     for (final line in lines) {
-      if (line.isNotEmpty && !line.startsWith('#')) {
+      if (line.startsWith('#EXTINF:')) {
+        final durPart = line.substring(8).split(',').first.trim();
+        final d = double.tryParse(durPart) ?? 0.0;
+        totalDurationSec += d;
+      } else if (line.isNotEmpty && !line.startsWith('#')) {
         if (!line.startsWith('http')) {
           final uri = Uri.parse(baseUrl);
           segmentUrls.add(uri.resolve(line).toString());
@@ -147,9 +152,9 @@ class TxaStorageEstimator {
       }
     }
 
-    if (segmentUrls.isEmpty) return 200 * 1024 * 1024;
+    if (segmentUrls.isEmpty) return 250 * 1024 * 1024;
 
-    // Sample 2 segments to get average segment size
+    // Sample 2 segments to get average segment size if CDN allows probe
     int sampledBytes = 0;
     int sampledCount = 0;
     final samples = segmentUrls.take(2).toList();
@@ -191,7 +196,12 @@ class TxaStorageEstimator {
       return avgSegmentBytes * segmentUrls.length;
     }
 
-    // Default estimate if CDN blocks probe: ~800KB per segment
-    return segmentUrls.length * 800 * 1024;
+    // Estimate based on true video duration at ~1850 kbps
+    if (totalDurationSec > 0) {
+      return ((1850 * 1000 / 8) * totalDurationSec).round();
+    }
+
+    // Fallback: estimate based on segment count (~1.2MB per segment average for 1080p/720p)
+    return segmentUrls.length * 1250 * 1024;
   }
 }

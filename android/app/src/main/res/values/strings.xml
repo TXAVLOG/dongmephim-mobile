@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_downloads">Phim đã tải</string>
+    <string name="shortcut_downloads_long">Tiến độ & Phim đã tải</string>
+</resources>

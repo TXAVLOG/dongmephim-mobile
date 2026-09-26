@@ -105,15 +105,21 @@ class TxaHlsDownloader {
         }
       }
 
-      // 3. Parse segments
+      // 3. Parse segments and calculate total duration
       final lines = content.split('\n');
       final List<String> segmentUrls = [];
       final List<String> rewrittenLines = [];
       int segmentCounter = 0;
+      double totalDurationSec = 0.0;
 
       for (var rawLine in lines) {
         final line = rawLine.trim();
-        if (line.isNotEmpty && !line.startsWith('#')) {
+        if (line.startsWith('#EXTINF:')) {
+          final durPart = line.substring(8).split(',').first.trim();
+          final d = double.tryParse(durPart) ?? 0.0;
+          totalDurationSec += d;
+          rewrittenLines.add(rawLine);
+        } else if (line.isNotEmpty && !line.startsWith('#')) {
           String fullSegmentUrl = line;
           if (!line.startsWith('http')) {
             final uri = Uri.parse(targetPlaylistUrl);
@@ -131,6 +137,13 @@ class TxaHlsDownloader {
 
       if (segmentUrls.isEmpty) {
         throw Exception('No video segments found in playlist');
+      }
+
+      // Initial locked estimate if duration or bandwidth available
+      int? lockedTotalBytes;
+      if (totalDurationSec > 0) {
+        // Average 1800 kbps for standard 720p/1080p web stream
+        lockedTotalBytes = ((1800 * 1000 / 8) * totalDurationSec).round();
       }
 
       // 4. Save local playlist.m3u8
@@ -177,10 +190,24 @@ class TxaHlsDownloader {
           lastTime = now;
         }
 
-        // Estimate total bytes
-        final estimatedTotalBytes = completedSegments > 0
-            ? (downloadedBytes / completedSegments * totalSegments).round()
-            : totalSegments * 800 * 1024;
+        // Lock total bytes after 3 segments to prevent total bytes continuously inflating
+        if (lockedTotalBytes == null && completedSegments >= 3) {
+          lockedTotalBytes = ((downloadedBytes / completedSegments) * totalSegments).round();
+        } else if (completedSegments >= 5 && lockedTotalBytes != null && completedSegments <= 10) {
+          // Fine tune once at 5-10 segments
+          final refined = ((downloadedBytes / completedSegments) * totalSegments).round();
+          lockedTotalBytes = (lockedTotalBytes! * 0.35 + refined * 0.65).round();
+        }
+
+        int estimatedTotalBytes = lockedTotalBytes ??
+            (completedSegments > 0
+                ? ((downloadedBytes / completedSegments) * totalSegments).round()
+                : (totalSegments * 800 * 1024));
+
+        if (downloadedBytes > estimatedTotalBytes) {
+          estimatedTotalBytes = downloadedBytes;
+        }
+
         final remainingBytes = (estimatedTotalBytes - downloadedBytes).clamp(0, estimatedTotalBytes);
         final eta = currentSpeed > 0 ? (remainingBytes / currentSpeed).round() : 0;
         final percent = totalSegments > 0 ? (completedSegments / totalSegments).clamp(0.0, 1.0) : 0.0;
@@ -271,8 +298,8 @@ class TxaHlsDownloader {
         }
       }
 
-      // Spawn initial concurrency workers
-      final initialWorkers = concurrency.clamp(4, 16);
+      // Spawn initial concurrency workers (allow up to 24 parallel workers)
+      final initialWorkers = concurrency.clamp(2, 24);
       for (int i = 0; i < initialWorkers; i++) {
         launchNext();
       }

@@ -14,6 +14,9 @@ import 'services/txa_auth_service.dart';
 import 'services/txa_ads_service.dart';
 import 'services/txa_dynamic_icon_service.dart';
 import 'features/download/services/txa_download_manager.dart';
+import 'features/download/ui/downloaded_films_screen.dart';
+import 'features/download/ui/downloaded_episodes_screen.dart';
+import 'features/download/models/txa_local_film.dart';
 import 'widgets/splash_screen.dart';
 import 'widgets/txa_error_widget.dart';
 import 'widgets/txa_modal.dart';
@@ -202,6 +205,64 @@ class _MainEntryState extends State<MainEntry> {
     TxaLogger.log('Received deep link: $uri', type: 'app');
     final path = uri.path;
     final host = uri.host;
+
+    if (host == 'downloads' || path.contains('downloads')) {
+      final filmSlug = uri.queryParameters['slug'];
+      final episodeId = uri.queryParameters['episode'];
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final manager = TxaDownloadManager();
+        if (filmSlug != null && filmSlug.isNotEmpty) {
+          final allFilms = await manager.getAllLocalFilms();
+          final film = allFilms.firstWhere(
+            (f) => f.filmSlug == filmSlug,
+            orElse: () => TxaLocalFilm(
+              filmSlug: filmSlug,
+              filmTitle: uri.queryParameters['title'] ?? 'Phim',
+              filmPoster: '',
+              tasks: [],
+            ),
+          );
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => DownloadedEpisodesScreen(
+                film: film,
+                focusEpisodeId: episodeId,
+              ),
+            ),
+          );
+        } else {
+          final running = manager.currentRunningTask;
+          if (running != null) {
+            final allFilms = await manager.getAllLocalFilms();
+            final film = allFilms.firstWhere(
+              (f) => f.filmSlug == running.filmSlug,
+              orElse: () => TxaLocalFilm(
+                filmSlug: running.filmSlug,
+                filmTitle: running.filmTitle,
+                filmPoster: running.filmPoster,
+                tasks: [],
+              ),
+            );
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (_) => DownloadedEpisodesScreen(
+                  film: film,
+                  focusEpisodeId: running.episodeId,
+                ),
+              ),
+            );
+          } else {
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (_) => const DownloadedFilmsScreen(),
+              ),
+            );
+          }
+        }
+      });
+      return;
+    }
 
     if (host == 'payment-status' || path.contains('payment-status') || path.contains('checkout/callback')) {
       final status = uri.queryParameters['status'] ?? 'approved';

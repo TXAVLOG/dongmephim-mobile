@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/txa_download_status.dart';
 import '../models/txa_download_task.dart';
 import '../services/txa_download_manager.dart';
 import '../services/txa_storage_estimator.dart';
+import 'txa_download_settings_modal.dart';
 import 'widgets/txa_download_row.dart';
 import '../../../../theme/txa_theme.dart';
 import '../../../../utils/txa_format.dart';
@@ -36,6 +38,7 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
   Set<String> _completedEpisodeIds = {};
   Map<String, int> _estimatedSizes = {};
   bool _isEstimating = false;
+  final ScrollController _scrollController = ScrollController();
 
   String get _filmSlug => widget.movieData['movie']?['slug']?.toString() ?? '';
   String get _filmTitle => widget.movieData['movie']?['name']?.toString() ?? 'Phim';
@@ -67,7 +70,73 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
   @override
   void initState() {
     super.initState();
+    _autoFocusActiveDownloadingTask();
     _estimateInitialSizes();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Tự động nhảy đến đúng server và cuộn tới vị trí tập đang tải khi mở lại modal
+  void _autoFocusActiveDownloadingTask() async {
+    final manager = Provider.of<TxaDownloadManager>(context, listen: false);
+    final filmTasks = await manager.getTasksForFilm(_filmSlug);
+    if (!mounted || filmTasks.isEmpty) return;
+
+    TxaDownloadTask? activeTask;
+    for (final t in filmTasks) {
+      if (t.status == TxaDownloadStatus.downloading ||
+          t.status == TxaDownloadStatus.merging ||
+          t.status == TxaDownloadStatus.paused ||
+          t.status == TxaDownloadStatus.queued) {
+        activeTask = t;
+        break;
+      }
+    }
+
+    if (activeTask != null) {
+      // 1. Chuyển sang đúng tab Server đang tải
+      final serverIdx = _servers.indexWhere((s) {
+        final sName = s['server_name']?.toString() ?? '';
+        return sName.toLowerCase().trim() == activeTask!.serverName.toLowerCase().trim();
+      });
+
+      if (serverIdx != -1 && serverIdx != _selectedServerIndex) {
+        if (mounted) {
+          setState(() {
+            _selectedServerIndex = serverIdx;
+          });
+        }
+      }
+
+      // 2. Tự động cuộn đến vị trí tập đang tải
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final eps = _currentEpisodes;
+        final epIdx = eps.indexWhere((ep) {
+          final epName = ep['name']?.toString() ?? '';
+          final epSlug = ep['slug']?.toString() ?? '';
+          return epName == activeTask!.episodeName ||
+              epSlug == activeTask.episodeId ||
+              epName == activeTask.episodeId;
+        });
+
+        if (epIdx > 0) {
+          final targetOffset = (epIdx * 64.0).clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          );
+          _scrollController.animateTo(
+            targetOffset,
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
   }
 
   void _estimateInitialSizes() async {
@@ -79,10 +148,13 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
       final firstEp = eps.first;
       final m3u8Url = _resolveStreamUrl(firstEp);
       if (m3u8Url != null) {
-        final avgSize = await TxaStorageEstimator.estimateEpisodeSize(m3u8Url);
+        final baseEst = await TxaStorageEstimator.estimateEpisodeSize(m3u8Url);
         if (mounted) {
           setState(() {
-            _estimatedSizes = {for (var ep in eps) ep['slug']?.toString() ?? ep['name']?.toString() ?? '': avgSize};
+            _estimatedSizes = {
+              for (int i = 0; i < eps.length; i++)
+                eps[i]['slug']?.toString() ?? eps[i]['name']?.toString() ?? '': baseEst
+            };
             _isEstimating = false;
           });
         }
@@ -142,14 +214,26 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
     });
   }
 
+  /// Chọn tiếp 5 tập: tính từ tập đang chọn forward.
+  /// Nếu trong phạm vi đã chọn thì nhảy tiếp. Hết danh sách thì quay vòng về đầu (cyclically).
   void _selectNextN(int count) {
     final selectable = _selectableEpisodes;
     if (selectable.isEmpty) return;
 
+    int highestIdx = -1;
+    for (int i = 0; i < selectable.length; i++) {
+      final id = selectable[i]['slug']?.toString() ?? selectable[i]['name']?.toString() ?? '';
+      if (_selectedEpisodeIds.contains(id)) {
+        highestIdx = i;
+      }
+    }
+
+    int startIdx = (highestIdx + 1) % selectable.length;
+    int added = 0;
     setState(() {
-      int added = 0;
-      for (final ep in selectable) {
-        final id = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
+      for (int step = 0; step < selectable.length; step++) {
+        final idx = (startIdx + step) % selectable.length;
+        final id = selectable[idx]['slug']?.toString() ?? selectable[idx]['name']?.toString() ?? '';
         if (!_selectedEpisodeIds.contains(id)) {
           _selectedEpisodeIds.add(id);
           added++;
@@ -170,7 +254,7 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
 
         final m3u8Url = _resolveStreamUrl(ep);
         if (m3u8Url != null && m3u8Url.isNotEmpty) {
-          final epName = ep['name']?.toString() ?? 'Tập $epId';
+          final epName = ep['name']?.toString() ?? '${TxaLanguage.t('episode')} $epId';
           final taskId = '${_filmSlug}_${_currentServerName}_$epName';
           final estimatedBytes = _estimatedSizes[epId] ?? (250 * 1024 * 1024);
 
@@ -218,7 +302,7 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
     );
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
+      height: MediaQuery.of(context).size.height * 0.78,
       decoration: BoxDecoration(
         color: TxaTheme.primaryBg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -239,7 +323,7 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
             ),
           ),
 
-          // Title & Select All Header
+          // Title & Select All Header (Single source of Select All button)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
@@ -249,13 +333,31 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        TxaLanguage.t('download_manager'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            TxaLanguage.t('download_manager'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Speed & Concurrency Settings Trigger
+                          InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () => TxaDownloadSettingsModal.show(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: TxaTheme.accent.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.speed_rounded, size: 16, color: TxaTheme.accent),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -294,55 +396,12 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
             ),
           ),
 
-          // Quick selection toolbar
+          // Quick selection toolbar (Duplicate Select All removed!)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
               children: [
-                Builder(
-                  builder: (context) {
-                    final selectable = _selectableEpisodes;
-                    final isAllSelected = selectable.isNotEmpty &&
-                        selectable.every((ep) {
-                          final id = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
-                          return _selectedEpisodeIds.contains(id);
-                        });
-
-                    return ActionChip(
-                      avatar: Icon(
-                        isAllSelected ? Icons.remove_done_rounded : Icons.done_all_rounded,
-                        size: 16,
-                        color: selectable.isEmpty ? Colors.white24 : TxaTheme.accent,
-                      ),
-                      label: Text(
-                        isAllSelected
-                            ? TxaLanguage.t('deselect_all')
-                            : TxaLanguage.t('select_all'),
-                      ),
-                      onPressed: selectable.isEmpty ? null : _toggleSelectAll,
-                      backgroundColor: isAllSelected
-                          ? TxaTheme.accent.withValues(alpha: 0.15)
-                          : TxaTheme.cardBg,
-                      labelStyle: TextStyle(
-                        color: selectable.isEmpty
-                            ? Colors.white24
-                            : (isAllSelected ? TxaTheme.accent : Colors.white70),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(
-                          color: isAllSelected
-                              ? TxaTheme.accent.withValues(alpha: 0.4)
-                              : Colors.white.withValues(alpha: 0.08),
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    );
-                  },
-                ),
-                const SizedBox(width: 8),
+                // +5 tập tiếp button
                 Builder(
                   builder: (context) {
                     final selectable = _selectableEpisodes;
@@ -373,6 +432,70 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                     );
                   },
                 ),
+                const SizedBox(width: 8),
+
+                // Bulk controls for this film: Pause / Resume / Cancel All if active
+                FutureBuilder<List<TxaDownloadTask>>(
+                  future: manager.getTasksForFilm(_filmSlug),
+                  builder: (context, snap) {
+                    final tasks = snap.data ?? [];
+                    final hasActive = tasks.any((t) =>
+                        t.status == TxaDownloadStatus.downloading ||
+                        t.status == TxaDownloadStatus.merging ||
+                        t.status == TxaDownloadStatus.queued);
+                    final hasPaused = tasks.any((t) =>
+                        t.status == TxaDownloadStatus.paused ||
+                        t.status == TxaDownloadStatus.failed);
+
+                    if (!hasActive && !hasPaused) return const SizedBox.shrink();
+
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (hasActive)
+                          ActionChip(
+                            avatar: const Icon(Icons.pause_rounded, size: 15, color: Colors.amberAccent),
+                            label: Text(TxaLanguage.t('pause_all')),
+                            onPressed: () => manager.pauseFilmDownloads(_filmSlug),
+                            backgroundColor: Colors.amber.withValues(alpha: 0.12),
+                            labelStyle: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: Colors.amber.withValues(alpha: 0.3)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                          )
+                        else if (hasPaused)
+                          ActionChip(
+                            avatar: const Icon(Icons.play_arrow_rounded, size: 15, color: Colors.greenAccent),
+                            label: Text(TxaLanguage.t('resume_all')),
+                            onPressed: () => manager.resumeFilmDownloads(_filmSlug),
+                            backgroundColor: Colors.green.withValues(alpha: 0.12),
+                            labelStyle: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: Colors.green.withValues(alpha: 0.3)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                          ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          avatar: const Icon(Icons.cancel_outlined, size: 15, color: Colors.redAccent),
+                          label: Text(TxaLanguage.t('cancel_all')),
+                          onPressed: () => manager.cancelFilmDownloads(_filmSlug),
+                          backgroundColor: Colors.red.withValues(alpha: 0.12),
+                          labelStyle: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+
                 const Spacer(),
                 Text(
                   '${_selectedEpisodeIds.length}/${_selectableEpisodes.length}',
@@ -428,7 +551,7 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
 
           const SizedBox(height: 8),
 
-          // Episode List
+          // Episode List with ScrollController
           Expanded(
             child: FutureBuilder<List<TxaDownloadTask>>(
               future: manager.getTasksForFilm(_filmSlug),
@@ -462,11 +585,12 @@ class _TxaDownloadBottomSheetState extends State<TxaDownloadBottomSheet> {
                 }
 
                 return ListView.builder(
+                  controller: _scrollController,
                   itemCount: episodes.length,
                   itemBuilder: (ctx, idx) {
                     final ep = episodes[idx];
                     final epId = ep['slug']?.toString() ?? ep['name']?.toString() ?? '';
-                    final epName = ep['name']?.toString() ?? 'Tập ${idx + 1}';
+                    final epName = ep['name']?.toString() ?? '${TxaLanguage.t('episode')} ${idx + 1}';
                     final isSelected = _selectedEpisodeIds.contains(epId);
                     final task = taskMap['${_currentServerName}_$epName'] ??
                         taskMap['${_currentServerName}_$epId'] ??

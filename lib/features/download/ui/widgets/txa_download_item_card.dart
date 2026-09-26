@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../services/txa_language.dart';
 import '../../models/txa_download_task.dart';
 
 class TxaDownloadItemCard extends StatelessWidget {
@@ -81,7 +82,7 @@ class TxaDownloadItemCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      task.episodeName.isNotEmpty ? task.episodeName : 'Tập Phim',
+                      task.episodeName.isNotEmpty ? task.episodeName : TxaLanguage.t('episode'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -110,12 +111,12 @@ class TxaDownloadItemCard extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded, color: Color(0xFFA78BFA), size: 22),
                   onPressed: onRetry,
-                  tooltip: 'Thử lại',
+                  tooltip: TxaLanguage.t('retry'),
                 ),
               IconButton(
                 icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B), size: 20),
                 onPressed: onCancel,
-                tooltip: 'Xóa',
+                tooltip: TxaLanguage.t('delete'),
               ),
             ],
           ),
@@ -139,7 +140,7 @@ class TxaDownloadItemCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Mã ${task.statusCode}',
+                      '${TxaLanguage.t('error')}: ${task.statusCode}',
                       style: const TextStyle(
                         color: Color(0xFFEF4444),
                         fontSize: 10,

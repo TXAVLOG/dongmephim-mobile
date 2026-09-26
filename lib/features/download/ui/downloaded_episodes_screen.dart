@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +7,7 @@ import '../models/txa_local_film.dart';
 import '../models/txa_download_task.dart';
 import '../models/txa_download_status.dart';
 import '../services/txa_download_manager.dart';
+import 'widgets/txa_download_row.dart';
 import '../../../../theme/txa_theme.dart';
 import '../../../../utils/txa_format.dart';
 import '../../../../utils/txa_toast.dart';
@@ -15,10 +17,12 @@ import '../../../../widgets/txa_video_player.dart';
 
 class DownloadedEpisodesScreen extends StatefulWidget {
   final TxaLocalFilm film;
+  final String? focusEpisodeId;
 
   const DownloadedEpisodesScreen({
     super.key,
     required this.film,
+    this.focusEpisodeId,
   });
 
   @override
@@ -26,6 +30,33 @@ class DownloadedEpisodesScreen extends StatefulWidget {
 }
 
 class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
+  String? _highlightedEpisodeId;
+  final ScrollController _scrollController = ScrollController();
+  Timer? _highlightTimer;
+  bool _hasAutoScrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.focusEpisodeId != null) {
+      _highlightedEpisodeId = widget.focusEpisodeId;
+      _highlightTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) {
+          setState(() {
+            _highlightedEpisodeId = null;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _highlightTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   void _playOffline(TxaDownloadTask task) async {
     if (task.localPath.isEmpty || !File(task.localPath).existsSync()) {
       TxaToast.show(context, TxaLanguage.t('local_playback_error'));
@@ -127,6 +158,99 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
     );
   }
 
+  Widget _buildFilmBulkToolbar(TxaDownloadManager manager, List<TxaDownloadTask> tasks) {
+    final hasActive = tasks.any((t) =>
+        t.status == TxaDownloadStatus.downloading ||
+        t.status == TxaDownloadStatus.merging ||
+        t.status == TxaDownloadStatus.queued);
+    final hasPaused = tasks.any((t) =>
+        t.status == TxaDownloadStatus.paused ||
+        t.status == TxaDownloadStatus.failed);
+
+    if (!hasActive && !hasPaused) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: TxaTheme.cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(
+                hasActive ? Icons.downloading_rounded : Icons.pause_circle_outline_rounded,
+                color: hasActive ? TxaTheme.accent : Colors.amberAccent,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                hasActive
+                    ? '🟢 ${TxaLanguage.t('downloading_progress_status', {'done': '${tasks.where((t) => t.isCompleted).length}', 'total': '${tasks.length}'})}'
+                    : '⏸️ ${TxaLanguage.t('paused_progress_status', {'done': '${tasks.where((t) => t.isCompleted).length}', 'total': '${tasks.length}'})}',
+                style: TextStyle(
+                  color: hasActive ? TxaTheme.accent : Colors.amberAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              if (hasActive)
+                TextButton.icon(
+                  onPressed: () => manager.pauseFilmDownloads(widget.film.filmSlug),
+                  icon: const Icon(Icons.pause_rounded, size: 16, color: Colors.amberAccent),
+                  label: Text(
+                    TxaLanguage.t('pause_all'),
+                    style: const TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    backgroundColor: Colors.amber.withValues(alpha: 0.12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                )
+              else if (hasPaused)
+                TextButton.icon(
+                  onPressed: () => manager.resumeFilmDownloads(widget.film.filmSlug),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 16, color: Colors.greenAccent),
+                  label: Text(
+                    TxaLanguage.t('resume_all'),
+                    style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    backgroundColor: Colors.green.withValues(alpha: 0.12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: () => manager.cancelFilmDownloads(widget.film.filmSlug),
+                icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.redAccent),
+                label: Text(
+                  TxaLanguage.t('cancel_all'),
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  backgroundColor: Colors.red.withValues(alpha: 0.12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final manager = Provider.of<TxaDownloadManager>(context);
@@ -172,17 +296,38 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
             );
           }
 
+          // Auto-scroll to highlighted episode if opened via notification or shortcut
+          if (!_hasAutoScrolled && _highlightedEpisodeId != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted || !_scrollController.hasClients) return;
+              final targetIdx = tasks.indexWhere((t) =>
+                  t.episodeId == _highlightedEpisodeId ||
+                  t.episodeName == _highlightedEpisodeId ||
+                  t.id.contains(_highlightedEpisodeId!));
+              if (targetIdx >= 0) {
+                _hasAutoScrolled = true;
+                _scrollController.animateTo(
+                  (targetIdx * 72.0).clamp(0.0, _scrollController.position.maxScrollExtent),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          }
+
           final completedTasks = tasks.where((t) => t.isCompleted).toList();
           final firstPlayable = completedTasks.isNotEmpty ? completedTasks.first : null;
+          final filmTotalBytes = tasks.fold<int>(0, (sum, t) => sum + (t.downloadedBytes > 0 ? t.downloadedBytes : t.totalBytes));
 
           return ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: tasks.length + 1,
+            itemCount: tasks.length + 2,
             itemBuilder: (ctx, idx) {
               if (idx == 0) {
                 // Hero Banner
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
+                  margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -239,7 +384,7 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${completedTasks.length}/${tasks.length} ${TxaLanguage.t('all_episodes')}',
+                              '${completedTasks.length}/${tasks.length} ${TxaLanguage.t('all_episodes')} • ${TxaFormat.formatFileSize(filmTotalBytes)}',
                               style: const TextStyle(color: Colors.white70, fontSize: 12),
                             ),
                             const SizedBox(height: 8),
@@ -269,28 +414,82 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
                 );
               }
 
-              final task = tasks[idx - 1];
+              if (idx == 1) {
+                // Bulk Toolbar for this film: Pause All / Resume All / Cancel All
+                return _buildFilmBulkToolbar(manager, tasks);
+              }
+
+              final task = tasks[idx - 2];
               final isCompleted = task.status == TxaDownloadStatus.completed;
+              final isHighlighted = _highlightedEpisodeId != null &&
+                  (task.episodeId == _highlightedEpisodeId ||
+                   task.episodeName == _highlightedEpisodeId ||
+                   task.id.contains(_highlightedEpisodeId!));
+
+              // Use TxaDownloadRow for rich details on in-progress / paused / queued tasks
+              if (!isCompleted) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 400),
+                  margin: const EdgeInsets.only(bottom: 8.0),
+                  decoration: BoxDecoration(
+                    color: isHighlighted ? TxaTheme.accent.withValues(alpha: 0.15) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: isHighlighted
+                        ? Border.all(color: TxaTheme.accent, width: 1.8)
+                        : null,
+                    boxShadow: isHighlighted
+                        ? [
+                            BoxShadow(
+                              color: TxaTheme.accent.withValues(alpha: 0.35),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: TxaDownloadRow(
+                    episodeName: task.episodeName,
+                    task: task,
+                    onPause: () => manager.pauseTask(task.id),
+                    onResume: () => manager.resumeTask(task.id),
+                    onCancel: () => manager.cancelTask(task.id),
+                  ),
+                );
+              }
+
               final sizeStr = TxaFormat.formatFileSize(
                 task.downloadedBytes > 0 ? task.downloadedBytes : task.totalBytes,
               );
 
-              return Container(
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
                 margin: const EdgeInsets.only(bottom: 10),
                 decoration: BoxDecoration(
-                  color: TxaTheme.cardBg,
+                  color: isHighlighted
+                      ? TxaTheme.accent.withValues(alpha: 0.18)
+                      : TxaTheme.cardBg,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isCompleted
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : TxaTheme.accent.withValues(alpha: 0.2),
+                    color: isHighlighted
+                        ? TxaTheme.accent
+                        : Colors.white.withValues(alpha: 0.08),
+                    width: isHighlighted ? 1.8 : 1.0,
                   ),
+                  boxShadow: isHighlighted
+                      ? [
+                          BoxShadow(
+                            color: TxaTheme.accent.withValues(alpha: 0.4),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          )
+                        ]
+                      : null,
                 ),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(14),
-                    onTap: isCompleted ? () => _playOffline(task) : null,
+                    onTap: () => _playOffline(task),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       child: Row(
@@ -299,14 +498,12 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              color: isCompleted
-                                  ? TxaTheme.accent.withValues(alpha: 0.15)
-                                  : Colors.white10,
+                              color: TxaTheme.accent.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(
-                              isCompleted ? Icons.play_arrow_rounded : Icons.downloading_rounded,
-                              color: isCompleted ? TxaTheme.accent : Colors.white70,
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: TxaTheme.accent,
                               size: 20,
                             ),
                           ),
@@ -332,21 +529,18 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
                                       '${task.serverName} • $sizeStr',
                                       style: const TextStyle(color: Colors.white54, fontSize: 11),
                                     ),
-                                    if (isCompleted) ...[
-                                      const SizedBox(width: 6),
-                                      const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 13),
-                                    ],
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 13),
                                   ],
                                 ),
                               ],
                             ),
                           ),
-                          if (isCompleted)
-                            IconButton(
-                              icon: const Icon(Icons.play_circle_fill_rounded, color: TxaTheme.accent, size: 30),
-                              onPressed: () => _playOffline(task),
-                              tooltip: TxaLanguage.t('play_now'),
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.play_circle_fill_rounded, color: TxaTheme.accent, size: 30),
+                            onPressed: () => _playOffline(task),
+                            tooltip: TxaLanguage.t('play_now'),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline_rounded, color: Colors.white38, size: 20),
                             onPressed: () => _confirmDeleteTask(task),

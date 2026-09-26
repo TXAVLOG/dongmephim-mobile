@@ -11,6 +11,7 @@ import '../utils/txa_platform.dart';
 import '../pages/txa_update_history_screen.dart';
 import '../services/txa_play_update_service.dart';
 import '../features/download/ui/downloaded_films_screen.dart';
+import '../features/download/ui/txa_download_settings_modal.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -457,6 +458,17 @@ class _TxaDrawerState extends State<TxaDrawer> {
                                   builder: (ctx) => const DownloadedFilmsScreen(),
                                 ),
                               );
+                            },
+                          ),
+
+                          // Download Settings
+                          _buildDrawerTile(
+                            icon: Icons.speed_rounded,
+                            title: TxaLanguage.t('download_settings'),
+                            subtitle: 'Số luồng tải & tải song song',
+                            onTap: () {
+                              Navigator.pop(context); // Close Drawer
+                              TxaDownloadSettingsModal.show(context);
                             },
                           ),
 

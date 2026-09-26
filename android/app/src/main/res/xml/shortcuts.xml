@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="downloaded_films"
+        android:enabled="true"
+        android:icon="@mipmap/launcher_icon"
+        android:shortcutShortLabel="@string/shortcut_downloads"
+        android:shortcutLongLabel="@string/shortcut_downloads_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.tphimx.tphimx_setup"
+            android:targetClass="com.tphimx.tphimx_setup.MainActivity"
+            android:data="txa://downloads" />
+    </shortcut>
+</shortcuts>
