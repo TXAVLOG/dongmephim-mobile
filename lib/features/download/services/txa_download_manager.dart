@@ -41,6 +41,7 @@ class TxaDownloadManager extends ChangeNotifier {
   List<TxaDownloadTask> get runningTasks => _runningTasks.values.toList();
   int get runningTasksCount => _runningTasks.length;
   int get queuedTasksCount => _queue.length;
+  int get waitingInQueue => _queue.length;
   int get activeTasksCount => _runningTasks.length + _queue.length;
   bool get isProcessing => _runningTasks.isNotEmpty || _queue.isNotEmpty;
 
