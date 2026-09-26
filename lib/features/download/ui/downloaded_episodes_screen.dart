@@ -190,8 +190,8 @@ class _DownloadedEpisodesScreenState extends State<DownloadedEpisodesScreen> {
               const SizedBox(width: 8),
               Text(
                 hasActive
-                    ? '🟢 ${TxaLanguage.t('downloading_progress_status', {'done': '${tasks.where((t) => t.isCompleted).length}', 'total': '${tasks.length}'})}'
-                    : '⏸️ ${TxaLanguage.t('paused_progress_status', {'done': '${tasks.where((t) => t.isCompleted).length}', 'total': '${tasks.length}'})}',
+                    ? '🟢 ${TxaLanguage.t('downloading_progress_status', replace: {'done': '${tasks.where((t) => t.isCompleted).length}', 'total': '${tasks.length}'})}'
+                    : '⏸️ ${TxaLanguage.t('paused_progress_status', replace: {'done': '${tasks.where((t) => t.isCompleted).length}', 'total': '${tasks.length}'})}',
                 style: TextStyle(
                   color: hasActive ? TxaTheme.accent : Colors.amberAccent,
                   fontWeight: FontWeight.bold,

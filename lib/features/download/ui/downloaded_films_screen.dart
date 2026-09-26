@@ -167,7 +167,7 @@ class _DownloadedFilmsScreenState extends State<DownloadedFilmsScreen> {
     final speedStr = combinedSpeed > 0 ? TxaFormat.formatSpeed(combinedSpeed)['display'] : null;
     final activeTitle = isActivelyDownloading
         ? '${runningTasks.first.filmTitle} • ${runningTasks.first.episodeName}'
-        : TxaLanguage.t('paused_queue_banner', {'count': '${manager.waitingInQueue}'});
+        : TxaLanguage.t('paused_queue_banner', replace: {'count': '${manager.waitingInQueue}'});
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
